@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
-const initSqlJs = require('sql.js');
+import initSqlJs from 'sql.js';
 import bcrypt from 'bcryptjs';
 import path from 'path';
 import fs from 'fs';
