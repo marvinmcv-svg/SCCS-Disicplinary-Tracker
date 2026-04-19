@@ -1,0 +1,7 @@
+[railway]
+  builder = "nixpacks"
+  buildCommand = "npm run build"
+  startCommand = "npm run start"
+
+[nodejs]
+  version = "20"

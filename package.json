@@ -6,9 +6,12 @@
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "ts-node server/index.ts",
     "client": "cd client && npm run dev",
-    "build": "cd client && npm run build",
+    "build": "npm run build:server && npm run build:client",
+    "build:server": "tsc",
+    "build:client": "cd client && npm run build",
     "install:all": "npm install && cd client && npm install",
-    "start": "npm run server"
+    "start": "node dist/server/index.js",
+    "postinstall": "npm run build"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -7,8 +7,12 @@ import routes from './routes';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const isProduction = process.env.NODE_ENV === 'production';
 
-const dataDir = path.join(__dirname, '../data');
+const dataDir = isProduction 
+  ? path.join(process.cwd(), 'data')
+  : path.join(__dirname, '../data');
+  
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
@@ -24,13 +28,15 @@ app.use((req, res, next) => {
 
 app.use(routes);
 
-app.use(express.static(path.join(__dirname, '../client/dist')));
-
-app.get('*', (req, res) => {
-  if (!req.path.startsWith('/api')) {
-    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
-  }
-});
+if (isProduction) {
+  app.use(express.static(path.join(process.cwd(), 'client/dist')));
+  
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(process.cwd(), 'client/dist/index.html'));
+    }
+  });
+}
 
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err.stack);
@@ -41,14 +47,7 @@ async function startServer() {
   await initializeDatabase();
   
   app.listen(PORT, () => {
-    console.log(`
-╔══════════════════════════════════════════════════════════╗
-║     DISCIPLINE TRACKER SERVER RUNNING             ║
-║     Port: ${PORT}                                ║
-║     API:  http://localhost:${PORT}/api              ║
-║     Default Admin: admin / admin123              ║
-╚══════════════════════════════════════════════════════════╝
-    `);
+    console.log(`Server running on port ${PORT}`);
   });
 }
 
