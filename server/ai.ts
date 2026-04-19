@@ -39,7 +39,7 @@ Respond with a JSON object containing:
       response_format: { type: 'json_object' }
     });
 
-    return JSON.parse(completion.choices[0].message.content);
+    return JSON.parse(completion.choices[0].message.content ?? '{}');
   } catch (error) {
     console.error('OpenAI error:', error);
     return null;
@@ -70,7 +70,7 @@ Provide a JSON response with:
       response_format: { type: 'json_object' }
     });
 
-    return JSON.parse(completion.choices[0].message.content);
+    return JSON.parse(completion.choices[0].message.content ?? '{}');
   } catch (error) {
     console.error('OpenAI error:', error);
     return null;
