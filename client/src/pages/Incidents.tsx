@@ -245,50 +245,52 @@ export default function Incidents() {
       </div>
 
       {/* Incidents Table */}
-      <div className="card">
+      <div className="card p-0 overflow-hidden">
         {loading ? (
           <div className="text-center py-8 text-gray-400">Loading...</div>
         ) : filteredIncidents.length > 0 ? (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Date</th>
-                <th>Student</th>
-                <th>Violation</th>
-                <th>Location</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredIncidents.map((incident) => (
-                <tr key={incident.id}>
-                  <td className="font-mono text-sm">{incident.incident_id}</td>
-                  <td>{incident.date}</td>
-                  <td>{incident.last_name}, {incident.first_name}</td>
-                  <td>
-                    <span className="text-sm">{incident.violation_type}</span>
-                    <span className="text-xs text-gray-400 ml-1">({incident.category})</span>
-                  </td>
-                  <td>{incident.location || '-'}</td>
-                  <td>
-                    <span className={`badge ${getStatusColor(incident.status)}`}>
-                      {incident.status}
-                    </span>
-                  </td>
-                  <td>
-                    <button
-                      onClick={() => { setViewIncident(incident); setShowViewModal(true); }}
-                      className="text-primary-600 hover:text-primary-700 text-sm font-medium"
-                    >
-                      View
-                    </button>
-                  </td>
+          <div className="table-container">
+            <table className="table">
+              <thead>
+                <tr className="hide-mobile">
+                  <th>ID</th>
+                  <th>Date</th>
+                  <th>Student</th>
+                  <th>Violation</th>
+                  <th className="hide-mobile">Location</th>
+                  <th>Status</th>
+                  <th>Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredIncidents.map((incident) => (
+                  <tr key={incident.id} className="md:table-row block md:table-row">
+                    <td className="font-mono text-sm">{incident.incident_id}</td>
+                    <td>{incident.date}</td>
+                    <td>{incident.last_name}, {incident.first_name}</td>
+                    <td>
+                      <span className="text-sm">{incident.violation_type}</span>
+                      <span className="text-xs text-gray-400 ml-1 hide-mobile">({incident.category})</span>
+                    </td>
+                    <td className="hide-mobile">{incident.location || '-'}</td>
+                    <td>
+                      <span className={`badge ${getStatusColor(incident.status)}`}>
+                        {incident.status}
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        onClick={() => { setViewIncident(incident); setShowViewModal(true); }}
+                        className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      >
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <div className="text-center py-12 text-gray-400">
             <AlertCircle className="w-12 h-12 mx-auto mb-2" />
