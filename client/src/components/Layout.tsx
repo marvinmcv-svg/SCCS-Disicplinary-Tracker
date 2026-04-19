@@ -2,7 +2,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
 import { 
   LayoutDashboard, Users, AlertTriangle, BookOpen, 
-  Gift, HeartHandshake, Settings, LogOut, Menu, X
+  Gift, HeartHandshake, Settings, LogOut, Menu, X, Home
 } from 'lucide-react';
 import { useState } from 'react';
 import sccsLogo from '../sccs.png';
@@ -33,18 +33,27 @@ export default function Layout() {
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Mobile Header */}
-      <header className="md:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-30">
-        <button
-          onClick={() => setMobileMenuOpen(true)}
-          className="p-2 hover:bg-gray-100 rounded-lg"
-        >
-          <Menu className="w-6 h-6 text-gray-600" />
-        </button>
-        <div className="flex items-center gap-2">
-          <img src={sccsLogo} alt="Logo" className="w-8 h-8 rounded-lg object-cover" />
-          <span className="font-bold text-blue-800">SCCS</span>
+      <header className="md:hidden fixed top-0 left-0 right-0 bg-blue-800 z-30 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="p-2 hover:bg-white/10 rounded-lg text-white"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+          
+          <button onClick={() => navigate('/')} className="flex items-center gap-2">
+            <img src={sccsLogo} alt="Logo" className="w-10 h-10 rounded-xl object-cover border-2 border-white/20" />
+            <div className="text-white">
+              <span className="font-bold text-lg">SCCS</span>
+              <span className="block text-xs text-white/70 -mt-1">Home of the Jaguars</span>
+            </div>
+          </button>
+          
+          <button onClick={() => navigate('/')} className="p-2 hover:bg-white/10 rounded-lg text-white">
+            <Home className="w-6 h-6" />
+          </button>
         </div>
-        <div className="w-10" />
       </header>
 
       {/* Mobile Menu Overlay */}
@@ -58,13 +67,13 @@ export default function Layout() {
       {/* Sidebar - Desktop */}
       <aside className="hidden md:flex flex-col bg-gradient-to-b from-blue-800 to-blue-900 text-white min-h-screen fixed left-0 top-0 w-64 transition-all duration-300 z-20">
         <div className="p-4 border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <img src={sccsLogo} alt="Logo" className="w-10 h-10 rounded-lg object-cover" />
-            <div>
+          <button onClick={() => navigate('/')} className="w-full flex items-center gap-3 hover:bg-white/10 p-2 -m-2 rounded-lg transition-colors">
+            <img src={sccsLogo} alt="Logo" className="w-10 h-10 rounded-lg object-cover border-2 border-white/20" />
+            <div className="text-left">
               <h1 className="font-bold text-lg">SCCS</h1>
               <p className="text-xs text-white/70">Home of the Jaguars</p>
             </div>
-          </div>
+          </button>
         </div>
 
         <nav className="p-2 flex-1">
@@ -74,7 +83,7 @@ export default function Layout() {
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 transition-colors ${
+                `flex items-center gap-3 px-3 py-3 rounded-lg mb-1 transition-colors ${
                   isActive 
                     ? 'bg-white/20 text-white' 
                     : 'text-white/70 hover:bg-white/10 hover:text-white'
@@ -103,23 +112,25 @@ export default function Layout() {
       </aside>
 
       {/* Mobile Sidebar */}
-      <aside className={`md:hidden fixed left-0 top-0 h-full w-64 bg-gradient-to-b from-blue-800 to-blue-900 text-white z-50 transform transition-transform duration-300 ${
+      <aside className={`md:hidden fixed left-0 top-0 h-full w-72 bg-gradient-to-b from-blue-800 to-blue-900 text-white z-50 transform transition-transform duration-300 ${
         mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
-        <div className="p-4 border-b border-white/10 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src={sccsLogo} alt="Logo" className="w-10 h-10 rounded-lg object-cover" />
-            <div>
-              <h1 className="font-bold text-lg">SCCS</h1>
-              <p className="text-xs text-white/70">Home of the Jaguars</p>
-            </div>
+        <div className="p-4 border-b border-white/10">
+          <div className="flex items-center justify-between">
+            <button onClick={() => navigate('/')} className="flex items-center gap-3 hover:bg-white/10 p-2 -m-2 rounded-lg transition-colors">
+              <img src={sccsLogo} alt="Logo" className="w-10 h-10 rounded-lg object-cover border-2 border-white/20" />
+              <div className="text-left">
+                <h1 className="font-bold text-lg">SCCS</h1>
+                <p className="text-xs text-white/70">Home of the Jaguars</p>
+              </div>
+            </button>
+            <button
+              onClick={closeMobileMenu}
+              className="p-2 hover:bg-white/10 rounded-lg"
+            >
+              <X className="w-6 h-6" />
+            </button>
           </div>
-          <button
-            onClick={closeMobileMenu}
-            className="p-2 hover:bg-white/10 rounded-lg"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
 
         <nav className="p-2">
@@ -130,36 +141,36 @@ export default function Layout() {
               end={item.end}
               onClick={closeMobileMenu}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 transition-colors ${
+                `flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors ${
                   isActive 
                     ? 'bg-white/20 text-white' 
                     : 'text-white/70 hover:bg-white/10 hover:text-white'
                 }`
               }
             >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              <span className="text-sm font-medium">{item.label}</span>
+              <item.icon className="w-6 h-6 flex-shrink-0" />
+              <span className="text-base font-medium">{item.label}</span>
             </NavLink>
           ))}
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
-          <div className="mb-3 text-xs text-white/60">
+          <div className="mb-4 text-sm text-white/60">
             <p>Logged in as</p>
-            <p className="font-medium text-white">{user?.lastName}, {user?.firstName}</p>
+            <p className="font-semibold text-white">{user?.lastName}, {user?.firstName}</p>
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 w-full px-3 py-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            className="flex items-center gap-3 w-full px-4 py-3 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors bg-white/5"
           >
-            <LogOut className="w-5 h-5" />
-            <span className="text-sm">Logout</span>
+            <LogOut className="w-6 h-6" />
+            <span className="text-base font-medium">Logout</span>
           </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 md:ml-64 pt-16 md:pt-0 transition-all duration-300">
+      <main className="flex-1 md:ml-64 pt-20 md:pt-0 transition-all duration-300">
         <header className="hidden md:flex bg-white border-b border-gray-200 px-6 py-4 items-center justify-between sticky top-0 z-10">
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">
@@ -168,7 +179,7 @@ export default function Layout() {
           </div>
         </header>
 
-        <div className="p-4 md:p-6">
+        <div className="p-4 md:p-6 pb-24">
           <Outlet />
         </div>
       </main>
