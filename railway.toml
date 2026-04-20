@@ -1,6 +1,6 @@
 [railway]
   builder = "nixpacks"
-  buildCommand = "npm install --omit=dev && cd client && npm install --omit=dev && cd .. && npm run build"
+  buildCommand = "npm ci --omit=dev && cd client && npm ci --omit=dev && npm run build"
   startCommand = "npm run start"
 
 [nodejs]
