@@ -6,8 +6,5 @@
 [nodejs]
   version = "20"
 
-[railway.variable]
-  NODE_ENV = "production"
-
-[railway.persistence]
-  data = { mount = "data", readonly = false }
+[deploy.startCommand]
+  npm run start
