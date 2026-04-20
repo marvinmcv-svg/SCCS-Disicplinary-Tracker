@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, X, AlertCircle, Phone, CheckCircle, Clock } from 'lucide-react';
+import { Plus, Search, X, AlertCircle, Phone, CheckCircle, Clock, Loader, Check } from 'lucide-react';
 import api from '../lib/api';
 
 interface Student {
@@ -60,6 +60,8 @@ export default function Incidents() {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -114,6 +116,7 @@ export default function Incidents() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
     try {
       await api.post('/incidents', {
         ...formData,
@@ -122,8 +125,12 @@ export default function Incidents() {
       });
       loadData();
       closeModal();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     } catch (error: any) {
       alert(error.response?.data?.error || 'Error creating incident');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -196,16 +203,24 @@ export default function Incidents() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6 animate-fade-in pb-20 md:pb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Incidents</h1>
           <p className="text-gray-500">Record and manage discipline incidents</p>
         </div>
-        <button onClick={openModal} className="btn btn-primary">
-          <Plus className="w-5 h-5" />
-          New Incident
-        </button>
+        <div className="flex gap-2">
+          {saved && (
+            <span className="flex items-center gap-2 text-green-600 bg-green-50 px-4 py-2 rounded-xl">
+              <Check className="w-5 h-5" />
+              <span className="font-medium">Saved!</span>
+            </span>
+          )}
+          <button onClick={openModal} className="btn btn-primary">
+            <Plus className="w-5 h-5" />
+            New Incident
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -454,8 +469,15 @@ export default function Incidents() {
                 <button type="button" onClick={closeModal} className="btn bg-gray-100 text-gray-700">
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  Record Incident
+                <button type="submit" disabled={saving} className="btn btn-primary">
+                  {saving ? (
+                    <span className="flex items-center gap-2">
+                      <Loader className="w-5 h-5 animate-spin" />
+                      Saving...
+                    </span>
+                  ) : (
+                    'Record Incident'
+                  )}
                 </button>
               </div>
             </form>
