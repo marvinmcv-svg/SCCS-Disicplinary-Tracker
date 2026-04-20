@@ -6,5 +6,5 @@
 [nodejs]
   version = "20"
 
-[deploy.startCommand]
-  npm run start
+[railway.persistence]
+  data = { mount = "/data", readonly = false }
