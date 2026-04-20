@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { initializeDatabase } from './db';
 import routes from './routes';
+import multer from 'multer';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -27,6 +28,34 @@ app.use((req, res, next) => {
 });
 
 app.use(routes);
+
+// Backup endpoint - download database
+app.get('/api/backup', (req, res) => {
+  const dbPath = path.join(dataDir, 'discipline.db');
+  if (fs.existsSync(dbPath)) {
+    res.download(dbPath, 'discipline.db');
+  } else {
+    res.status(404).json({ error: 'Database not found' });
+  }
+});
+
+// Restore endpoint - upload database
+const upload = multer({ dest: dataDir });
+app.post('/api/restore', upload.single('database'), (req: any, res: any) => {
+  const uploadedPath = req.file?.path;
+  const dbPath = path.join(dataDir, 'discipline.db');
+  
+  if (uploadedPath && fs.existsSync(uploadedPath)) {
+    // Remove old db and rename uploaded
+    if (fs.existsSync(dbPath)) {
+      fs.unlinkSync(dbPath);
+    }
+    fs.renameSync(uploadedPath, dbPath);
+    res.json({ success: true, message: 'Database restored successfully' });
+  } else {
+    res.status(400).json({ error: 'No database file uploaded' });
+  }
+});
 
 if (isProduction) {
   app.use(express.static(path.join(process.cwd(), 'client/dist')));
