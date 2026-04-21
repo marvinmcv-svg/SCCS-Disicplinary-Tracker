@@ -5,7 +5,6 @@ import Dashboard from './pages/Dashboard';
 import Students from './pages/Students';
 import Incidents from './pages/Incidents';
 import Violations from './pages/Violations';
-import Rewards from './pages/Rewards';
 import MTSS from './pages/MTSS';
 import Settings from './pages/Settings';
 import Layout from './components/Layout';
@@ -60,7 +59,6 @@ function App() {
             <Route path="students" element={<Students />} />
             <Route path="incidents" element={<Incidents />} />
             <Route path="violations" element={<Violations />} />
-            <Route path="rewards" element={<Rewards />} />
             <Route path="mtss" element={<MTSS />} />
             <Route path="settings" element={<Settings />} />
           </Route>

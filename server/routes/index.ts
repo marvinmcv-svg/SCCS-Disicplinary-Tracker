@@ -72,6 +72,21 @@ router.delete('/api/students/:id', authenticate, (req: Request, res: Response) =
   res.json({ success: true });
 });
 
+// Bulk add students from Excel import
+router.post('/api/students/bulk', authenticate, (req: Request, res: Response) => {
+  const { student_id, last_name, first_name, grade, house_team, counselor } = req.body;
+  
+  try {
+    runQuery(
+      'INSERT INTO students (student_id, last_name, first_name, grade, house_team, counselor, gpa, total_points, conduct_status) VALUES (?, ?, ?, ?, ?, ?, 0.0, 100, ?)',
+      [student_id, last_name, first_name, grade || 9, house_team || '', counselor || '', 'Good']
+    );
+    res.json({ success: true, id: student_id });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 // Violations
 router.get('/api/violations', authenticate, (req: Request, res: Response) => {
   const violations = queryAll('SELECT * FROM violations ORDER BY category, violation_type');

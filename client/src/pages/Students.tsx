@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, X, User, Check, Loader } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, Search, Edit, Trash2, X, User, Check, Loader, Upload, FileSpreadsheet } from 'lucide-react';
 import api from '../lib/api';
+import * as XLSX from 'xlsx';
 
 interface Student {
   id: number;
@@ -20,9 +21,15 @@ export default function Students() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadResults, setUploadResults] = useState<{success: number; errors: string[]} | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [formData, setFormData] = useState({
     student_id: '',
     last_name: '',
@@ -77,6 +84,74 @@ export default function Students() {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setUploadResults(null);
+    }
+  };
+
+  const handleExcelUpload = async () => {
+    if (!selectedFile) return;
+    
+    setUploading(true);
+    setUploadResults(null);
+    
+    try {
+      const data = await selectedFile.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      
+      const results = { success: 0, errors: [] as string[] };
+      
+      for (const row of jsonData) {
+        const rowData = row as any;
+        
+        // Map Excel columns to student fields (case-insensitive)
+        const studentData = {
+          student_id: rowData.student_id || rowData.studentId || rowData.ID || rowData.id || '',
+          last_name: rowData.last_name || rowData.lastName || rowData['Last Name'] || rowData.Surname || '',
+          first_name: rowData.first_name || rowData.firstName || rowData['First Name'] || '',
+          grade: parseInt(rowData.grade || rowData.Grade || '9') || 9,
+          house_team: rowData.house_team || rowData.houseTeam || rowData['House/Team'] || rowData.Team || '',
+          counselor: rowData.counselor || rowData.Counselor || '',
+        };
+        
+        // Validate required fields
+        if (!studentData.student_id || !studentData.last_name || !studentData.first_name) {
+          results.errors.push(`Row skipped: missing required fields (student_id, last_name, first_name). Data: ${JSON.stringify(rowData)}`);
+          continue;
+        }
+        
+        try {
+          await api.post('/students/bulk', studentData);
+          results.success++;
+        } catch (error: any) {
+          results.errors.push(`Failed to add ${studentData.first_name} ${studentData.last_name}: ${error.response?.data?.error || 'Unknown error'}`);
+        }
+      }
+      
+      setUploadResults(results);
+      loadStudents();
+      
+      if (results.errors.length === 0 && results.success > 0) {
+        setTimeout(() => {
+          setShowUploadModal(false);
+          setSelectedFile(null);
+          setUploadResults(null);
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('Excel parse error:', error);
+      setUploadResults({ success: 0, errors: ['Failed to parse Excel file. Please ensure it\'s a valid .xlsx or .xls file.'] });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const openModal = (student?: Student) => {
     if (student) {
       setEditingStudent(student);
@@ -107,13 +182,20 @@ export default function Students() {
           <h1 className="text-2xl font-bold text-gray-900">Students</h1>
           <p className="text-gray-500">Manage student records</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {saved && (
             <span className="flex items-center gap-2 text-green-600 bg-green-50 px-4 py-2 rounded-xl">
               <Check className="w-5 h-5" />
               <span className="font-medium">Saved!</span>
             </span>
           )}
+          <button 
+            onClick={() => setShowUploadModal(true)} 
+            className="btn bg-green-600 text-white hover:bg-green-700"
+          >
+            <FileSpreadsheet className="w-5 h-5" />
+            Import Excel
+          </button>
           <button onClick={() => openModal()} className="btn btn-primary">
             <Plus className="w-5 h-5" />
             Add Student
@@ -313,6 +395,133 @@ export default function Students() {
           </div>
         </div>
       )}
+
+      {/* Excel Upload Modal */}
+      {showUploadModal && (
+        <div className="modal-overlay" onClick={() => { setShowUploadModal(false); setSelectedFile(null); setUploadResults(null); }}>
+          <div className="modal max-w-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <FileSpreadsheet className="w-5 h-5 text-green-600" />
+                Import Students from Excel
+              </h2>
+              <button onClick={() => { setShowUploadModal(false); setSelectedFile(null); setUploadResults(null); }} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-blue-50 rounded-xl p-4 text-sm">
+                <p className="font-semibold text-blue-800 mb-2">Excel File Format:</p>
+                <p className="text-blue-700">Your Excel file should have columns with these headers:</p>
+                <ul className="text-blue-700 mt-1 ml-4 list-disc">
+                  <li><code>student_id</code> - Student ID (required)</li>
+                  <li><code>last_name</code> - Last Name (required)</li>
+                  <li><code>first_name</code> - First Name (required)</li>
+                  <li><code>grade</code> - Grade (1-12, optional, default: 9)</li>
+                  <li><code>house_team</code> - House/Team (optional)</li>
+                  <li><code>counselor</code> - Counselor (optional)</li>
+                </ul>
+              </div>
+
+              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept=".xlsx,.xls"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <Upload className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+                {selectedFile ? (
+                  <div>
+                    <p className="font-semibold text-gray-800">{selectedFile.name}</p>
+                    <p className="text-sm text-gray-500">{(selectedFile.size / 1024).toFixed(1)} KB</p>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-blue-600 text-sm mt-2 hover:underline"
+                    >
+                      Choose different file
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-gray-600 mb-2">Click to select an Excel file</p>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="btn btn-primary"
+                    >
+                      <FileSpreadsheet className="w-5 h-5" />
+                      Browse Files
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {uploadResults && (
+                <div className={`rounded-xl p-4 ${uploadResults.errors.length === 0 ? 'bg-green-50' : 'bg-yellow-50'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    {uploadResults.errors.length === 0 ? (
+                      <Check className="w-5 h-5 text-green-600" />
+                    ) : (
+                      <Alert className="w-5 h-5 text-yellow-600" />
+                    )}
+                    <span className="font-semibold">
+                      {uploadResults.errors.length === 0 
+                        ? `Successfully imported ${uploadResults.success} students!` 
+                        : `Imported ${uploadResults.success} students with ${uploadResults.errors.length} errors`}
+                    </span>
+                  </div>
+                  {uploadResults.errors.length > 0 && (
+                    <div className="mt-2 max-h-32 overflow-y-auto text-sm text-yellow-800">
+                      {uploadResults.errors.slice(0, 5).map((err, i) => (
+                        <p key={i} className="mb-1">• {err}</p>
+                      ))}
+                      {uploadResults.errors.length > 5 && (
+                        <p className="font-semibold mt-1">...and {uploadResults.errors.length - 5} more errors</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={() => { setShowUploadModal(false); setSelectedFile(null); setUploadResults(null); }} 
+                  className="btn btn-secondary flex-1"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleExcelUpload} 
+                  disabled={!selectedFile || uploading}
+                  className="btn bg-green-600 text-white hover:bg-green-700 flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {uploading ? (
+                    <span className="flex items-center gap-2">
+                      <Loader className="w-5 h-5 animate-spin" />
+                      Importing...
+                    </span>
+                  ) : (
+                    <>
+                      <Upload className="w-5 h-5" />
+                      Import Students
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function Alert({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor">
+      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+    </svg>
   );
 }

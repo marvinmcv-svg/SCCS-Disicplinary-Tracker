@@ -12,7 +12,6 @@ const navItems = [
   { to: '/students', icon: Users, label: 'Students' },
   { to: '/incidents', icon: AlertTriangle, label: 'Incidents' },
   { to: '/violations', icon: BookOpen, label: 'Violations' },
-  { to: '/rewards', icon: Gift, label: 'Rewards' },
   { to: '/mtss', icon: HeartHandshake, label: 'MTSS' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
