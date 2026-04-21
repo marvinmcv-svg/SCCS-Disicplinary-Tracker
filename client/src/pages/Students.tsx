@@ -110,6 +110,23 @@ export default function Students() {
       for (const row of jsonData) {
         const rowData = row as any;
         
+        if (!rowData || typeof rowData !== 'object' || Array.isArray(rowData)) {
+          continue;
+        }
+        
+        if (rowData['!ref'] || rowData['!merges']) {
+          continue;
+        }
+        
+        const keys = Object.keys(rowData).filter(k => !k.startsWith('!'));
+        if (keys.length === 0) {
+          continue;
+        }
+        
+        if (keys.length === 1 && typeof rowData[keys[0]] === 'string' && rowData[keys[0]].includes('.png')) {
+          continue;
+        }
+        
         // Map Excel columns to student fields (case-insensitive)
         const studentData = {
           student_id: rowData.student_id || rowData.studentId || rowData.ID || rowData.id || '',
