@@ -103,10 +103,10 @@ router.post('/api/students', authenticate, async (req: Request, res: Response) =
 
 router.put('/api/students/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const { last_name, first_name, grade, house_team, counselor, gpa, total_points, conduct_status } = req.body;
+    const { last_name, first_name, grade, house_team, counselor, gpa, total_points, conduct_status, observations } = req.body;
     await runQuery(
-      'UPDATE students SET last_name = $1, first_name = $2, grade = $3, house_team = $4, counselor = $5, gpa = $6, total_points = $7, conduct_status = $8 WHERE id = $9',
-      [last_name, first_name, grade, house_team, counselor, gpa, total_points, conduct_status, parseInt(req.params.id)]
+      'UPDATE students SET last_name = $1, first_name = $2, grade = $3, house_team = $4, counselor = $5, gpa = $6, total_points = $7, conduct_status = $8, observations = $9 WHERE id = $10',
+      [last_name, first_name, grade, house_team, counselor, gpa, total_points, conduct_status, observations || '', parseInt(req.params.id)]
     );
     res.json({ success: true });
   } catch (error: any) {
@@ -127,8 +127,8 @@ router.post('/api/students/bulk', authenticate, async (req: Request, res: Respon
   try {
     const { student_id, last_name, first_name, grade, house_team, counselor } = req.body;
     await runQuery(
-      'INSERT INTO students (student_id, last_name, first_name, grade, house_team, counselor, gpa, total_points, conduct_status) VALUES ($1, $2, $3, $4, $5, $6, 0.0, 100, $7)',
-      [student_id, last_name, first_name, grade || 9, house_team || '', counselor || '', 'Good']
+      'INSERT INTO students (student_id, last_name, first_name, grade, house_team, counselor, gpa, total_points, conduct_status, observations) VALUES ($1, $2, $3, $4, $5, $6, 0.0, 100, $7, $8)',
+      [student_id, last_name, first_name, grade || 9, house_team || '', counselor || '', 'Good', '']
     );
     res.json({ success: true });
   } catch (error: any) {

@@ -14,6 +14,7 @@ interface Student {
   gpa: number;
   total_points: number;
   conduct_status: string;
+  observations?: string;
 }
 
 export default function Students() {
@@ -29,6 +30,9 @@ export default function Students() {
   const [uploadResults, setUploadResults] = useState<{success: number; errors: string[]} | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [filterTeam, setFilterTeam] = useState<string>('all');
+  const [filterGrade, setFilterGrade] = useState<string>('all');
+  const [teams, setTeams] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
     student_id: '',
@@ -37,6 +41,7 @@ export default function Students() {
     grade: 9,
     house_team: '',
     counselor: '',
+    observations: '',
   });
 
   useEffect(() => {
@@ -47,6 +52,8 @@ export default function Students() {
     try {
       const res = await api.get('/students');
       setStudents(res.data);
+      const uniqueTeams = [...new Set(res.data.map((s: Student) => s.house_team).filter(Boolean))];
+      setTeams(uniqueTeams.sort());
     } catch (error) {
       console.error(error);
     } finally {
@@ -58,10 +65,18 @@ export default function Students() {
     e.preventDefault();
     setSaving(true);
     try {
+      const payload = {
+        student_id: formData.student_id,
+        last_name: formData.last_name,
+        first_name: formData.first_name,
+        grade: formData.grade,
+        house_team: formData.house_team,
+        counselor: formData.counselor,
+      };
       if (editingStudent) {
-        await api.put(`/students/${editingStudent.id}`, formData);
+        await api.put(`/students/${editingStudent.id}`, payload);
       } else {
-        await api.post('/students', formData);
+        await api.post('/students', payload);
       }
       loadStudents();
       closeModal();
@@ -178,10 +193,10 @@ export default function Students() {
           results.errors.push(`Failed to add ${first_name} ${last_name}: ${error.response?.data?.error || 'Unknown error'}`);
         }
       }
-      
+
       setUploadResults(results);
       loadStudents();
-      
+
       if (results.errors.length === 0 && results.success > 0) {
         setTimeout(() => {
           setShowUploadModal(false);
@@ -200,10 +215,18 @@ export default function Students() {
   const openModal = (student?: Student) => {
     if (student) {
       setEditingStudent(student);
-      setFormData(student);
+      setFormData({
+        student_id: student.student_id,
+        last_name: student.last_name,
+        first_name: student.first_name,
+        grade: student.grade,
+        house_team: student.house_team,
+        counselor: student.counselor,
+        observations: student.observations || '',
+      });
     } else {
       setEditingStudent(null);
-      setFormData({ student_id: '', last_name: '', first_name: '', grade: 9, house_team: '', counselor: '' });
+      setFormData({ student_id: '', last_name: '', first_name: '', grade: 9, house_team: '', counselor: '', observations: '' });
     }
     setShowModal(true);
   };
@@ -213,12 +236,15 @@ export default function Students() {
     setEditingStudent(null);
   };
 
-  const filteredStudents = students.filter(s =>
-    !search ||
-    s.last_name.toLowerCase().includes(search.toLowerCase()) ||
-    s.first_name.toLowerCase().includes(search.toLowerCase()) ||
-    s.student_id.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredStudents = students.filter(s => {
+    const matchesSearch = !search ||
+      s.last_name.toLowerCase().includes(search.toLowerCase()) ||
+      s.first_name.toLowerCase().includes(search.toLowerCase()) ||
+      s.student_id.toLowerCase().includes(search.toLowerCase());
+    const matchesTeam = filterTeam === 'all' || s.house_team === filterTeam;
+    const matchesGrade = filterGrade === 'all' || String(s.grade) === filterGrade;
+    return matchesSearch && matchesTeam && matchesGrade;
+  });
 
   return (
     <div className="space-y-4 md:space-y-6 animate-fade-in pb-20 md:pb-6">
@@ -234,8 +260,8 @@ export default function Students() {
               <span className="font-medium">Saved!</span>
             </span>
           )}
-          <button 
-            onClick={() => setShowUploadModal(true)} 
+          <button
+            onClick={() => setShowUploadModal(true)}
             className="btn bg-green-600 text-white hover:bg-green-700"
           >
             <FileSpreadsheet className="w-5 h-5" />
@@ -248,17 +274,51 @@ export default function Students() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="card">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search students by name or ID..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input pl-10"
-          />
+      {/* Filter Tabs */}
+      <div className="bg-white rounded-2xl shadow-sm p-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search students by name or ID..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="input pl-10"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <select
+              value={filterTeam}
+              onChange={(e) => setFilterTeam(e.target.value)}
+              className="select"
+            >
+              <option value="all">All Teams</option>
+              {teams.map(team => (
+                <option key={team} value={team}>{team}</option>
+              ))}
+            </select>
+            <select
+              value={filterGrade}
+              onChange={(e) => setFilterGrade(e.target.value)}
+              className="select"
+            >
+              <option value="all">All Grades</option>
+              {[6, 7, 8, 9, 10, 11, 12].map(g => (
+                <option key={g} value={String(g)}>Grade {g}</option>
+              ))}
+            </select>
+            {(filterTeam !== 'all' || filterGrade !== 'all') && (
+              <button
+                onClick={() => { setFilterTeam('all'); setFilterGrade('all'); }}
+                className="btn btn-secondary"
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -275,7 +335,7 @@ export default function Students() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">ID</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">Grade</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">House/Team</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Points</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Observations</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">Status</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Actions</th>
                 </tr>
@@ -296,11 +356,15 @@ export default function Students() {
                     </td>
                     <td className="px-4 py-3 font-mono text-sm hide-mobile">{student.student_id}</td>
                     <td className="px-4 py-3 hide-mobile">{student.grade}</td>
-                    <td className="px-4 py-3 hide-mobile">{student.house_team || '-'}</td>
-                    <td className="px-4 py-3">
-                      <span className={`font-semibold ${student.total_points >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {student.total_points}
+                    <td className="px-4 py-3 hide-mobile">
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium">
+                        {student.house_team || '-'}
                       </span>
+                    </td>
+                    <td className="px-4 py-3 max-w-[200px]">
+                      <p className="text-sm text-gray-600 truncate" title={student.observations || ''}>
+                        {student.observations || '-'}
+                      </p>
                     </td>
                     <td className="px-4 py-3 hide-mobile">
                       <span className={`badge ${
@@ -419,6 +483,16 @@ export default function Students() {
                     className="input"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="form-label">Observations / Notes</label>
+                <textarea
+                  value={formData.observations}
+                  onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
+                  className="input min-h-[80px]"
+                  placeholder="Add any observations or notes about this student..."
+                />
               </div>
 
               <div className="flex gap-3 pt-4">
