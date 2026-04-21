@@ -1,14 +1,17 @@
 import { Pool } from 'pg';
+import dns from 'dns';
 
 const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:Gmc190494mcv@db.cpdrclazmvboenhlsccf.supabase.co:5432/postgres';
 
 const pool = new Pool({
   connectionString,
   ssl: { rejectUnauthorized: false },
-  max: 20,
+  max: 10,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis: 15000,
   statement_timeout: 30000,
+  keepAlive: true,
+  keepAliveInitialDelay: 5000,
 });
 
 pool.on('error', (err) => {
@@ -16,147 +19,88 @@ pool.on('error', (err) => {
 });
 
 export async function queryAll(sql: string, params: any[] = []): Promise<any[]> {
-  const result = await pool.query(sql, params);
-  return result.rows;
+  try {
+    const result = await pool.query(sql, params);
+    return result.rows;
+  } catch (error: any) {
+    console.error('Query error:', error.message);
+    throw error;
+  }
 }
 
 export async function queryOne(sql: string, params: any[] = []): Promise<any | null> {
-  const result = await pool.query(sql, params);
-  return result.rows[0] || null;
+  try {
+    const result = await pool.query(sql, params);
+    return result.rows[0] || null;
+  } catch (error: any) {
+    console.error('Query error:', error.message);
+    throw error;
+  }
 }
 
 export async function runQuery(sql: string, params: any[] = []): Promise<{ lastInsertRowid: number; changes: number }> {
-  const result = await pool.query(sql, params);
-  return {
-    lastInsertRowid: result.rows[0]?.id || 0,
-    changes: result.rowCount || 0
-  };
+  try {
+    const result = await pool.query(sql, params);
+    return {
+      lastInsertRowid: result.rows[0]?.id || 0,
+      changes: result.rowCount || 0
+    };
+  } catch (error: any) {
+    console.error('Query error:', error.message);
+    throw error;
+  }
+}
+
+export async function testConnection(): Promise<boolean> {
+  try {
+    const result = await pool.query('SELECT NOW()');
+    console.log('Database connected:', result.rows[0].now);
+    return true;
+  } catch (error: any) {
+    console.error('Database connection test failed:', error.message);
+    return false;
+  }
 }
 
 export async function initializeDatabase() {
-  console.log('Connecting to PostgreSQL database...');
+  console.log('Initializing PostgreSQL database...');
+  console.log('Connection:', connectionString.replace(/:[^:@]+@/, ':****@'));
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY,
-      username TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'dean',
-      first_name TEXT,
-      last_name TEXT,
-      email TEXT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+  try {
+    await testConnection();
+  } catch (e) {
+    console.log('Connection test failed, will retry with queries...');
+  }
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS students (
-      id SERIAL PRIMARY KEY,
-      student_id TEXT UNIQUE NOT NULL,
-      last_name TEXT NOT NULL,
-      first_name TEXT NOT NULL,
-      grade INTEGER DEFAULT 9,
-      house_team TEXT,
-      counselor TEXT,
-      gpa REAL DEFAULT 0.0,
-      total_points INTEGER DEFAULT 100,
-      conduct_status TEXT DEFAULT 'Good',
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+  const tableQueries = [
+    { name: 'users', sql: `CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'dean', first_name TEXT, last_name TEXT, email TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)` },
+    { name: 'students', sql: `CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, student_id TEXT UNIQUE NOT NULL, last_name TEXT NOT NULL, first_name TEXT NOT NULL, grade INTEGER DEFAULT 9, house_team TEXT, counselor TEXT, gpa REAL DEFAULT 0.0, total_points INTEGER DEFAULT 100, conduct_status TEXT DEFAULT 'Good', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)` },
+    { name: 'violations', sql: `CREATE TABLE IF NOT EXISTS violations (id SERIAL PRIMARY KEY, category TEXT NOT NULL, violation_type TEXT NOT NULL, description TEXT, points_deduction INTEGER DEFAULT -2, default_consequence TEXT, min_oss_days INTEGER DEFAULT 0, max_oss_days INTEGER DEFAULT 1)` },
+    { name: 'incidents', sql: `CREATE TABLE IF NOT EXISTS incidents (id SERIAL PRIMARY KEY, incident_id TEXT UNIQUE NOT NULL, date TEXT NOT NULL, time TEXT, student_id INTEGER NOT NULL, violation_id INTEGER NOT NULL, location TEXT, description TEXT, witnesses TEXT, parent_contacted TEXT DEFAULT 'No', contact_date TEXT, action_taken TEXT, consequence TEXT, points_deducted INTEGER DEFAULT -2, days_iss INTEGER DEFAULT 0, days_oss INTEGER DEFAULT 0, detention_hours REAL DEFAULT 0, referral_date TEXT, administrator_id INTEGER, notes TEXT, follow_up_needed TEXT DEFAULT 'No', status TEXT DEFAULT 'Open', resolved_date TEXT, evidence TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)` },
+    { name: 'parent_contacts', sql: `CREATE TABLE IF NOT EXISTS parent_contacts (id SERIAL PRIMARY KEY, incident_id INTEGER NOT NULL, contact_date TEXT NOT NULL, contact_method TEXT, parent_name TEXT, notes TEXT, follow_up_required TEXT DEFAULT 'No')` },
+    { name: 'mtss_interventions', sql: `CREATE TABLE IF NOT EXISTS mtss_interventions (id SERIAL PRIMARY KEY, student_id INTEGER NOT NULL, tier INTEGER NOT NULL, intervention TEXT NOT NULL, start_date TEXT NOT NULL, end_date TEXT, progress TEXT DEFAULT 'Not Started', notes TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)` },
+    { name: 'alerts', sql: `CREATE TABLE IF NOT EXISTS alerts (id SERIAL PRIMARY KEY, alert_type TEXT NOT NULL, threshold INTEGER DEFAULT 3, action TEXT, enabled TEXT DEFAULT 'Yes')` },
+    { name: 'settings', sql: `CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)` },
+  ];
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS violations (
-      id SERIAL PRIMARY KEY,
-      category TEXT NOT NULL,
-      violation_type TEXT NOT NULL,
-      description TEXT,
-      points_deduction INTEGER DEFAULT -2,
-      default_consequence TEXT,
-      min_oss_days INTEGER DEFAULT 0,
-      max_oss_days INTEGER DEFAULT 1
-    )
-  `);
+  for (const table of tableQueries) {
+    try {
+      await pool.query(table.sql);
+      console.log(`✓ ${table.name} table ready`);
+    } catch (error: any) {
+      console.error(`✗ ${table.name} table error:`, error.message);
+    }
+  }
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS incidents (
-      id SERIAL PRIMARY KEY,
-      incident_id TEXT UNIQUE NOT NULL,
-      date TEXT NOT NULL,
-      time TEXT,
-      student_id INTEGER NOT NULL,
-      violation_id INTEGER NOT NULL,
-      location TEXT,
-      description TEXT,
-      witnesses TEXT,
-      parent_contacted TEXT DEFAULT 'No',
-      contact_date TEXT,
-      action_taken TEXT,
-      consequence TEXT,
-      points_deducted INTEGER DEFAULT -2,
-      days_iss INTEGER DEFAULT 0,
-      days_oss INTEGER DEFAULT 0,
-      detention_hours REAL DEFAULT 0,
-      referral_date TEXT,
-      administrator_id INTEGER,
-      notes TEXT,
-      follow_up_needed TEXT DEFAULT 'No',
-      status TEXT DEFAULT 'Open',
-      resolved_date TEXT,
-      evidence TEXT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS parent_contacts (
-      id SERIAL PRIMARY KEY,
-      incident_id INTEGER NOT NULL,
-      contact_date TEXT NOT NULL,
-      contact_method TEXT,
-      parent_name TEXT,
-      notes TEXT,
-      follow_up_required TEXT DEFAULT 'No'
-    )
-  `);
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS mtss_interventions (
-      id SERIAL PRIMARY KEY,
-      student_id INTEGER NOT NULL,
-      tier INTEGER NOT NULL,
-      intervention TEXT NOT NULL,
-      start_date TEXT NOT NULL,
-      end_date TEXT,
-      progress TEXT DEFAULT 'Not Started',
-      notes TEXT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS alerts (
-      id SERIAL PRIMARY KEY,
-      alert_type TEXT NOT NULL,
-      threshold INTEGER DEFAULT 3,
-      action TEXT,
-      enabled TEXT DEFAULT 'Yes'
-    )
-  `);
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT
-    )
-  `);
-
-  await seedViolations();
-  await seedAlerts();
-  await seedDefaultSettings();
-  await createDefaultAdmin();
-
-  console.log('PostgreSQL database initialized successfully!');
+  try {
+    await seedViolations();
+    await seedAlerts();
+    await seedDefaultSettings();
+    await createDefaultAdmin();
+    console.log('Database initialization complete!');
+  } catch (error: any) {
+    console.error('Seeding error:', error.message);
+  }
 }
 
 async function seedViolations() {

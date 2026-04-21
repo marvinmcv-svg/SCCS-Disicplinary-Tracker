@@ -94,76 +94,88 @@ export default function Students() {
 
   const handleExcelUpload = async () => {
     if (!selectedFile) return;
-    
+
     setUploading(true);
     setUploadResults(null);
-    
+
     try {
       const data = await selectedFile.arrayBuffer();
       const workbook = XLSX.read(data);
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
-      
+
       const results = { success: 0, errors: [] as string[] };
-      
-      for (const row of jsonData) {
-        const rowData = row as any;
-        
-        if (!rowData || typeof rowData !== 'object' || Array.isArray(rowData)) {
-          continue;
+
+      const normalizeHeader = (str: any): string => {
+        if (typeof str !== 'string') return '';
+        return str.toString().toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+      };
+
+      const getValue = (rowData: any, ...candidates: string[]): string => {
+        for (const candidate of candidates) {
+          const normalized = candidate.toLowerCase().replace(/[^a-z0-9]/g, '');
+          for (const key of Object.keys(rowData)) {
+            if (normalizeHeader(key) === normalized) {
+              const val = rowData[key];
+              if (val !== undefined && val !== null && val !== '') {
+                return String(val).trim();
+              }
+            }
+          }
         }
-        
-        if (rowData['!ref'] || rowData['!merges']) {
-          continue;
-        }
-        
+        return '';
+      };
+
+      const parseGrade = (gradeVal: any): number => {
+        if (!gradeVal) return 9;
+        const str = String(gradeVal).toUpperCase();
+        const match = str.match(/(\d+)/);
+        if (match) return parseInt(match[1]);
+        if (str.includes('9TH') || str.includes('FRESHM')) return 9;
+        if (str.includes('10TH') || str.includes('SOPH')) return 10;
+        if (str.includes('11TH') || str.includes('JUN')) return 11;
+        if (str.includes('12TH') || str.includes('SEN')) return 12;
+        return parseInt(str) || 9;
+      };
+
+      for (let i = 0; i < jsonData.length; i++) {
+        const rowData = jsonData[i] as any;
+
+        if (!rowData || typeof rowData !== 'object' || Array.isArray(rowData)) continue;
+        if (rowData['!ref'] || rowData['!merges']) continue;
+
         const keys = Object.keys(rowData).filter(k => !k.startsWith('!'));
-        if (keys.length === 0) {
-          continue;
-        }
-        
+        if (keys.length === 0) continue;
+
         const rowValues = keys.map(k => rowData[k]);
         const hasNumericOnlyKeys = keys.every(k => !isNaN(Number(k)));
-        if (hasNumericOnlyKeys) {
-          continue;
-        }
-        
-        const isImageRow = rowValues.some(v => 
-          typeof v === 'string' && (v.includes('.png') || v.includes('.jpg') || v.includes('.jpeg') || v.includes('.gif') || v.includes('.bmp'))
+        if (hasNumericOnlyKeys) continue;
+
+        const isImageRow = rowValues.some(v =>
+          typeof v === 'string' && /\.(png|jpg|jpeg|gif|bmp)/i.test(v)
         );
-        if (isImageRow) {
+        if (isImageRow) continue;
+
+        const student_id = getValue(rowData, 'student_id', 'studentid', 'student', 'id', 'student id', 'studentid');
+        const last_name = getValue(rowData, 'last_name', 'lastname', 'surname', 'last name', 'last');
+        const first_name = getValue(rowData, 'first_name', 'firstname', 'first', 'first name');
+        const grade = parseGrade(getValue(rowData, 'grade'));
+        const house_team = getValue(rowData, 'house_team', 'houseteam', 'team', 'house', 'house/team', 'house team', 'house/team');
+        const counselor = getValue(rowData, 'counselor');
+
+        if (!student_id || !last_name || !first_name) {
+          if (student_id || last_name || first_name) {
+            results.errors.push(`Row ${i + 1}: Missing required fields. student_id="${student_id}", last_name="${last_name}", first_name="${first_name}"`);
+          }
           continue;
         }
-        
-        const validHeaders = ['student_id', 'studentid', 'id', 'last_name', 'lastname', 'last name', 'surname', 'first_name', 'firstname', 'first name', 'grade', 'house_team', 'houseteam', 'house/team', 'team', 'counselor'];
-        const rowKeysLower = keys.map(k => k.toLowerCase().replace(/['"]/g, ''));
-        const hasValidHeader = rowKeysLower.some(k => validHeaders.some(v => k.includes(v)));
-        if (!hasValidHeader) {
-          continue;
-        }
-        
-        // Map Excel columns to student fields (case-insensitive)
-        const studentData = {
-          student_id: rowData.student_id || rowData.studentId || rowData.ID || rowData.id || '',
-          last_name: rowData.last_name || rowData.lastName || rowData['Last Name'] || rowData.Surname || '',
-          first_name: rowData.first_name || rowData.firstName || rowData['First Name'] || '',
-          grade: parseInt(rowData.grade || rowData.Grade || '9') || 9,
-          house_team: rowData.house_team || rowData.houseTeam || rowData['House/Team'] || rowData.Team || '',
-          counselor: rowData.counselor || rowData.Counselor || '',
-        };
-        
-        // Validate required fields
-        if (!studentData.student_id || !studentData.last_name || !studentData.first_name) {
-          results.errors.push(`Row skipped: missing required fields (student_id, last_name, first_name). Data: ${JSON.stringify(rowData)}`);
-          continue;
-        }
-        
+
         try {
-          await api.post('/students/bulk', studentData);
+          await api.post('/students/bulk', { student_id, last_name, first_name, grade, house_team, counselor });
           results.success++;
         } catch (error: any) {
-          results.errors.push(`Failed to add ${studentData.first_name} ${studentData.last_name}: ${error.response?.data?.error || 'Unknown error'}`);
+          results.errors.push(`Failed to add ${first_name} ${last_name}: ${error.response?.data?.error || 'Unknown error'}`);
         }
       }
       
