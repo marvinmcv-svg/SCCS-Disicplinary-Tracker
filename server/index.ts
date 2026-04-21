@@ -39,9 +39,10 @@ async function startServer() {
     console.log('Database connected successfully!');
   } catch (error) {
     console.error('Failed to connect to database:', error);
+    console.log('Continuing without database initialization...');
   }
 
-  app.listen(PORT, () => {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
   });
 }

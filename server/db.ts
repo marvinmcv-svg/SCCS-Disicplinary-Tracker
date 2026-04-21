@@ -1,11 +1,14 @@
 import { Pool } from 'pg';
 
+const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:Gmc190494mcv@db.cpdrclazmvboenhlsccf.supabase.co:5432/postgres';
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:password@db.cpdrclazmvboenhlsccf.supabase.co:5432/postgres',
+  connectionString,
   ssl: { rejectUnauthorized: false },
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 5000,
+  statement_timeout: 30000,
 });
 
 pool.on('error', (err) => {
