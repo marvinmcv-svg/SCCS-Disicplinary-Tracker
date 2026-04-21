@@ -1,5 +1,7 @@
 node_modules/
 client/node_modules/
 client/dist/
+dist/
 *.log
 .env
+test-db.js

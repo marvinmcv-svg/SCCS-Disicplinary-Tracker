@@ -11,7 +11,7 @@ const pool = new Pool({
   connectionTimeoutMillis: 15000,
   statement_timeout: 30000,
   keepAlive: true,
-  keepAliveInitialDelay: 5000,
+  keepAliveInitialDelayMillis: 5000,
 });
 
 pool.on('error', (err) => {
