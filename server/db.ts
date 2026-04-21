@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import dns from 'dns';
 
-const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:Gmc190494mcv@db.cpdrclazmvboenhlsccf.supabase.co:5432/postgres';
+const connectionString = process.env.DATABASE_URL || 'postgresql://postgres.cpdrclazmvboenhlsccf:Gmc190494mcv@aws-1-us-west-2.pooler.supabase.com:6543/postgres';
 
 const pool = new Pool({
   connectionString,

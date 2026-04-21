@@ -8,4 +8,4 @@
 
 [railway.variable]
   NODE_ENV = "production"
-  DATABASE_URL = "postgresql://postgres:Gmc190494mcv@db.cpdrclazmvboenhlsccf.supabase.co:5432/postgres"
+  DATABASE_URL = "postgresql://postgres.cpdrclazmvboenhlsccf:Gmc190494mcv@aws-1-us-west-2.pooler.supabase.com:6543/postgres"

@@ -28,11 +28,16 @@ router.post('/api/auth/login', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Username and password required' });
     }
     
+    console.log('Login attempt for user:', username);
+    
     const user = await queryOne('SELECT * FROM users WHERE username = $1', [username]);
 
     if (!user) {
+      console.log('User not found:', username);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+    
+    console.log('User found, checking password...');
     
     let passwordMatch = false;
     try {
@@ -43,10 +48,12 @@ router.post('/api/auth/login', async (req: Request, res: Response) => {
     }
     
     if (!passwordMatch) {
+      console.log('Password mismatch for user:', username);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
+    console.log('Login successful for user:', username);
     res.json({ 
       token, 
       user: { 
