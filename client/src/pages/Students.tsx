@@ -123,7 +123,23 @@ export default function Students() {
           continue;
         }
         
-        if (keys.length === 1 && typeof rowData[keys[0]] === 'string' && rowData[keys[0]].includes('.png')) {
+        const rowValues = keys.map(k => rowData[k]);
+        const hasNumericOnlyKeys = keys.every(k => !isNaN(Number(k)));
+        if (hasNumericOnlyKeys) {
+          continue;
+        }
+        
+        const isImageRow = rowValues.some(v => 
+          typeof v === 'string' && (v.includes('.png') || v.includes('.jpg') || v.includes('.jpeg') || v.includes('.gif') || v.includes('.bmp'))
+        );
+        if (isImageRow) {
+          continue;
+        }
+        
+        const validHeaders = ['student_id', 'studentid', 'id', 'last_name', 'lastname', 'last name', 'surname', 'first_name', 'firstname', 'first name', 'grade', 'house_team', 'houseteam', 'house/team', 'team', 'counselor'];
+        const rowKeysLower = keys.map(k => k.toLowerCase().replace(/['"]/g, ''));
+        const hasValidHeader = rowKeysLower.some(k => validHeaders.some(v => k.includes(v)));
+        if (!hasValidHeader) {
           continue;
         }
         
