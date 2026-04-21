@@ -23,16 +23,43 @@ const authenticate = async (req: Request, res: Response, next: Function) => {
 router.post('/api/auth/login', async (req: Request, res: Response) => {
   try {
     const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password required' });
+    }
+    
     const user = await queryOne('SELECT * FROM users WHERE username = $1', [username]);
 
-    if (!user || !bcrypt.compareSync(password, user.password)) {
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    let passwordMatch = false;
+    try {
+      passwordMatch = bcrypt.compareSync(password, user.password);
+    } catch (bcryptError: any) {
+      console.error('Bcrypt error:', bcryptError.message);
+      return res.status(500).json({ error: 'Authentication error' });
+    }
+    
+    if (!passwordMatch) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
-    res.json({ token, user: { id: user.id, username: user.username, role: user.role, firstName: user.first_name, lastName: user.last_name } });
+    res.json({ 
+      token, 
+      user: { 
+        id: user.id, 
+        username: user.username, 
+        role: user.role, 
+        firstName: user.first_name, 
+        lastName: user.last_name 
+      } 
+    });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Login error:', error.message);
+    res.status(500).json({ error: 'Login failed' });
   }
 });
 

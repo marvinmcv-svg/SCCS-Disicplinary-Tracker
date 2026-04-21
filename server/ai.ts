@@ -4,7 +4,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.OPENAI_API_KEY || 'sk-cp-eOBHtUuFs7bHZr96OtcSsul7yKKlYMqHBWnwR08i1hUv95yepqRs_IQbqfSYecrzD4RpTBE1pQ3pgGCzQ6pAMKF_UfLGuOx__3QnoG0TK4E2ibM6tIsqDZg',
+  baseURL: 'https://api.minimax.chat/v1'
 });
 
 export async function suggestConsequence(violationType: string, category: string, description: string, previousIncidents: number) {
@@ -31,7 +32,7 @@ Respond with a JSON object containing:
 
   try {
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'MiniMax-01',
       messages: [
         { role: 'system', content: 'You are a school discipline advisor. Always respond with valid JSON.' },
         { role: 'user', content: prompt }
@@ -41,7 +42,7 @@ Respond with a JSON object containing:
 
     return JSON.parse(completion.choices[0].message.content ?? '{}');
   } catch (error) {
-    console.error('OpenAI error:', error);
+    console.error('AI error:', error);
     return null;
   }
 }
@@ -62,7 +63,7 @@ Provide a JSON response with:
 
   try {
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'MiniMax-01',
       messages: [
         { role: 'system', content: 'You are a school MTSS (Multi-Tiered System of Supports) advisor. Analyze discipline data to recommend interventions. Always respond with valid JSON.' },
         { role: 'user', content: prompt }
@@ -72,7 +73,7 @@ Provide a JSON response with:
 
     return JSON.parse(completion.choices[0].message.content ?? '{}');
   } catch (error) {
-    console.error('OpenAI error:', error);
+    console.error('AI error:', error);
     return null;
   }
 }
@@ -90,7 +91,7 @@ Generate a professional, concise incident report formatted in plain text (not JS
 
   try {
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'MiniMax-01',
       messages: [
         { role: 'system', content: 'You are a school administrator generating discipline reports. Write professionally and concisely.' },
         { role: 'user', content: prompt }
@@ -99,7 +100,7 @@ Generate a professional, concise incident report formatted in plain text (not JS
 
     return completion.choices[0].message.content;
   } catch (error) {
-    console.error('OpenAI error:', error);
+    console.error('AI error:', error);
     return null;
   }
 }
