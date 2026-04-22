@@ -2,7 +2,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
 import { 
   LayoutDashboard, Users, AlertTriangle, BookOpen, 
-  Gift, HeartHandshake, Settings, LogOut, Menu, X, Home
+  Gift, HeartHandshake, Settings, LogOut, Menu, X
 } from 'lucide-react';
 import { useState } from 'react';
 import sccsLogo from '../sccs.png';
@@ -49,9 +49,7 @@ export default function Layout() {
             </div>
           </button>
           
-          <button onClick={() => navigate('/')} className="p-2 hover:bg-white/10 rounded-lg text-white">
-            <Home className="w-6 h-6" />
-          </button>
+          <div className="w-10"></div>
         </div>
       </header>
 
@@ -170,11 +168,14 @@ export default function Layout() {
 
       {/* Main Content */}
       <main className="flex-1 md:ml-64 pt-20 md:pt-0 transition-all duration-300">
-        <header className="hidden md:flex bg-white border-b border-gray-200 px-6 py-4 items-center justify-between sticky top-0 z-10">
+        <header className="hidden md:flex bg-white border-b border-gray-200 px-6 py-3 items-center justify-between sticky top-0 z-10">
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">
               {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </span>
+          </div>
+          <div className="flex items-center">
+            <img src={sccsLogo} alt="SCCS Logo" className="h-12 w-auto object-contain" />
           </div>
         </header>
 
