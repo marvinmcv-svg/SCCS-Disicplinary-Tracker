@@ -203,9 +203,12 @@ export default function Incidents() {
   };
 
   const openModal = () => {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
     setFormData({
       date: new Date().toISOString().split('T')[0],
-      time: '',
+      time: `${hours}:${minutes}`,
       student_id: '',
       violation_id: '',
       location: '',
