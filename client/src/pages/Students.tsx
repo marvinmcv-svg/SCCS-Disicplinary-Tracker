@@ -266,7 +266,7 @@ export default function Students() {
             <FileSpreadsheet className="w-5 h-5" />
             Import Excel
           </button>
-          <button onClick={() => openModal()} className="btn btn-success">
+          <button onClick={() => openModal()} className="btn btn-primary">
             <Plus className="w-5 h-5" />
             Add Student
           </button>
@@ -326,6 +326,7 @@ export default function Students() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Student</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">ID</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">Grade</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">Advisor</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Observations</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">Status</th>
                 </tr>
@@ -349,6 +350,7 @@ export default function Students() {
                     </td>
                     <td className="px-4 py-3 font-mono text-sm hide-mobile">{student.student_id}</td>
                     <td className="px-4 py-3 hide-mobile">{student.grade}</td>
+                    <td className="px-4 py-3 hide-mobile">{student.advisory || '-'}</td>
                     <td className="px-4 py-3 max-w-[200px]">
                       <p className="text-sm text-gray-600 truncate" title={student.observations || ''}>
                         {student.observations || '-'}
