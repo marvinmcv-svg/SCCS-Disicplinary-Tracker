@@ -714,7 +714,7 @@ export default function Incidents() {
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4">
+              <div className="flex justify-end gap-6 pt-4">
                 <button type="button" onClick={closeModal} className="btn btn-danger">
                   Cancel
                 </button>
@@ -849,7 +849,7 @@ export default function Incidents() {
               {/* Status Update */}
               <div className="border-t pt-4">
                 <span className="text-sm font-medium block mb-3">Update Status:</span>
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-6">
                   {viewIncident.status !== 'Resolved' && (
                     <>
                       <button
@@ -878,7 +878,7 @@ export default function Incidents() {
                     <span className="text-green-600 text-sm">Resolved on {viewIncident.resolved_date}</span>
                   )}
                 </div>
-                <div className="flex gap-3 mt-4">
+                <div className="flex gap-6 mt-4">
                   <button
                     onClick={() => {
                       if (confirm('Are you sure you want to delete this incident?')) {
