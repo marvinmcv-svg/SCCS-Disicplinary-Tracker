@@ -287,6 +287,10 @@ body {
     border-radius: 0.75rem;
     max-width: 32rem;
   }
+  .modal.max-w-3xl { max-width: 40rem; }
+  .modal.max-w-4xl { max-width: 48rem; }
+  .modal.max-w-5xl { max-width: 64rem; }
+  .modal.max-w-6xl { max-width: 72rem; }
 }
 
 @keyframes fadeIn {
