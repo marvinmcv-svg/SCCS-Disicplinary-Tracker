@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Search, X, AlertCircle, Phone, CheckCircle, Clock, Loader, Check } from 'lucide-react';
 import api from '../lib/api';
 
@@ -80,6 +80,39 @@ export default function Incidents() {
     parent_contacted: 'No',
     contact_date: '',
   });
+
+  const [studentSearch, setStudentSearch] = useState('');
+  const [violationSearch, setViolationSearch] = useState('');
+  const [showStudentDropdown, setShowStudentDropdown] = useState(false);
+  const [showViolationDropdown, setShowViolationDropdown] = useState(false);
+  const studentRef = useRef<HTMLDivElement>(null);
+  const violationRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (studentRef.current && !studentRef.current.contains(event.target as Node)) {
+        setShowStudentDropdown(false);
+      }
+      if (violationRef.current && !violationRef.current.contains(event.target as Node)) {
+        setShowViolationDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredStudentsForSelect = students.filter(s =>
+    !studentSearch ||
+    s.last_name.toLowerCase().includes(studentSearch.toLowerCase()) ||
+    s.first_name.toLowerCase().includes(studentSearch.toLowerCase()) ||
+    s.student_id.toLowerCase().includes(studentSearch.toLowerCase())
+  );
+
+  const filteredViolationsForSelect = violations.filter(v =>
+    !violationSearch ||
+    v.violation_type.toLowerCase().includes(violationSearch.toLowerCase()) ||
+    v.category.toLowerCase().includes(violationSearch.toLowerCase())
+  );
 
   useEffect(() => {
     loadData();
@@ -182,6 +215,8 @@ export default function Incidents() {
       consequence: '',
       notes: '',
     });
+    setStudentSearch('');
+    setViolationSearch('');
     setShowModal(true);
   };
 
@@ -370,41 +405,96 @@ export default function Incidents() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
+                <div ref={studentRef} className="relative">
                   <label className="form-label">Student *</label>
-                  <select
-                    value={formData.student_id}
-                    onChange={(e) => setFormData({ ...formData, student_id: e.target.value })}
-                    className="select"
-                    required
-                  >
-                    <option value="">Select Student</option>
-                    {students.map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.last_name}, {s.first_name} ({s.student_id})
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={studentSearch}
+                      onChange={(e) => {
+                        setStudentSearch(e.target.value);
+                        setShowStudentDropdown(true);
+                      }}
+                      onFocus={() => setShowStudentDropdown(true)}
+                      placeholder="Search student..."
+                      className="input pr-8"
+                      required
+                    />
+                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  </div>
+                  {showStudentDropdown && filteredStudentsForSelect.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {filteredStudentsForSelect.map(s => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => {
+                            setFormData({ ...formData, student_id: s.id });
+                            setStudentSearch(`${s.last_name}, ${s.first_name}`);
+                            setShowStudentDropdown(false);
+                          }}
+                          className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm"
+                        >
+                          {s.last_name}, {s.first_name} <span className="text-gray-400">({s.student_id})</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {showStudentDropdown && studentSearch && filteredStudentsForSelect.length === 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-sm text-gray-500">
+                      No students found
+                    </div>
+                  )}
                 </div>
-                <div>
+                <div ref={violationRef} className="relative">
                   <label className="form-label">Violation Type *</label>
-                  <select
-                    value={formData.violation_id}
-                    onChange={(e) => setFormData({ ...formData, violation_id: e.target.value })}
-                    className="select"
-                    required
-                  >
-                    <option value="">Select Violation</option>
-                    {categories.map(cat => (
-                      <optgroup key={cat} label={cat}>
-                        {violations.filter(v => v.category === cat).map(v => (
-                          <option key={v.id} value={v.id}>
-                            {v.violation_type}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={violationSearch}
+                      onChange={(e) => {
+                        setViolationSearch(e.target.value);
+                        setShowViolationDropdown(true);
+                      }}
+                      onFocus={() => setShowViolationDropdown(true)}
+                      placeholder="Search violation..."
+                      className="input pr-8"
+                      required
+                    />
+                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  </div>
+                  {showViolationDropdown && filteredViolationsForSelect.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {categories.map(cat => {
+                        const catViolations = filteredViolationsForSelect.filter(v => v.category === cat);
+                        if (catViolations.length === 0) return null;
+                        return (
+                          <div key={cat}>
+                            <div className="px-3 py-1 text-xs font-semibold text-gray-500 bg-gray-50">{cat}</div>
+                            {catViolations.map(v => (
+                              <button
+                                key={v.id}
+                                type="button"
+                                onClick={() => {
+                                  setFormData({ ...formData, violation_id: v.id });
+                                  setViolationSearch(v.violation_type);
+                                  setShowViolationDropdown(false);
+                                }}
+                                className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm"
+                              >
+                                {v.violation_type}
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {showViolationDropdown && violationSearch && filteredViolationsForSelect.length === 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-sm text-gray-500">
+                      No violations found
+                    </div>
+                  )}
                 </div>
               </div>
 
