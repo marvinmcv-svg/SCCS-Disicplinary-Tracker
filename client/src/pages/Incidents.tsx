@@ -847,49 +847,49 @@ export default function Incidents() {
               </div>
 
               {/* Status Update */}
-              <div className="border-t pt-4">
-                <span className="text-sm font-medium block mb-3">Update Status:</span>
-                <div className="flex flex-wrap items-center gap-6">
+              <div className="flex items-center justify-between border-t pt-4">
+                <div className="flex items-center gap-4">
+                  <span className="text-sm font-medium">Update Status:</span>
                   {viewIncident.status !== 'Resolved' && (
                     <>
                       <button
                         onClick={() => handleStatusUpdate(viewIncident.id, 'Pending')}
-                        className="btn bg-yellow-100 text-yellow-700 hover:bg-yellow-200 text-sm py-1.5 px-3"
+                        className="btn bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
                       >
-                        <Clock className="w-3 h-3" /> Pending
+                        <Clock className="w-4 h-4" /> Pending
                       </button>
                       <button
                         onClick={() => handleStatusUpdate(viewIncident.id, 'Resolved')}
-                        className="btn btn-success text-sm py-1.5 px-3"
+                        className="btn btn-success"
                       >
-                        <CheckCircle className="w-3 h-3" /> Resolved
+                        <CheckCircle className="w-4 h-4" /> Resolved
                       </button>
                     </>
                   )}
                   {viewIncident.status === 'Resolved' && (
-                    <button
-                      onClick={() => handleStatusUpdate(viewIncident.id, 'Open')}
-                      className="btn btn-warning text-sm py-1.5 px-3"
-                    >
-                      <AlertCircle className="w-3 h-3" /> Reopen Case
-                    </button>
-                  )}
-                  {viewIncident.status === 'Resolved' && (
-                    <span className="text-green-600 text-sm">Resolved on {viewIncident.resolved_date}</span>
+                    <>
+                      <button
+                        onClick={() => handleStatusUpdate(viewIncident.id, 'Open')}
+                        className="btn btn-warning"
+                      >
+                        <AlertCircle className="w-4 h-4" /> Reopen Case
+                      </button>
+                      <span className="text-green-600 text-sm ml-2">Resolved on {viewIncident.resolved_date}</span>
+                    </>
                   )}
                 </div>
-                <div className="flex gap-6 mt-4">
+                <div className="flex gap-4">
                   <button
                     onClick={() => {
                       if (confirm('Are you sure you want to delete this incident?')) {
                         handleDelete(viewIncident.id);
                       }
                     }}
-                    className="btn btn-danger text-sm py-1.5 px-3"
+                    className="btn btn-danger"
                   >
-                    <Trash2 className="w-3 h-3" /> Delete
+                    <Trash2 className="w-4 h-4" /> Delete
                   </button>
-                  <button onClick={() => setShowViewModal(false)} className="btn btn-secondary text-sm py-1.5 px-3">
+                  <button onClick={() => setShowViewModal(false)} className="btn btn-secondary">
                     Close
                   </button>
                 </div>
