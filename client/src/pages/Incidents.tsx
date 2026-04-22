@@ -96,8 +96,10 @@ export default function Incidents() {
   const witnessRef = useRef<HTMLDivElement>(null);
   const advisorRef = useRef<HTMLDivElement>(null);
 
-  const allWitnesses = ['Ms Tomelic', 'Ms Aguirre', 'Ms Meneses', 'Mr Soliz', 'Ms Zuazo', 'Mr Kreller', 'Mr Odekerken', 'Ms Hopp', 'Ms Rios', 'Mr Herbert', 'Mr Coronado', 'Ms Camacho'];
-  const allAdvisors = ['Ms Tomelic', 'Ms Aguirre', 'Ms Meneses', 'Mr Soliz', 'Ms Zuazo', 'Mr Kreller', 'Mr Odekerken', 'Ms Hopp', 'Ms Rios', 'Mr Herbert', 'Mr Coronado', 'Ms Camacho'];
+  const allStaff = ['Mr Adachi', 'Mr Cohello', 'MrDiPascuale', 'Mr Kane', 'Mr Ortiz', 'Ms Aguirre', 'Ms Camacho', 'Ms Fernandez', 'Ms Guaristi', 'Ms Hopp', 'Ms Meneses', 'Ms Molina', 'Ms Palacios', 'Ms Rios', 'Ms Robinson', 'Ms Skelly', 'Ms Tello', 'Ms Tomelic', 'Ms Zuazo', 'Mr Coronado', 'Mr Herbert', 'Mr Kreller', 'Mr Odekerken', 'Mr Soliz'];
+
+  const allWitnesses = allStaff;
+  const allAdvisors = allStaff;
 
   const filteredWitnesses = allWitnesses.filter(w =>
     !witnessSearch || w.toLowerCase().includes(witnessSearch.toLowerCase())

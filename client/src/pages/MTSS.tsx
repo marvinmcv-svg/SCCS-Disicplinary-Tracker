@@ -43,7 +43,7 @@ const interventionTypes = [
   'Alternative Placement',
 ];
 
-const allAdvisors = ['Ms Tomelic', 'Ms Aguirre', 'Ms Meneses', 'Mr Soliz', 'Ms Zuazo', 'Mr Kreller', 'Mr Odekerken', 'Ms Hopp', 'Ms Rios', 'Mr Herbert', 'Mr Coronado', 'Ms Camacho'];
+const allAdvisors = ['Mr Adachi', 'Mr Cohello', 'MrDiPascuale', 'Mr Kane', 'Mr Ortiz', 'Ms Aguirre', 'Ms Camacho', 'Ms Fernandez', 'Ms Guaristi', 'Ms Hopp', 'Ms Meneses', 'Ms Molina', 'Ms Palacios', 'Ms Rios', 'Ms Robinson', 'Ms Skelly', 'Ms Tello', 'Ms Tomelic', 'Ms Zuazo', 'Mr Coronado', 'Mr Herbert', 'Mr Kreller', 'Mr Odekerken', 'Mr Soliz'];
 
 const filteredAdvisors = (search: string) => allAdvisors.filter(a =>
   !search || a.toLowerCase().includes(search.toLowerCase())

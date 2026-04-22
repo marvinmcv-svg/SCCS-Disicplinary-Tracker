@@ -10,6 +10,7 @@ interface Student {
   first_name: string;
   grade: string;
   counselor: string;
+  advisory: string;
   gpa: number;
   total_points: number;
   conduct_status: string;
@@ -31,12 +32,15 @@ export default function Students() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [filterGrade, setFilterGrade] = useState<string>('all');
 
+  const allAdvisors = ['Mr Adachi', 'Mr Cohello', 'MrDiPascuale', 'Mr Kane', 'Mr Ortiz', 'Ms Aguirre', 'Ms Camacho', 'Ms Fernandez', 'Ms Guaristi', 'Ms Hopp', 'Ms Meneses', 'Ms Molina', 'Ms Palacios', 'Ms Rios', 'Ms Robinson', 'Ms Skelly', 'Ms Tello', 'Ms Tomelic', 'Ms Zuazo', 'Mr Coronado', 'Mr Herbert', 'Mr Kreller', 'Mr Odekerken', 'Mr Soliz'];
+
   const [formData, setFormData] = useState({
     student_id: '',
     last_name: '',
     first_name: '',
     grade: '9',
     counselor: '',
+    advisory: '',
     observations: '',
   });
 
@@ -65,6 +69,7 @@ export default function Students() {
         first_name: formData.first_name,
         grade: formData.grade,
         counselor: formData.counselor,
+        advisory: formData.advisory,
       };
       if (editingStudent) {
         await api.put(`/students/${editingStudent.id}`, payload);
@@ -216,11 +221,12 @@ export default function Students() {
         first_name: student.first_name,
         grade: student.grade,
         counselor: student.counselor,
+        advisory: student.advisory || '',
         observations: student.observations || '',
       });
     } else {
       setEditingStudent(null);
-      setFormData({ student_id: '', last_name: '', first_name: '', grade: '9', counselor: '', observations: '' });
+      setFormData({ student_id: '', last_name: '', first_name: '', grade: '9', counselor: '', advisory: '', observations: '' });
     }
     setShowModal(true);
   };
@@ -456,6 +462,19 @@ export default function Students() {
                     onChange={(e) => setFormData({ ...formData, counselor: e.target.value })}
                     className="input"
                   />
+                </div>
+                <div>
+                  <label className="form-label">Advisory</label>
+                  <select
+                    value={formData.advisory}
+                    onChange={(e) => setFormData({ ...formData, advisory: e.target.value })}
+                    className="select"
+                  >
+                    <option value="">Select Advisory</option>
+                    {allAdvisors.map(a => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
