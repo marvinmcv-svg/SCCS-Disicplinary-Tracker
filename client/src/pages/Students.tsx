@@ -8,8 +8,7 @@ interface Student {
   student_id: string;
   last_name: string;
   first_name: string;
-  grade: number;
-  house_team: string;
+  grade: string;
   counselor: string;
   gpa: number;
   total_points: number;
@@ -30,16 +29,13 @@ export default function Students() {
   const [uploadResults, setUploadResults] = useState<{success: number; errors: string[]} | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [filterTeam, setFilterTeam] = useState<string>('all');
   const [filterGrade, setFilterGrade] = useState<string>('all');
-  const [teams, setTeams] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
     student_id: '',
     last_name: '',
     first_name: '',
-    grade: 9,
-    house_team: '',
+    grade: '9',
     counselor: '',
     observations: '',
   });
@@ -52,8 +48,6 @@ export default function Students() {
     try {
       const res = await api.get('/students');
       setStudents(res.data);
-      const uniqueTeams = [...new Set(res.data.map((s: Student) => s.house_team).filter(Boolean))];
-      setTeams(uniqueTeams.sort());
     } catch (error) {
       console.error(error);
     } finally {
@@ -70,7 +64,6 @@ export default function Students() {
         last_name: formData.last_name,
         first_name: formData.first_name,
         grade: formData.grade,
-        house_team: formData.house_team,
         counselor: formData.counselor,
       };
       if (editingStudent) {
@@ -142,16 +135,19 @@ export default function Students() {
         return '';
       };
 
-      const parseGrade = (gradeVal: any): number => {
-        if (!gradeVal) return 9;
-        const str = String(gradeVal).toUpperCase();
-        const match = str.match(/(\d+)/);
-        if (match) return parseInt(match[1]);
-        if (str.includes('9TH') || str.includes('FRESHM')) return 9;
-        if (str.includes('10TH') || str.includes('SOPH')) return 10;
-        if (str.includes('11TH') || str.includes('JUN')) return 11;
-        if (str.includes('12TH') || str.includes('SEN')) return 12;
-        return parseInt(str) || 9;
+      const parseGrade = (gradeVal: any): string => {
+        if (!gradeVal) return '9';
+        const str = String(gradeVal).toUpperCase().trim();
+        const match = str.match(/^(\d+)([AB])?$/);
+        if (match) {
+          return match[2] ? `${match[1]}${match[2]}` : match[1];
+        }
+        if (str.includes('9TH') || str.includes('FRESHM')) return '9';
+        if (str.includes('10TH') || str.includes('SOPH')) return '10';
+        if (str.includes('11TH') || str.includes('JUN')) return '11';
+        if (str.includes('12TH') || str.includes('SEN')) return '12';
+        const numMatch = str.match(/(\d+)/);
+        return numMatch ? numMatch[1] : '9';
       };
 
       for (let i = 0; i < jsonData.length; i++) {
@@ -176,7 +172,6 @@ export default function Students() {
         const last_name = getValue(rowData, 'last_name', 'lastname', 'surname', 'last name', 'last');
         const first_name = getValue(rowData, 'first_name', 'firstname', 'first', 'first name');
         const grade = parseGrade(getValue(rowData, 'grade'));
-        const house_team = getValue(rowData, 'house_team', 'houseteam', 'team', 'house', 'house/team', 'house team', 'house/team');
         const counselor = getValue(rowData, 'counselor');
 
         if (!student_id || !last_name || !first_name) {
@@ -187,7 +182,7 @@ export default function Students() {
         }
 
         try {
-          await api.post('/students/bulk', { student_id, last_name, first_name, grade, house_team, counselor });
+          await api.post('/students/bulk', { student_id, last_name, first_name, grade, counselor });
           results.success++;
         } catch (error: any) {
           results.errors.push(`Failed to add ${first_name} ${last_name}: ${error.response?.data?.error || 'Unknown error'}`);
@@ -220,13 +215,12 @@ export default function Students() {
         last_name: student.last_name,
         first_name: student.first_name,
         grade: student.grade,
-        house_team: student.house_team,
         counselor: student.counselor,
         observations: student.observations || '',
       });
     } else {
       setEditingStudent(null);
-      setFormData({ student_id: '', last_name: '', first_name: '', grade: 9, house_team: '', counselor: '', observations: '' });
+      setFormData({ student_id: '', last_name: '', first_name: '', grade: '9', counselor: '', observations: '' });
     }
     setShowModal(true);
   };
@@ -241,9 +235,8 @@ export default function Students() {
       s.last_name.toLowerCase().includes(search.toLowerCase()) ||
       s.first_name.toLowerCase().includes(search.toLowerCase()) ||
       s.student_id.toLowerCase().includes(search.toLowerCase());
-    const matchesTeam = filterTeam === 'all' || s.house_team === filterTeam;
-    const matchesGrade = filterGrade === 'all' || String(s.grade).startsWith(filterGrade.replace('A', '').replace('B', ''));
-    return matchesSearch && matchesTeam && matchesGrade;
+    const matchesGrade = filterGrade === 'all' || s.grade === filterGrade;
+    return matchesSearch && matchesGrade;
   });
 
   return (
@@ -291,16 +284,6 @@ export default function Students() {
           </div>
           <div className="flex gap-2 flex-wrap">
             <select
-              value={filterTeam}
-              onChange={(e) => setFilterTeam(e.target.value)}
-              className="select"
-            >
-              <option value="all">All Teams</option>
-              {teams.map(team => (
-                <option key={team} value={team}>{team}</option>
-              ))}
-            </select>
-            <select
               value={filterGrade}
               onChange={(e) => setFilterGrade(e.target.value)}
               className="select"
@@ -313,12 +296,12 @@ export default function Students() {
                 </>
               ))}
             </select>
-            {(filterTeam !== 'all' || filterGrade !== 'all') && (
+            {filterGrade !== 'all' && (
               <button
-                onClick={() => { setFilterTeam('all'); setFilterGrade('all'); }}
+                onClick={() => setFilterGrade('all')}
                 className="btn btn-secondary"
               >
-                Clear Filters
+                Clear Filter
               </button>
             )}
           </div>
@@ -337,7 +320,6 @@ export default function Students() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Student</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">ID</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">Grade</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">House/Team</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Observations</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">Status</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Actions</th>
@@ -359,11 +341,6 @@ export default function Students() {
                     </td>
                     <td className="px-4 py-3 font-mono text-sm hide-mobile">{student.student_id}</td>
                     <td className="px-4 py-3 hide-mobile">{student.grade}</td>
-                    <td className="px-4 py-3 hide-mobile">
-                      <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium">
-                        {student.house_team || '-'}
-                      </span>
-                    </td>
                     <td className="px-4 py-3 max-w-[200px]">
                       <p className="text-sm text-gray-600 truncate" title={student.observations || ''}>
                         {student.observations || '-'}
@@ -469,13 +446,19 @@ export default function Students() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="form-label">House/Team</label>
-                  <input
-                    type="text"
-                    value={formData.house_team}
-                    onChange={(e) => setFormData({ ...formData, house_team: e.target.value })}
-                    className="input"
-                  />
+                  <label className="form-label">Grade</label>
+                  <select
+                    value={formData.grade}
+                    onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
+                    className="select"
+                  >
+                    {[6, 7, 8, 9, 10, 11, 12].map(g => (
+                      <>
+                        <option key={`${g}A`} value={`${g}A`}>Grade {g}A</option>
+                        <option key={`${g}B`} value={`${g}B`}>Grade {g}B</option>
+                      </>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="form-label">Counselor</label>
@@ -540,8 +523,7 @@ export default function Students() {
                   <li><code>student_id</code> - Student ID (required)</li>
                   <li><code>last_name</code> - Last Name (required)</li>
                   <li><code>first_name</code> - First Name (required)</li>
-                  <li><code>grade</code> - Grade (1-12, optional, default: 9)</li>
-                  <li><code>house_team</code> - House/Team (optional)</li>
+                  <li><code>grade</code> - Grade (e.g., 7A, 7B, 9, optional, default: 9)</li>
                   <li><code>counselor</code> - Counselor (optional)</li>
                 </ul>
               </div>
