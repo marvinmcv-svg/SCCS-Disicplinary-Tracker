@@ -737,7 +737,7 @@ export default function Incidents() {
       {/* View Incident Modal */}
       {showViewModal && viewIncident && (
         <div className="modal-overlay" onClick={() => setShowViewModal(false)}>
-          <div className="modal max-w-3xl" onClick={(e) => e.stopPropagation()}>
+          <div className="modal max-w-5xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-lg font-semibold">Incident {viewIncident.incident_id}</h2>
