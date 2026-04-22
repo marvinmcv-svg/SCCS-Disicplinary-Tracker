@@ -31,8 +31,13 @@ export default function Students() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [filterGrade, setFilterGrade] = useState<string>('all');
+  const [advisorySearch, setAdvisorySearch] = useState('');
 
   const allAdvisors = ['Mr Adachi', 'Mr Cohello', 'MrDiPascuale', 'Mr Kane', 'Mr Ortiz', 'Ms Aguirre', 'Ms Camacho', 'Ms Fernandez', 'Ms Guaristi', 'Ms Hopp', 'Ms Meneses', 'Ms Molina', 'Ms Palacios', 'Ms Rios', 'Ms Robinson', 'Ms Skelly', 'Ms Tello', 'Ms Tomelic', 'Ms Zuazo', 'Mr Coronado', 'Mr Herbert', 'Mr Kreller', 'Mr Odekerken', 'Mr Soliz'];
+
+  const filteredAdvisorsForSelect = allAdvisors.filter(a =>
+    !advisorySearch || a.toLowerCase().includes(advisorySearch.toLowerCase())
+  );
 
   const [formData, setFormData] = useState({
     student_id: '',
@@ -224,9 +229,11 @@ export default function Students() {
         advisory: student.advisory || '',
         observations: student.observations || '',
       });
+      setAdvisorySearch(student.advisory || '');
     } else {
       setEditingStudent(null);
       setFormData({ student_id: '', last_name: '', first_name: '', grade: '9', counselor: '', advisory: '', observations: '' });
+      setAdvisorySearch('');
     }
     setShowModal(true);
   };
@@ -403,18 +410,24 @@ export default function Students() {
                     required
                   />
                 </div>
-                <div>
+<div>
                   <label className="form-label">Grade</label>
                   <select
                     value={formData.grade}
-                    onChange={(e) => setFormData({ ...formData, grade: Number(e.target.value) })}
+                    onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
                     className="select"
                   >
                     {[6, 7, 8, 9, 10, 11, 12].map(g => (
-                      <option key={g} value={g}>{g}</option>
+                      <>
+                        <option key={`${g}A`} value={`${g}A`}>Grade {g}A</option>
+                        <option key={`${g}B`} value={`${g}B`}>Grade {g}B</option>
+                      </>
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -467,16 +480,58 @@ export default function Students() {
                 </div>
                 <div>
                   <label className="form-label">Advisory</label>
-                  <select
-                    value={formData.advisory}
-                    onChange={(e) => setFormData({ ...formData, advisory: e.target.value })}
-                    className="select"
-                  >
-                    <option value="">Select Advisory</option>
-                    {allAdvisors.map(a => (
-                      <option key={a} value={a}>{a}</option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={advisorySearch}
+                      onChange={(e) => {
+                        setAdvisorySearch(e.target.value);
+                      }}
+                      onFocus={() => setAdvisorySearch(formData.advisory)}
+                      placeholder="Search or select advisor..."
+                      className="input pr-8"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setAdvisorySearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
+                    >
+                      <X className="w-4 h-4 text-gray-400" />
+                    </button>
+                  </div>
+                  {advisorySearch && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {filteredAdvisorsForSelect.length > 0 ? (
+                        filteredAdvisorsForSelect.map(a => (
+                          <button
+                            key={a}
+                            type="button"
+                            onClick={() => {
+                              setFormData({ ...formData, advisory: a });
+                              setAdvisorySearch('');
+                            }}
+                            className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm"
+                          >
+                            {a}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-4 py-2 text-sm text-gray-500">No advisors found</div>
+                      )}
+                    </div>
+                  )}
+                  {formData.advisory && !advisorySearch && (
+                    <div className="mt-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm flex items-center justify-between">
+                      {formData.advisory}
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, advisory: '' })}
+                        className="hover:text-blue-900"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
