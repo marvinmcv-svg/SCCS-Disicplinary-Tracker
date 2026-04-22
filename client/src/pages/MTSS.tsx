@@ -154,7 +154,7 @@ export default function MTSS() {
           <h1 className="text-2xl font-bold text-gray-900">MTSS Interventions</h1>
           <p className="text-gray-500">Multi-Tiered System of Supports tracking</p>
         </div>
-        <button onClick={openModal} className="btn btn-primary">
+        <button onClick={openModal} className="btn btn-success">
           <Plus className="w-5 h-5" />
           New Intervention
         </button>
@@ -248,7 +248,7 @@ export default function MTSS() {
           <div className="text-center py-12 text-gray-400">
             <HeartHandshake className="w-12 h-12 mx-auto mb-2" />
             <p>No interventions found</p>
-            <button onClick={openModal} className="btn btn-primary mt-4">
+            <button onClick={openModal} className="btn btn-success mt-4">
               <Plus className="w-5 h-5" />
               Create First Intervention
             </button>
@@ -346,7 +346,7 @@ export default function MTSS() {
               </div>
 
               <div className="flex justify-end gap-3 pt-4">
-                <button type="button" onClick={closeModal} className="btn bg-gray-100 text-gray-700">
+                <button type="button" onClick={closeModal} className="btn btn-danger">
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary">

@@ -267,7 +267,7 @@ export default function Students() {
             <FileSpreadsheet className="w-5 h-5" />
             Import Excel
           </button>
-          <button onClick={() => openModal()} className="btn btn-primary">
+          <button onClick={() => openModal()} className="btn btn-success">
             <Plus className="w-5 h-5" />
             Add Student
           </button>
@@ -496,7 +496,7 @@ export default function Students() {
               </div>
 
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={closeModal} className="btn btn-secondary flex-1">
+                <button type="button" onClick={closeModal} className="btn btn-danger flex-1">
                   Cancel
                 </button>
                 <button type="submit" disabled={saving} className="btn btn-primary flex-1">

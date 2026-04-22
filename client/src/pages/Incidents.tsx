@@ -522,13 +522,30 @@ export default function Incidents() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="form-label">Witness(es)</label>
-                  <input
-                    type="text"
-                    value={formData.witnesses}
-                    onChange={(e) => setFormData({ ...formData, witnesses: e.target.value })}
-                    className="input"
-                    placeholder="Names of witnesses"
-                  />
+                  <select
+                    multiple
+                    value={formData.witnesses ? formData.witnesses.split(',').map(w => w.trim()) : []}
+                    onChange={(e) => {
+                      const selected = Array.from(e.target.selectedOptions).map(o => o.value);
+                      setFormData({ ...formData, witnesses: selected.join(', ') });
+                    }}
+                    className="select min-h-[80px]"
+                    size="4"
+                  >
+                    <option value="Ms Tomelic">Ms Tomelic</option>
+                    <option value="Ms Aguirre">Ms Aguirre</option>
+                    <option value="Ms Meneses">Ms Meneses</option>
+                    <option value="Mr Soliz">Mr Soliz</option>
+                    <option value="Ms Zuazo">Ms Zuazo</option>
+                    <option value="Mr Kreller">Mr Kreller</option>
+                    <option value="Mr Odekerken">Mr Odekerken</option>
+                    <option value="Ms Hopp">Ms Hopp</option>
+                    <option value="Ms Rios">Ms Rios</option>
+                    <option value="Mr Herbert">Mr Herbert</option>
+                    <option value="Mr Coronado">Mr Coronado</option>
+                    <option value="Ms Camacho">Ms Camacho</option>
+                  </select>
+                  <p className="text-xs text-gray-400 mt-1">Hold Ctrl/Cmd to select multiple</p>
                 </div>
                 <div>
                   <label className="form-label">Action Taken</label>
@@ -559,7 +576,7 @@ export default function Incidents() {
               </div>
 
               <div className="flex justify-end gap-3 pt-4">
-                <button type="button" onClick={closeModal} className="btn bg-gray-100 text-gray-700">
+                <button type="button" onClick={closeModal} className="btn btn-danger">
                   Cancel
                 </button>
                 <button type="submit" disabled={saving} className="btn btn-primary">
@@ -695,7 +712,7 @@ export default function Incidents() {
                     <span className="text-green-600">Resolved on {viewIncident.resolved_date}</span>
                   )}
                 </div>
-                <button onClick={() => setShowViewModal(false)} className="btn bg-gray-100 text-gray-700">
+                <button onClick={() => setShowViewModal(false)} className="btn btn-secondary">
                   Close
                 </button>
               </div>
