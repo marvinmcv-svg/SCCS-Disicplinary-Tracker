@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Search, X, AlertCircle, Phone, CheckCircle, Clock, Loader, Check } from 'lucide-react';
+import { Plus, Search, X, AlertCircle, Phone, CheckCircle, Clock, Loader, Check, Trash2 } from 'lucide-react';
 import api from '../lib/api';
 
 interface Student {
@@ -34,6 +34,7 @@ interface Incident {
   location: string;
   description: string;
   witnesses: string;
+  advisor: string;
   parent_contacted: string;
   contact_date: string;
   action_taken: string;
@@ -71,6 +72,7 @@ export default function Incidents() {
     location: '',
     description: '',
     witnesses: '',
+    advisor: '',
     action_taken: '',
     consequence: '',
     notes: '',
@@ -84,17 +86,25 @@ export default function Incidents() {
   const [studentSearch, setStudentSearch] = useState('');
   const [violationSearch, setViolationSearch] = useState('');
   const [witnessSearch, setWitnessSearch] = useState('');
+  const [advisorSearch, setAdvisorSearch] = useState('');
   const [showStudentDropdown, setShowStudentDropdown] = useState(false);
   const [showViolationDropdown, setShowViolationDropdown] = useState(false);
   const [showWitnessDropdown, setShowWitnessDropdown] = useState(false);
+  const [showAdvisorDropdown, setShowAdvisorDropdown] = useState(false);
   const studentRef = useRef<HTMLDivElement>(null);
   const violationRef = useRef<HTMLDivElement>(null);
   const witnessRef = useRef<HTMLDivElement>(null);
+  const advisorRef = useRef<HTMLDivElement>(null);
 
   const allWitnesses = ['Ms Tomelic', 'Ms Aguirre', 'Ms Meneses', 'Mr Soliz', 'Ms Zuazo', 'Mr Kreller', 'Mr Odekerken', 'Ms Hopp', 'Ms Rios', 'Mr Herbert', 'Mr Coronado', 'Ms Camacho'];
+  const allAdvisors = ['Ms Tomelic', 'Ms Aguirre', 'Ms Meneses', 'Mr Soliz', 'Ms Zuazo', 'Mr Kreller', 'Mr Odekerken', 'Ms Hopp', 'Ms Rios', 'Mr Herbert', 'Mr Coronado', 'Ms Camacho'];
 
   const filteredWitnesses = allWitnesses.filter(w =>
     !witnessSearch || w.toLowerCase().includes(witnessSearch.toLowerCase())
+  );
+
+  const filteredAdvisors = allAdvisors.filter(a =>
+    !advisorSearch || a.toLowerCase().includes(advisorSearch.toLowerCase())
   );
 
   const selectedWitnesses = formData.witnesses ? formData.witnesses.split(',').map(w => w.trim()).filter(Boolean) : [];
@@ -109,6 +119,9 @@ export default function Incidents() {
       }
       if (witnessRef.current && !witnessRef.current.contains(event.target as Node)) {
         setShowWitnessDropdown(false);
+      }
+      if (advisorRef.current && !advisorRef.current.contains(event.target as Node)) {
+        setShowAdvisorDropdown(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -203,6 +216,17 @@ export default function Incidents() {
     }
   };
 
+  const handleDelete = async (id: number) => {
+    try {
+      await api.delete(`/incidents/${id}`);
+      loadData();
+      setShowViewModal(false);
+    } catch (error) {
+      console.error(error);
+      alert('Failed to delete incident');
+    }
+  };
+
   const handleParentContact = async (id: number) => {
     try {
       await api.put(`/incidents/${id}`, {
@@ -228,12 +252,15 @@ export default function Incidents() {
       location: '',
       description: '',
       witnesses: '',
+      advisor: '',
       action_taken: '',
       consequence: '',
       notes: '',
     });
     setStudentSearch('');
     setViolationSearch('');
+    setWitnessSearch('');
+    setAdvisorSearch('');
     setShowModal(true);
   };
 
@@ -603,6 +630,60 @@ export default function Incidents() {
                     </div>
                   )}
                 </div>
+                <div ref={advisorRef} className="relative">
+                  <label className="form-label">Advisor</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={advisorSearch}
+                      onChange={(e) => {
+                        setAdvisorSearch(e.target.value);
+                        setShowAdvisorDropdown(true);
+                      }}
+                      onFocus={() => setShowAdvisorDropdown(true)}
+                      placeholder="Search advisor..."
+                      className="input pr-8"
+                    />
+                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  </div>
+                  {showAdvisorDropdown && filteredAdvisors.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {filteredAdvisors.map(a => (
+                        <button
+                          key={a}
+                          type="button"
+                          onClick={() => {
+                            setFormData({ ...formData, advisor: a });
+                            setAdvisorSearch('');
+                            setShowAdvisorDropdown(false);
+                          }}
+                          className={`w-full text-left px-4 py-2 hover:bg-gray-50 text-sm flex items-center justify-between ${
+                            formData.advisor === a ? 'bg-blue-50' : ''
+                          }`}
+                        >
+                          {a}
+                          {formData.advisor === a && (
+                            <Check className="w-4 h-4 text-blue-500" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {formData.advisor && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
+                        {formData.advisor}
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, advisor: '' })}
+                          className="hover:text-purple-900"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    </div>
+                  )}
+                </div>
                 <div>
                   <label className="form-label">Action Taken</label>
                   <select
@@ -795,9 +876,21 @@ export default function Incidents() {
                     <span className="text-green-600">Resolved on {viewIncident.resolved_date}</span>
                   )}
                 </div>
-                <button onClick={() => setShowViewModal(false)} className="btn btn-secondary">
-                  Close
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (confirm('Are you sure you want to delete this incident?')) {
+                        handleDelete(viewIncident.id);
+                      }
+                    }}
+                    className="btn btn-danger"
+                  >
+                    <Trash2 className="w-4 h-4" /> Delete
+                  </button>
+                  <button onClick={() => setShowViewModal(false)} className="btn btn-danger">
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           </div>

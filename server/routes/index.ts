@@ -188,7 +188,7 @@ router.get('/api/incidents/:id', authenticate, async (req: Request, res: Respons
 
 router.post('/api/incidents', authenticate, async (req: Request, res: Response) => {
   try {
-    const { date, time, student_id, violation_id, location, description, witnesses, action_taken, consequence, notes } = req.body;
+    const { date, time, student_id, violation_id, location, description, witnesses, advisor, action_taken, consequence, notes } = req.body;
 
     const datePrefix = date.replace(/-/g, '').slice(2);
     const count = await queryOne('SELECT COUNT(*) as count FROM incidents WHERE incident_id LIKE $1', [`${datePrefix}%`]);
@@ -197,8 +197,8 @@ router.post('/api/incidents', authenticate, async (req: Request, res: Response) 
     const violation = await queryOne('SELECT * FROM violations WHERE id = $1', [violation_id]);
 
     await runQuery(
-      `INSERT INTO incidents (incident_id, date, time, student_id, violation_id, location, description, witnesses, action_taken, consequence, points_deducted, days_oss, administrator_id, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+      `INSERT INTO incidents (incident_id, date, time, student_id, violation_id, location, description, witnesses, advisor, action_taken, consequence, points_deducted, days_oss, administrator_id, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
       [
         incidentId,
         date,
@@ -208,6 +208,7 @@ router.post('/api/incidents', authenticate, async (req: Request, res: Response) 
         location,
         description,
         witnesses,
+        advisor,
         action_taken,
         consequence || violation?.default_consequence,
         violation?.points_deduction || -2,
@@ -224,7 +225,7 @@ router.post('/api/incidents', authenticate, async (req: Request, res: Response) 
 
 router.put('/api/incidents/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const { status, parent_contacted, contact_date, action_taken, consequence, days_iss, days_oss, detention_hours, notes, follow_up_needed, resolved_date } = req.body;
+    const { status, parent_contacted, contact_date, action_taken, consequence, days_iss, days_oss, detention_hours, notes, follow_up_needed, resolved_date, advisor } = req.body;
     const id = parseInt(req.params.id);
 
     const updates: string[] = [];
@@ -241,6 +242,7 @@ router.put('/api/incidents/:id', authenticate, async (req: Request, res: Respons
     if (notes !== undefined) { updates.push('notes = $' + (values.length + 1)); values.push(notes); }
     if (follow_up_needed !== undefined) { updates.push('follow_up_needed = $' + (values.length + 1)); values.push(follow_up_needed); }
     if (resolved_date !== undefined) { updates.push('resolved_date = $' + (values.length + 1)); values.push(resolved_date === null ? null : resolved_date); }
+    if (advisor !== undefined) { updates.push('advisor = $' + (values.length + 1)); values.push(advisor); }
 
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
