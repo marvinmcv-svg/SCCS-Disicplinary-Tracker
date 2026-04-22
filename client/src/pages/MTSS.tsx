@@ -20,6 +20,7 @@ interface Intervention {
   end_date: string;
   progress: string;
   notes: string;
+  advisor?: string;
 }
 
 const tierOptions = [
@@ -42,6 +43,12 @@ const interventionTypes = [
   'Alternative Placement',
 ];
 
+const allAdvisors = ['Ms Tomelic', 'Ms Aguirre', 'Ms Meneses', 'Mr Soliz', 'Ms Zuazo', 'Mr Kreller', 'Mr Odekerken', 'Ms Hopp', 'Ms Rios', 'Mr Herbert', 'Mr Coronado', 'Ms Camacho'];
+
+const filteredAdvisors = (search: string) => allAdvisors.filter(a =>
+  !search || a.toLowerCase().includes(search.toLowerCase())
+);
+
 export default function MTSS() {
   const [students, setStudents] = useState<Student[]>([]);
   const [interventions, setInterventions] = useState<Intervention[]>([]);
@@ -49,10 +56,13 @@ export default function MTSS() {
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState('');
   const [filterTier, setFilterTier] = useState('');
+  const [filterAdvisor, setFilterAdvisor] = useState('');
+  const [advisorSearch, setAdvisorSearch] = useState('');
   const [formData, setFormData] = useState({
     student_id: '' as string | number,
     tier: 1,
     intervention: '',
+    advisor: '',
     start_date: new Date().toISOString().split('T')[0],
     end_date: '',
     notes: '',
@@ -84,6 +94,7 @@ export default function MTSS() {
         student_id: Number(formData.student_id),
         tier: formData.tier,
         intervention: formData.intervention,
+        advisor: formData.advisor || null,
         start_date: formData.start_date,
         end_date: formData.end_date || null,
         notes: formData.notes,
@@ -110,6 +121,7 @@ export default function MTSS() {
       student_id: '',
       tier: 1,
       intervention: '',
+      advisor: '',
       start_date: new Date().toISOString().split('T')[0],
       end_date: '',
       notes: '',
@@ -126,7 +138,8 @@ export default function MTSS() {
       i.last_name.toLowerCase().includes(search.toLowerCase()) ||
       i.first_name.toLowerCase().includes(search.toLowerCase());
     const matchesTier = !filterTier || i.tier === parseInt(filterTier);
-    return matchesSearch && matchesTier;
+    const matchesAdvisor = !filterAdvisor || i.advisor === filterAdvisor;
+    return matchesSearch && matchesTier && matchesAdvisor;
   });
 
   const getTierColor = (tier: number) => {
@@ -185,6 +198,18 @@ export default function MTSS() {
               className="input pl-10"
             />
           </div>
+          <div className="relative">
+            <select
+              value={filterAdvisor}
+              onChange={(e) => setFilterAdvisor(e.target.value)}
+              className="select w-48"
+            >
+              <option value="">All Advisors</option>
+              {allAdvisors.map(a => (
+                <option key={a} value={a}>{a}</option>
+              ))}
+            </select>
+          </div>
           <select
             value={filterTier}
             onChange={(e) => setFilterTier(e.target.value)}
@@ -195,6 +220,14 @@ export default function MTSS() {
             <option value="2">Tier 2</option>
             <option value="3">Tier 3</option>
           </select>
+          {(filterAdvisor || filterTier) && (
+            <button
+              onClick={() => { setFilterAdvisor(''); setFilterTier(''); }}
+              className="btn btn-secondary"
+            >
+              Clear
+            </button>
+          )}
         </div>
       </div>
 
@@ -209,6 +242,7 @@ export default function MTSS() {
                 <th>Student</th>
                 <th>Tier</th>
                 <th>Intervention</th>
+                <th>Advisor</th>
                 <th>Start Date</th>
                 <th>End Date</th>
                 <th>Progress</th>
@@ -225,6 +259,7 @@ export default function MTSS() {
                     </span>
                   </td>
                   <td>{intervention.intervention}</td>
+                  <td>{intervention.advisor || '-'}</td>
                   <td>{intervention.start_date}</td>
                   <td>{intervention.end_date || '-'}</td>
                   <td>
@@ -309,6 +344,20 @@ export default function MTSS() {
                   <option value="">Select Intervention</option>
                   {interventionTypes.map(type => (
                     <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="form-label">Advisor</label>
+                <select
+                  value={formData.advisor || ''}
+                  onChange={(e) => setFormData({ ...formData, advisor: e.target.value })}
+                  className="select"
+                >
+                  <option value="">Select Advisor</option>
+                  {allAdvisors.map(a => (
+                    <option key={a} value={a}>{a}</option>
                   ))}
                 </select>
               </div>

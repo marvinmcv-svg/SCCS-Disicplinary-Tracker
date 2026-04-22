@@ -316,10 +316,10 @@ router.get('/api/mtss', authenticate, async (req: Request, res: Response) => {
 
 router.post('/api/mtss', authenticate, async (req: Request, res: Response) => {
   try {
-    const { student_id, tier, intervention, start_date, end_date, progress, notes } = req.body;
+    const { student_id, tier, intervention, advisor, start_date, end_date, progress, notes } = req.body;
     const result = await runQuery(
-      'INSERT INTO mtss_interventions (student_id, tier, intervention, start_date, end_date, progress, notes) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-      [student_id, tier, intervention, start_date, end_date, progress || 'Not Started', notes]
+      'INSERT INTO mtss_interventions (student_id, tier, intervention, advisor, start_date, end_date, progress, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+      [student_id, tier, intervention, advisor, start_date, end_date, progress || 'Not Started', notes]
     );
     res.json({ id: result.lastInsertRowid });
   } catch (error: any) {
