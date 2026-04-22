@@ -848,21 +848,21 @@ export default function Incidents() {
 
               {/* Status Update */}
               <div className="flex items-center justify-between border-t pt-4">
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-medium">Update Status:</span>
+                <span className="text-sm font-medium mr-3">Update Status:</span>
+                <div className="flex items-center gap-3">
                   {viewIncident.status !== 'Resolved' && (
                     <>
                       <button
                         onClick={() => handleStatusUpdate(viewIncident.id, 'Pending')}
-                        className="btn bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+                        className="btn bg-yellow-100 text-yellow-700 hover:bg-yellow-200 text-sm py-1.5 px-3"
                       >
-                        <Clock className="w-4 h-4" /> Pending
+                        <Clock className="w-3.5 h-3.5" /> Pending
                       </button>
                       <button
                         onClick={() => handleStatusUpdate(viewIncident.id, 'Resolved')}
-                        className="btn btn-success"
+                        className="btn btn-success text-sm py-1.5 px-3"
                       >
-                        <CheckCircle className="w-4 h-4" /> Resolved
+                        <CheckCircle className="w-3.5 h-3.5" /> Resolved
                       </button>
                     </>
                   )}
@@ -870,26 +870,24 @@ export default function Incidents() {
                     <>
                       <button
                         onClick={() => handleStatusUpdate(viewIncident.id, 'Open')}
-                        className="btn btn-warning"
+                        className="btn btn-warning text-sm py-1.5 px-3"
                       >
-                        <AlertCircle className="w-4 h-4" /> Reopen Case
+                        <AlertCircle className="w-3.5 h-3.5" /> Reopen
                       </button>
-                      <span className="text-green-600 text-sm ml-2">Resolved on {viewIncident.resolved_date}</span>
+                      <span className="text-green-600 text-xs ml-2">Resolved {viewIncident.resolved_date}</span>
                     </>
                   )}
-                </div>
-                <div className="flex gap-4">
                   <button
                     onClick={() => {
                       if (confirm('Are you sure you want to delete this incident?')) {
                         handleDelete(viewIncident.id);
                       }
                     }}
-                    className="btn btn-danger"
+                    className="btn btn-danger text-sm py-1.5 px-3 ml-4"
                   >
-                    <Trash2 className="w-4 h-4" /> Delete
+                    <Trash2 className="w-3.5 h-3.5" /> Delete
                   </button>
-                  <button onClick={() => setShowViewModal(false)} className="btn btn-secondary">
+                  <button onClick={() => setShowViewModal(false)} className="btn btn-secondary text-sm py-1.5 px-3">
                     Close
                   </button>
                 </div>
