@@ -31,8 +31,13 @@ export default function Students() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [filterGrade, setFilterGrade] = useState<string>('all');
+  const [advisorSearch, setAdvisorSearch] = useState('');
 
   const allAdvisors = ['Mr Adachi', 'Mr Cohello', 'MrDiPascuale', 'Mr Kane', 'Mr Ortiz', 'Ms Aguirre', 'Ms Camacho', 'Ms Fernandez', 'Ms Guaristi', 'Ms Hopp', 'Ms Meneses', 'Ms Molina', 'Ms Palacios', 'Ms Rios', 'Ms Robinson', 'Ms Skelly', 'Ms Tello', 'Ms Tomelic', 'Ms Zuazo', 'Mr Coronado', 'Mr Herbert', 'Mr Kreller', 'Mr Odekerken', 'Mr Soliz'];
+
+  const filteredAdvisors = allAdvisors.filter(a =>
+    a.toLowerCase().includes(advisorSearch.toLowerCase())
+  );
 
   const [formData, setFormData] = useState({
     student_id: '',
@@ -224,9 +229,11 @@ export default function Students() {
         advisory: student.advisory || '',
         observations: student.observations || '',
       });
+      setAdvisorSearch(student.advisory || '');
     } else {
       setEditingStudent(null);
       setFormData({ student_id: '', last_name: '', first_name: '', grade: '9', counselor: '', advisory: '', observations: '' });
+      setAdvisorSearch('');
     }
     setShowModal(true);
   };
@@ -452,19 +459,37 @@ export default function Students() {
                 />
               </div>
 
-              <div>
+              <div className="relative">
                 <label className="form-label">Advisory</label>
-                <select
-                  value={formData.advisory}
-                  onChange={(e) => setFormData({ ...formData, advisory: e.target.value })}
-                  className="select"
-                >
-                  <option value="">Select Advisory</option>
-                  {allAdvisors.map(a => (
-                    <option key={a} value={a}>{a}</option>
-                  ))}
-                </select>
+                <input
+                  type="text"
+                  value={advisorSearch}
+                  onChange={(e) => setAdvisorSearch(e.target.value)}
+                  placeholder="Search or select..."
+                  className="input pr-8"
+                />
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" style={{top: advisorSearch ? 'calc(50% + 8px)' : '50%'}} />
               </div>
+              {advisorSearch && (
+                <div className="bg-white border rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                  {filteredAdvisors.map(a => (
+                    <button
+                      key={a}
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, advisory: a });
+                        setAdvisorSearch(a);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
+                    >
+                      {a}
+                    </button>
+                  ))}
+                  {filteredAdvisors.length === 0 && (
+                    <div className="px-3 py-2 text-gray-500 text-sm">No matches</div>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="form-label">Observations / Notes</label>
