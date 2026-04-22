@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Search, Edit, Trash2, X, User, Check, Loader, Upload, FileSpreadsheet } from 'lucide-react';
+import { Plus, Search, X, User, Check, Loader, Upload, FileSpreadsheet } from 'lucide-react';
 import api from '../lib/api';
 import * as XLSX from 'xlsx';
 
@@ -322,7 +322,6 @@ export default function Students() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">Grade</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Observations</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">Status</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -333,10 +332,13 @@ export default function Students() {
                         <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                           <User className="w-5 h-5 text-blue-600" />
                         </div>
-                        <div>
-                          <p className="font-semibold text-gray-900">{student.last_name}, {student.first_name}</p>
+                        <button
+                          onClick={() => openModal(student)}
+                          className="text-left hover:text-blue-600 cursor-pointer"
+                        >
+                          <p className="font-semibold">{student.last_name}, {student.first_name}</p>
                           <p className="text-xs text-gray-500 md:hidden">{student.student_id}</p>
-                        </div>
+                        </button>
                       </div>
                     </td>
                     <td className="px-4 py-3 font-mono text-sm hide-mobile">{student.student_id}</td>
@@ -354,20 +356,6 @@ export default function Students() {
                       }`}>
                         {student.conduct_status || 'Unknown'}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => openModal(student)}
-                        className="p-2 hover:bg-gray-100 rounded-lg text-blue-600"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(student.id)}
-                        className="p-2 hover:bg-gray-100 rounded-lg text-red-600"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
                     </td>
                   </tr>
                 ))}
