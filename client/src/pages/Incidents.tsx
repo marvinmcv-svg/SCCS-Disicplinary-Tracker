@@ -83,10 +83,21 @@ export default function Incidents() {
 
   const [studentSearch, setStudentSearch] = useState('');
   const [violationSearch, setViolationSearch] = useState('');
+  const [witnessSearch, setWitnessSearch] = useState('');
   const [showStudentDropdown, setShowStudentDropdown] = useState(false);
   const [showViolationDropdown, setShowViolationDropdown] = useState(false);
+  const [showWitnessDropdown, setShowWitnessDropdown] = useState(false);
   const studentRef = useRef<HTMLDivElement>(null);
   const violationRef = useRef<HTMLDivElement>(null);
+  const witnessRef = useRef<HTMLDivElement>(null);
+
+  const allWitnesses = ['Ms Tomelic', 'Ms Aguirre', 'Ms Meneses', 'Mr Soliz', 'Ms Zuazo', 'Mr Kreller', 'Mr Odekerken', 'Ms Hopp', 'Ms Rios', 'Mr Herbert', 'Mr Coronado', 'Ms Camacho'];
+
+  const filteredWitnesses = allWitnesses.filter(w =>
+    !witnessSearch || w.toLowerCase().includes(witnessSearch.toLowerCase())
+  );
+
+  const selectedWitnesses = formData.witnesses ? formData.witnesses.split(',').map(w => w.trim()).filter(Boolean) : [];
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -95,6 +106,9 @@ export default function Incidents() {
       }
       if (violationRef.current && !violationRef.current.contains(event.target as Node)) {
         setShowViolationDropdown(false);
+      }
+      if (witnessRef.current && !witnessRef.current.contains(event.target as Node)) {
+        setShowWitnessDropdown(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -333,7 +347,14 @@ export default function Incidents() {
                     </td>
                     <td>
                       <button
-                        onClick={() => { setViewIncident(incident); setShowViewModal(true); }}
+                        onClick={() => {
+                          setViewIncident(incident);
+                          setContactData({
+                            parent_contacted: incident.parent_contacted || 'No',
+                            contact_date: incident.contact_date || '',
+                          });
+                          setShowViewModal(true);
+                        }}
                         className="text-blue-600 hover:text-blue-700 text-sm font-medium"
                       >
                         View
@@ -520,32 +541,67 @@ export default function Incidents() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
+                <div ref={witnessRef} className="relative">
                   <label className="form-label">Witness(es)</label>
-                  <select
-                    multiple
-                    value={formData.witnesses ? formData.witnesses.split(',').map(w => w.trim()) : []}
-                    onChange={(e) => {
-                      const selected = Array.from(e.target.selectedOptions).map(o => o.value);
-                      setFormData({ ...formData, witnesses: selected.join(', ') });
-                    }}
-                    className="select min-h-[80px]"
-                    size="4"
-                  >
-                    <option value="Ms Tomelic">Ms Tomelic</option>
-                    <option value="Ms Aguirre">Ms Aguirre</option>
-                    <option value="Ms Meneses">Ms Meneses</option>
-                    <option value="Mr Soliz">Mr Soliz</option>
-                    <option value="Ms Zuazo">Ms Zuazo</option>
-                    <option value="Mr Kreller">Mr Kreller</option>
-                    <option value="Mr Odekerken">Mr Odekerken</option>
-                    <option value="Ms Hopp">Ms Hopp</option>
-                    <option value="Ms Rios">Ms Rios</option>
-                    <option value="Mr Herbert">Mr Herbert</option>
-                    <option value="Mr Coronado">Mr Coronado</option>
-                    <option value="Ms Camacho">Ms Camacho</option>
-                  </select>
-                  <p className="text-xs text-gray-400 mt-1">Hold Ctrl/Cmd to select multiple</p>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={witnessSearch}
+                      onChange={(e) => {
+                        setWitnessSearch(e.target.value);
+                        setShowWitnessDropdown(true);
+                      }}
+                      onFocus={() => setShowWitnessDropdown(true)}
+                      placeholder="Search witnesses..."
+                      className="input pr-8"
+                    />
+                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  </div>
+                  {showWitnessDropdown && filteredWitnesses.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {filteredWitnesses.map(w => (
+                        <button
+                          key={w}
+                          type="button"
+                          onClick={() => {
+                            const current = formData.witnesses ? formData.witnesses.split(',').map(x => x.trim()) : [];
+                            if (current.includes(w)) {
+                              setFormData({ ...formData, witnesses: current.filter(x => x !== w).join(', ') });
+                            } else {
+                              setFormData({ ...formData, witnesses: [...current, w].join(', ') });
+                            }
+                            setWitnessSearch('');
+                          }}
+                          className={`w-full text-left px-4 py-2 hover:bg-gray-50 text-sm flex items-center justify-between ${
+                            (formData.witnesses || '').split(',').map(x => x.trim()).includes(w) ? 'bg-blue-50' : ''
+                          }`}
+                        >
+                          {w}
+                          {(formData.witnesses || '').split(',').map(x => x.trim()).includes(w) && (
+                            <Check className="w-4 h-4 text-blue-500" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {selectedWitnesses.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {selectedWitnesses.map(w => (
+                        <span key={w} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
+                          {w}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData({ ...formData, witnesses: selectedWitnesses.filter(x => x !== w).join(', ') });
+                            }}
+                            className="hover:text-blue-900"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="form-label">Action Taken</label>
@@ -661,25 +717,44 @@ export default function Incidents() {
                 <div className="flex items-center gap-2 mb-2">
                   <select
                     value={contactData.parent_contacted}
-                    onChange={(e) => setContactData({ ...contactData, parent_contacted: e.target.value })}
-                    className="select w-32"
+                    onChange={async (e) => {
+                      const newStatus = e.target.value;
+                      const newDate = newStatus === 'Yes' ? new Date().toISOString().split('T')[0] : '';
+                      setContactData({ parent_contacted: newStatus, contact_date: newDate });
+                      try {
+                        await api.put(`/incidents/${viewIncident.id}`, {
+                          parent_contacted: newStatus,
+                          contact_date: newDate || null,
+                        });
+                        loadData();
+                      } catch (error) {
+                        console.error(error);
+                      }
+                    }}
+                    className="select w-40"
                   >
                     <option value="No">Not Contacted</option>
                     <option value="Yes">Contacted</option>
                   </select>
-                  <input
-                    type="date"
-                    value={contactData.contact_date}
-                    onChange={(e) => setContactData({ ...contactData, contact_date: e.target.value })}
-                    className="input w-40"
-                  />
-                  <button
-                    onClick={() => handleParentContact(viewIncident.id)}
-                    className="btn btn-primary"
-                  >
-                    <Phone className="w-4 h-4" />
-                    Save
-                  </button>
+                  {contactData.parent_contacted === 'Yes' && (
+                    <input
+                      type="date"
+                      value={contactData.contact_date}
+                      onChange={async (e) => {
+                        const newDate = e.target.value;
+                        setContactData({ ...contactData, contact_date: newDate });
+                        try {
+                          await api.put(`/incidents/${viewIncident.id}`, {
+                            contact_date: newDate,
+                          });
+                          loadData();
+                        } catch (error) {
+                          console.error(error);
+                        }
+                      }}
+                      className="input w-40"
+                    />
+                  )}
                 </div>
                 <p className="text-sm">
                   Status: <span className={viewIncident.parent_contacted === 'Yes' ? 'text-green-600' : 'text-gray-400'}>
@@ -707,6 +782,14 @@ export default function Incidents() {
                         <CheckCircle className="w-4 h-4" /> Resolved
                       </button>
                     </>
+                  )}
+                  {viewIncident.status === 'Resolved' && (
+                    <button
+                      onClick={() => handleStatusUpdate(viewIncident.id, 'Open')}
+                      className="btn btn-warning"
+                    >
+                      <AlertCircle className="w-4 h-4" /> Reopen Case
+                    </button>
                   )}
                   {viewIncident.status === 'Resolved' && (
                     <span className="text-green-600">Resolved on {viewIncident.resolved_date}</span>
