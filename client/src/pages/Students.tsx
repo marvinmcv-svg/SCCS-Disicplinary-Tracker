@@ -242,7 +242,7 @@ export default function Students() {
       s.first_name.toLowerCase().includes(search.toLowerCase()) ||
       s.student_id.toLowerCase().includes(search.toLowerCase());
     const matchesTeam = filterTeam === 'all' || s.house_team === filterTeam;
-    const matchesGrade = filterGrade === 'all' || String(s.grade) === filterGrade;
+    const matchesGrade = filterGrade === 'all' || String(s.grade).startsWith(filterGrade.replace('A', '').replace('B', ''));
     return matchesSearch && matchesTeam && matchesGrade;
   });
 
@@ -307,7 +307,10 @@ export default function Students() {
             >
               <option value="all">All Grades</option>
               {[6, 7, 8, 9, 10, 11, 12].map(g => (
-                <option key={g} value={String(g)}>Grade {g}</option>
+                <>
+                  <option key={`${g}A`} value={`${g}A`}>Grade {g}A</option>
+                  <option key={`${g}B`} value={`${g}B`}>Grade {g}B</option>
+                </>
               ))}
             </select>
             {(filterTeam !== 'all' || filterGrade !== 'all') && (
