@@ -183,6 +183,7 @@ export default function Students() {
         const first_name = getValue(rowData, 'first_name', 'firstname', 'first', 'first name');
         const grade = parseGrade(getValue(rowData, 'grade'));
         const counselor = getValue(rowData, 'counselor');
+        const advisory = getValue(rowData, 'advisory');
 
         if (!student_id || !last_name || !first_name) {
           if (student_id || last_name || first_name) {
@@ -192,7 +193,7 @@ export default function Students() {
         }
 
         try {
-          await api.post('/students/bulk', { student_id, last_name, first_name, grade, counselor });
+          await api.post('/students/bulk', { student_id, last_name, first_name, grade, counselor, advisory });
           results.success++;
         } catch (error: any) {
           results.errors.push(`Failed to add ${first_name} ${last_name}: ${error.response?.data?.error || 'Unknown error'}`);
@@ -211,7 +212,7 @@ export default function Students() {
       }
     } catch (error) {
       console.error('Excel parse error:', error);
-      setUploadResults({ success: 0, errors: ['Failed to parse Excel file. Please ensure it\'s a valid .xlsx or .xls file.'] });
+      setUploadResults({ success: 0, errors: ['Failed to parse file. Please ensure it\'s a valid .xlsx, .xls, or .csv file.'] });
     } finally {
       setUploading(false);
     }
@@ -521,7 +522,7 @@ export default function Students() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold flex items-center gap-2">
                 <FileSpreadsheet className="w-5 h-5 text-green-600" />
-                Import Students from Excel
+                Import Students from Spreadsheet
               </h2>
               <button onClick={() => { setShowUploadModal(false); setSelectedFile(null); setUploadResults(null); }} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5" />
@@ -529,15 +530,17 @@ export default function Students() {
             </div>
 
             <div className="space-y-4">
-              <div className="bg-blue-50 rounded-xl p-4 text-sm">
-                <p className="font-semibold text-blue-800 mb-2">Excel File Format:</p>
-                <p className="text-blue-700">Your Excel file should have columns with these headers:</p>
-                <ul className="text-blue-700 mt-1 ml-4 list-disc">
-                  <li><code>student_id</code> - Student ID (required)</li>
-                  <li><code>last_name</code> - Last Name (required)</li>
-                  <li><code>first_name</code> - First Name (required)</li>
-                  <li><code>grade</code> - Grade (e.g., 7A, 7B, 9, optional, default: 9)</li>
-                  <li><code>counselor</code> - Counselor (optional)</li>
+              <div className="bg-green-50 rounded-xl p-4 text-sm">
+                <p className="font-semibold text-green-800 mb-2">Supported Formats:</p>
+                <p className="text-green-700">Upload any spreadsheet: <code className="bg-green-100 px-1 rounded">.xlsx</code>, <code className="bg-green-100 px-1 rounded">.xls</code>, or <code className="bg-green-100 px-1 rounded">.csv</code></p>
+                <p className="text-green-700 mt-2">The system will automatically detect columns:</p>
+                <ul className="text-green-700 mt-1 ml-4 list-disc">
+                  <li><strong>Student ID</strong> - detected from: student_id, studentid, student, id, student id</li>
+                  <li><strong>Last Name</strong> - detected from: last_name, lastname, surname, last name, last</li>
+                  <li><strong>First Name</strong> - detected from: first_name, firstname, first name, first</li>
+                  <li><strong>Grade</strong> - detected from: grade (e.g., 7A, 7B, 9)</li>
+                  <li><strong>Counselor</strong> - automatically detected</li>
+                  <li><strong>Advisory</strong> - automatically detected</li>
                 </ul>
               </div>
 
@@ -545,7 +548,7 @@ export default function Students() {
                 <input
                   type="file"
                   ref={fileInputRef}
-                  accept=".xlsx,.xls"
+                  accept=".xlsx,.xls,.csv"
                   onChange={handleFileChange}
                   className="hidden"
                 />
@@ -563,7 +566,7 @@ export default function Students() {
                   </div>
                 ) : (
                   <div>
-                    <p className="text-gray-600 mb-2">Click to select an Excel file</p>
+                    <p className="text-gray-600 mb-2">Click to select a spreadsheet file</p>
                     <button
                       onClick={() => fileInputRef.current?.click()}
                       className="btn btn-primary"

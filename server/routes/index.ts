@@ -125,10 +125,10 @@ router.delete('/api/students/:id', authenticate, async (req: Request, res: Respo
 
 router.post('/api/students/bulk', authenticate, async (req: Request, res: Response) => {
   try {
-    const { student_id, last_name, first_name, grade, counselor } = req.body;
+    const { student_id, last_name, first_name, grade, counselor, advisory } = req.body;
     await runQuery(
-      'INSERT INTO students (student_id, last_name, first_name, grade, counselor, gpa, total_points, conduct_status, observations) VALUES ($1, $2, $3, $4, $5, 0.0, 100, $6, $7)',
-      [student_id, last_name, first_name, grade || '9', counselor || '', 'Good', '']
+      'INSERT INTO students (student_id, last_name, first_name, grade, counselor, advisory, gpa, total_points, conduct_status, observations) VALUES ($1, $2, $3, $4, $5, $6, 0.0, 100, $7, $8)',
+      [student_id, last_name, first_name, grade || '9', counselor || '', advisory || '', 'Good', '']
     );
     res.json({ success: true });
   } catch (error: any) {
