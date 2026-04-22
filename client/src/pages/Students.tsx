@@ -392,7 +392,7 @@ export default function Students() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="form-label">Student ID</label>
                   <input
@@ -420,52 +420,50 @@ export default function Students() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="form-label">Last Name</label>
-                  <input
-                    type="text"
-                    value={formData.last_name}
-                    onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                    className="input"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="form-label">First Name</label>
-                  <input
-                    type="text"
-                    value={formData.first_name}
-                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                    className="input"
-                    required
-                  />
-                </div>
+              <div>
+                <label className="form-label">Last Name</label>
+                <input
+                  type="text"
+                  value={formData.last_name}
+                  onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                  className="input"
+                  required
+                />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="form-label">Counselor</label>
-                  <input
-                    type="text"
-                    value={formData.counselor}
-                    onChange={(e) => setFormData({ ...formData, counselor: e.target.value })}
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label className="form-label">Advisory</label>
-                  <select
-                    value={formData.advisory}
-                    onChange={(e) => setFormData({ ...formData, advisory: e.target.value })}
-                    className="select"
-                  >
-                    <option value="">Select Advisory</option>
-                    {allAdvisors.map(a => (
-                      <option key={a} value={a}>{a}</option>
-                    ))}
-                  </select>
-                </div>
+              <div>
+                <label className="form-label">First Name</label>
+                <input
+                  type="text"
+                  value={formData.first_name}
+                  onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                  className="input"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="form-label">Counselor</label>
+                <input
+                  type="text"
+                  value={formData.counselor}
+                  onChange={(e) => setFormData({ ...formData, counselor: e.target.value })}
+                  className="input"
+                />
+              </div>
+
+              <div>
+                <label className="form-label">Advisory</label>
+                <select
+                  value={formData.advisory}
+                  onChange={(e) => setFormData({ ...formData, advisory: e.target.value })}
+                  className="select"
+                >
+                  <option value="">Select Advisory</option>
+                  {allAdvisors.map(a => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -473,24 +471,17 @@ export default function Students() {
                 <textarea
                   value={formData.observations}
                   onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
-                  className="input min-h-[80px]"
-                  placeholder="Add any observations or notes about this student..."
+                  className="input min-h-[60px]"
+                  placeholder="Add any observations..."
                 />
               </div>
 
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-3 pt-2">
                 <button type="button" onClick={closeModal} className="btn btn-danger flex-1">
                   Cancel
                 </button>
                 <button type="submit" disabled={saving} className="btn btn-primary flex-1">
-                  {saving ? (
-                    <span className="flex items-center gap-2">
-                      <Loader className="w-5 h-5 animate-spin" />
-                      Saving...
-                    </span>
-                  ) : (
-                    editingStudent ? 'Update Student' : 'Save Student'
-                  )}
+                  {saving ? 'Saving...' : editingStudent ? 'Update' : 'Save'}
                 </button>
               </div>
             </form>
