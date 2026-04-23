@@ -554,7 +554,6 @@ export default function Incidents() {
               {filteredViolations.length > 0 && (
                 <div className="p-3 bg-gray-50 rounded-lg text-sm">
                   <p><strong>Default Consequence:</strong> {filteredViolations[0].default_consequence}</p>
-                  <p><strong>Points Deduction:</strong> {filteredViolations[0].points_deduction}</p>
                   <p><strong>Max OSS:</strong> {filteredViolations[0].max_oss_days} days</p>
                 </div>
               )}
@@ -766,7 +765,7 @@ export default function Incidents() {
                 <p className="">{viewIncident.description || 'No description'}</p>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-gray-500">Location</p>
                   <p>{viewIncident.location || '-'}</p>
@@ -774,10 +773,6 @@ export default function Incidents() {
                 <div>
                   <p className="text-sm text-gray-500">Witnesses</p>
                   <p>{viewIncident.witnesses || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Points Deducted</p>
-                  <p className="text-red-600 font-medium">{viewIncident.points_deducted}</p>
                 </div>
               </div>
 

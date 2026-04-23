@@ -81,7 +81,6 @@ export default function Violations() {
                     <tr>
                       <th>Violation Type</th>
                       <th>Description</th>
-                      <th>Points</th>
                       <th>Default Consequence</th>
                       <th>OSS Days</th>
                     </tr>
@@ -91,11 +90,6 @@ export default function Violations() {
                       <tr key={violation.id}>
                         <td className="font-medium">{violation.violation_type}</td>
                         <td className="text-gray-500">{violation.description}</td>
-                        <td>
-                          <span className={`font-bold ${violation.points_deduction < -5 ? 'text-red-600' : 'text-red-500'}`}>
-                            {violation.points_deduction}
-                          </span>
-                        </td>
                         <td>{violation.default_consequence}</td>
                         <td>{violation.min_oss_days}-{violation.max_oss_days}</td>
                       </tr>
