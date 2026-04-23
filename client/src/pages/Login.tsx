@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Lock, User } from 'lucide-react';
+import { Loader2, Lock, User, RefreshCw } from 'lucide-react';
 import { useAuth } from '../App';
 import api from '../lib/api';
 import sccsLogo from '../sccs.png';
@@ -10,6 +10,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [fixing, setFixing] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -26,6 +27,20 @@ export default function Login() {
       setError(err.response?.data?.error || 'Invalid username or password');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFixAdmin = async () => {
+    setFixing(true);
+    setError('');
+    try {
+      const res = await api.post('/auth/fix-admin');
+      login(res.data.user, res.data.token);
+      navigate('/');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to fix admin');
+    } finally {
+      setFixing(false);
     }
   };
 
@@ -88,6 +103,15 @@ export default function Login() {
           <p className="font-medium">Default Admin Credentials:</p>
           <p className="font-mono mt-1">admin / admin123</p>
         </div>
+
+        <button
+          onClick={handleFixAdmin}
+          disabled={fixing}
+          className="mt-4 w-full py-2 px-4 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-600 flex items-center justify-center gap-2"
+        >
+          {fixing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          Fix Admin Access
+        </button>
       </div>
     </div>
   );

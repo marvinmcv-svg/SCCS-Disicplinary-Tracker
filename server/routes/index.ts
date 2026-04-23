@@ -70,6 +70,33 @@ router.post('/api/auth/login', async (req: Request, res: Response) => {
   }
 });
 
+router.post('/api/auth/fix-admin', async (req: Request, res: Response) => {
+  try {
+    const bcrypt = await import('bcryptjs');
+    const hashedPassword = bcrypt.hashSync('admin123', 10);
+    await runQuery(
+      "UPDATE users SET role = 'admin', password = $1 WHERE username = 'admin'",
+      [hashedPassword]
+    );
+    const user = await queryOne("SELECT * FROM users WHERE username = 'admin'");
+    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
+    res.json({
+      success: true,
+      message: 'Admin fixed',
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        firstName: user.first_name,
+        lastName: user.last_name
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.post('/api/auth/firebase-login', async (req: Request, res: Response) => {
   try {
     const { idToken } = req.body;
