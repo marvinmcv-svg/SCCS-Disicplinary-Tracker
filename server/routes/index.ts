@@ -23,22 +23,22 @@ const authenticate = async (req: Request, res: Response, next: Function) => {
 router.post('/api/auth/login', async (req: Request, res: Response) => {
   try {
     const { username, password } = req.body;
-    
+
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password required' });
     }
-    
+
     console.log('Login attempt for user:', username);
-    
+
     const user = await queryOne('SELECT * FROM users WHERE username = $1', [username]);
 
     if (!user) {
       console.log('User not found:', username);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    
+
     console.log('User found, checking password...');
-    
+
     let passwordMatch = false;
     try {
       passwordMatch = bcrypt.compareSync(password, user.password);
@@ -46,7 +46,7 @@ router.post('/api/auth/login', async (req: Request, res: Response) => {
       console.error('Bcrypt error:', bcryptError.message);
       return res.status(500).json({ error: 'Authentication error' });
     }
-    
+
     if (!passwordMatch) {
       console.log('Password mismatch for user:', username);
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -54,19 +54,123 @@ router.post('/api/auth/login', async (req: Request, res: Response) => {
 
     const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
     console.log('Login successful for user:', username);
-    res.json({ 
-      token, 
-      user: { 
-        id: user.id, 
-        username: user.username, 
-        role: user.role, 
-        firstName: user.first_name, 
-        lastName: user.last_name 
-      } 
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        firstName: user.first_name,
+        lastName: user.last_name
+      }
     });
   } catch (error: any) {
     console.error('Login error:', error.message);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+router.post('/api/auth/firebase-login', async (req: Request, res: Response) => {
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      return res.status(400).json({ error: 'ID token required' });
+    }
+
+    const admin = await import('firebase-admin');
+    if (!admin.default.apps.length) {
+      admin.default.initializeApp({
+        credential: admin.default.credential.cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        }),
+      });
+    }
+
+    const decoded = await admin.default.auth().verifyIdToken(idToken);
+    const email = decoded.email;
+
+    let user = await queryOne('SELECT * FROM users WHERE email = $1', [email]);
+
+    if (!user) {
+      const hashedPassword = bcrypt.hashSync(decoded.uid, 10);
+      const result = await runQuery(
+        'INSERT INTO users (username, password, email, role, first_name, last_name) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+        [email?.split('@')[0] || 'user', hashedPassword, email, 'user', decoded.name?.split(' ')[0] || '', decoded.name?.split(' ')[1] || '']
+      );
+      user = await queryOne('SELECT * FROM users WHERE id = $1', [result.lastInsertRowid]);
+    }
+
+    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        email: user.email
+      }
+    });
+  } catch (error: any) {
+    console.error('Firebase login error:', error.message);
+    res.status(401).json({ error: 'Firebase authentication failed' });
+  }
+});
+
+router.post('/api/auth/firebase-register', async (req: Request, res: Response) => {
+  try {
+    const { idToken, email } = req.body;
+
+    if (!idToken || !email) {
+      return res.status(400).json({ error: 'ID token and email required' });
+    }
+
+    const admin = await import('firebase-admin');
+    if (!admin.default.apps.length) {
+      admin.default.initializeApp({
+        credential: admin.default.credential.cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        }),
+      });
+    }
+
+    const decoded = await admin.default.auth().verifyIdToken(idToken);
+
+    let user = await queryOne('SELECT * FROM users WHERE email = $1', [email]);
+
+    if (user) {
+      return res.status(400).json({ error: 'User already exists' });
+    }
+
+    const hashedPassword = bcrypt.hashSync(decoded.uid, 10);
+    const result = await runQuery(
+      'INSERT INTO users (username, password, email, role, first_name, last_name) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [email.split('@')[0], hashedPassword, email, 'user', decoded.name?.split(' ')[0] || '', decoded.name?.split(' ')[1] || '']
+    );
+
+    user = await queryOne('SELECT * FROM users WHERE id = $1', [result.lastInsertRowid]);
+
+    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        email: user.email
+      }
+    });
+  } catch (error: any) {
+    console.error('Firebase register error:', error.message);
+    res.status(401).json({ error: 'Firebase registration failed' });
   }
 });
 
