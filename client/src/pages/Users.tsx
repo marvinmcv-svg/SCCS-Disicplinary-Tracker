@@ -1,6 +1,19 @@
 import { useState, useEffect } from 'react';
 import api from '../lib/api';
-import { User, Shield, Trash2, Plus, X, Check, Mail, Phone, MapPin, Image, Loader } from 'lucide-react';
+import { User as UserIcon, Shield, Trash2, Plus, X, Mail, Phone, MapPin, Image, Loader } from 'lucide-react';
+
+interface User {
+  id: number;
+  username: string;
+  role: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  classroom: string;
+  profile_picture: string;
+  created_at: string;
+}
 
 export default function Users() {
   const [users, setUsers] = useState<User[]>([]);
@@ -28,9 +41,10 @@ export default function Users() {
   const loadUsers = async () => {
     try {
       const res = await api.get('/users');
-      setUsers(res.data);
+      setUsers(res.data || []);
     } catch (error) {
       console.error('Failed to load users', error);
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -40,7 +54,7 @@ export default function Users() {
     e.preventDefault();
     setSaving(true);
     try {
-      if (editingUser) {
+      if (editingUser && editingUser.id) {
         await api.put(`/users/${editingUser.id}`, {
           username: formData.username,
           role: formData.role,
@@ -54,14 +68,25 @@ export default function Users() {
         if (formData.password) {
           await api.put(`/users/${editingUser.id}/password`, { password: formData.password });
         }
-        setMessage({ type: 'success', text: 'User updated successfully' });
+        setMessage({ type: 'success', text: 'User updated successfully!' });
       } else {
-        await api.post('/users', formData);
-        setMessage({ type: 'success', text: 'User created successfully' });
+        await api.post('/users', {
+          username: formData.username,
+          password: formData.password,
+          role: formData.role,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          email: formData.email,
+          phone: formData.phone,
+          classroom: formData.classroom,
+        });
+        setMessage({ type: 'success', text: 'User created successfully!' });
       }
-      setShowModal(false);
-      resetForm();
-      loadUsers();
+      setTimeout(() => {
+        setShowModal(false);
+        resetForm();
+        loadUsers();
+      }, 1000);
     } catch (error: any) {
       setMessage({ type: 'error', text: error.response?.data?.error || 'Failed to save user' });
     } finally {
@@ -81,12 +106,12 @@ export default function Users() {
   };
 
   const openModal = (user?: User) => {
-    if (user) {
+    if (user && user.id) {
       setEditingUser(user);
       setFormData({
-        username: user.username,
+        username: user.username || '',
         password: '',
-        role: user.role,
+        role: user.role || 'user',
         first_name: user.first_name || '',
         last_name: user.last_name || '',
         email: user.email || '',
@@ -136,26 +161,35 @@ export default function Users() {
 
       {loading ? (
         <div className="text-center py-8 text-gray-400">Loading...</div>
+      ) : users.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">
+          <UserIcon className="w-12 h-12 mx-auto mb-2" />
+          <p>No users found</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {users.map((user) => (
-            <div key={user.id} className="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => openModal(user)}>
+          {users.filter(u => u && u.id).map((user) => (
+            <div
+              key={user.id}
+              className="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => openModal(user)}
+            >
               <div className="flex items-start gap-4">
                 <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                   {user.profile_picture ? (
                     <img src={user.profile_picture} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <User className="w-7 h-7 text-blue-600" />
+                    <UserIcon className="w-7 h-7 text-blue-600" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900 truncate">{user.first_name} {user.last_name}</h3>
+                  <h3 className="font-semibold text-gray-900 truncate">
+                    {user.first_name} {user.last_name}
+                  </h3>
                   <p className="text-sm text-blue-600 font-medium">@{user.username}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                      {user.role}
-                    </span>
-                  </div>
+                  <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                    {user.role}
+                  </span>
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t border-gray-100 space-y-1">
@@ -176,10 +210,16 @@ export default function Users() {
                 )}
               </div>
               <div className="mt-3 flex gap-2">
-                <button onClick={(e) => { e.stopPropagation(); openModal(user); }} className="btn btn-secondary text-xs py-1.5 px-3 flex-1">
+                <button
+                  onClick={(e) => { e.stopPropagation(); openModal(user); }}
+                  className="btn btn-secondary text-xs py-1.5 px-3 flex-1"
+                >
                   Edit
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); handleDelete(user.id); }} className="btn btn-danger text-xs py-1.5 px-3">
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleDelete(user.id); }}
+                  className="btn btn-danger text-xs py-1.5 px-3"
+                >
                   <Trash2 className="w-3 h-3" />
                 </button>
               </div>
@@ -189,11 +229,13 @@ export default function Users() {
       )}
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="modal-overlay" onClick={() => !saving && setShowModal(false)}>
           <div className="modal max-w-lg" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">{editingUser ? 'Edit User Profile' : 'Add New User'}</h2>
-              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+              <h2 className="text-lg font-semibold">
+                {editingUser && editingUser.id ? 'Edit User' : 'Add New User'}
+              </h2>
+              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" disabled={saving}>
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -205,24 +247,30 @@ export default function Users() {
                     {formData.profile_picture ? (
                       <img src={formData.profile_picture} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <User className="w-10 h-10 text-gray-400" />
+                      <UserIcon className="w-10 h-10 text-gray-400" />
                     )}
                   </div>
-                  <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-1.5 rounded-full cursor-pointer hover:bg-blue-700">
-                    <Image className="w-3 h-3" />
-                    <input type="text" value={formData.profile_picture} onChange={(e) => setFormData({ ...formData, profile_picture: e.target.value })} className="hidden" placeholder="Image URL" />
-                  </label>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="form-label">Username</label>
-                  <input type="text" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} className="input" required />
+                  <label className="form-label">Username *</label>
+                  <input
+                    type="text"
+                    value={formData.username}
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                    className="input"
+                    required
+                  />
                 </div>
                 <div>
                   <label className="form-label">Role</label>
-                  <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })} className="select">
+                  <select
+                    value={formData.role}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    className="select"
+                  >
                     <option value="user">User</option>
                     <option value="admin">Admin</option>
                   </select>
@@ -232,44 +280,111 @@ export default function Users() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="form-label">First Name</label>
-                  <input type="text" value={formData.first_name} onChange={(e) => setFormData({ ...formData, first_name: e.target.value })} className="input" />
+                  <input
+                    type="text"
+                    value={formData.first_name}
+                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                    className="input"
+                  />
                 </div>
                 <div>
                   <label className="form-label">Last Name</label>
-                  <input type="text" value={formData.last_name} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} className="input" />
+                  <input
+                    type="text"
+                    value={formData.last_name}
+                    onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                    className="input"
+                  />
                 </div>
               </div>
 
-              <div>
-                <label className="form-label">{editingUser ? 'New Password (leave blank)' : 'Password'}</label>
-                <input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className="input" required={!editingUser} />
-              </div>
+              {!editingUser && (
+                <div>
+                  <label className="form-label">Password *</label>
+                  <input
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="input"
+                    required
+                    placeholder="Min 6 characters"
+                  />
+                </div>
+              )}
+
+              {editingUser && editingUser.id && (
+                <div>
+                  <label className="form-label">New Password (leave blank to keep)</label>
+                  <input
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="input"
+                    placeholder="Leave blank to keep current"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="form-label">Email</label>
-                <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="input" placeholder="user@school.edu" />
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="input"
+                  placeholder="user@school.edu"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="form-label">Phone</label>
-                  <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="input" placeholder="(555) 123-4567" />
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="input"
+                    placeholder="(555) 123-4567"
+                  />
                 </div>
                 <div>
                   <label className="form-label">Classroom</label>
-                  <input type="text" value={formData.classroom} onChange={(e) => setFormData({ ...formData, classroom: e.target.value })} className="input" placeholder="Room 101" />
+                  <input
+                    type="text"
+                    value={formData.classroom}
+                    onChange={(e) => setFormData({ ...formData, classroom: e.target.value })}
+                    className="input"
+                    placeholder="Room 101"
+                  />
                 </div>
               </div>
 
               <div>
                 <label className="form-label">Profile Picture URL</label>
-                <input type="url" value={formData.profile_picture} onChange={(e) => setFormData({ ...formData, profile_picture: e.target.value })} className="input" placeholder="https://..." />
+                <input
+                  type="url"
+                  value={formData.profile_picture}
+                  onChange={(e) => setFormData({ ...formData, profile_picture: e.target.value })}
+                  className="input"
+                  placeholder="https://example.com/photo.jpg"
+                />
               </div>
 
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary flex-1">Cancel</button>
-                <button type="submit" disabled={saving} className="btn btn-primary flex-1">
-                  {saving ? <Loader className="w-5 h-5 animate-spin" /> : (editingUser ? 'Update' : 'Create')}
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="btn btn-secondary flex-1"
+                  disabled={saving}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving || !formData.username}
+                  className="btn btn-primary flex-1"
+                >
+                  {saving ? <Loader className="w-5 h-5 animate-spin" /> : (editingUser && editingUser.id ? 'Update' : 'Create')}
                 </button>
               </div>
             </form>
@@ -278,17 +393,4 @@ export default function Users() {
       )}
     </div>
   );
-}
-
-interface User {
-  id: number;
-  username: string;
-  role: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone: string;
-  classroom: string;
-  profile_picture: string;
-  created_at: string;
 }
