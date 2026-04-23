@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SCCS Discipline</string>
+    <string name="title_activity_main">SCCS Discipline</string>
+    <string name="package_name">com.sccs.discipline</string>
+    <string name="custom_url_scheme">com.sccs.discipline</string>
+</resources>

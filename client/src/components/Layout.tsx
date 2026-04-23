@@ -2,7 +2,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
 import { 
   LayoutDashboard, Users, AlertTriangle, BookOpen, 
-  Gift, HeartHandshake, Settings, LogOut, Menu, X
+  Gift, HeartHandshake, Settings, LogOut, Menu, X, Shield
 } from 'lucide-react';
 import { useState } from 'react';
 import sccsLogo from '../sccs.png';
@@ -13,6 +13,7 @@ const navItems = [
   { to: '/incidents', icon: AlertTriangle, label: 'Incidents' },
   { to: '/violations', icon: BookOpen, label: 'Violations' },
   { to: '/mtss', icon: HeartHandshake, label: 'MTSS' },
+  { to: '/users', icon: Shield, label: 'Users' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 

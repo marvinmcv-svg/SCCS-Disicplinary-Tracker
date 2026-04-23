@@ -356,4 +356,92 @@ router.post('/api/restore', (req, res) => {
   res.json({ message: 'Using cloud database - no restore needed. Data is automatically backed up!' });
 });
 
+router.get('/api/users', authenticate, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    const users = await queryAll('SELECT id, username, role, first_name, last_name, created_at FROM users ORDER BY created_at DESC');
+    res.json(users);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/api/users', authenticate, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    const { username, password, role, first_name, last_name } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password required' });
+    }
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    await runQuery(
+      'INSERT INTO users (username, password, role, first_name, last_name) VALUES ($1, $2, $3, $4, $5)',
+      [username, hashedPassword, role || 'user', first_name || '', last_name || '']
+    );
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.put('/api/users/:id', authenticate, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    const { id } = req.params;
+    const { username, role, first_name, last_name } = req.body;
+    await runQuery(
+      'UPDATE users SET username = COALESCE($1, username), role = COALESCE($2, role), first_name = COALESCE($3, first_name), last_name = COALESCE($4, last_name) WHERE id = $5',
+      [username, role, first_name, last_name, id]
+    );
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.delete('/api/users/:id', authenticate, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    const { id } = req.params;
+    if (user.userId === parseInt(id)) {
+      return res.status(400).json({ error: 'Cannot delete your own account' });
+    }
+    await runQuery('DELETE FROM users WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.put('/api/users/:id/password', authenticate, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    const { id } = req.params;
+    const { password } = req.body;
+    if (!password) {
+      return res.status(400).json({ error: 'Password required' });
+    }
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    await runQuery('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, id]);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 export default router;
