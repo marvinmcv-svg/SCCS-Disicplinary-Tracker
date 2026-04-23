@@ -647,9 +647,12 @@ export default function Incidents() {
                     />
                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   </div>
-                  {showAdvisorDropdown && filteredAdvisors.length > 0 && (
+                  {showAdvisorDropdown && (
                     <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                      {filteredAdvisors.map(a => (
+                      {advisorSearch && filteredAdvisors.length === 0 && (
+                        <div className="px-4 py-2 text-gray-500 text-sm">No matches</div>
+                      )}
+                      {(advisorSearch ? filteredAdvisors : ADVISORS).map(a => (
                         <button
                           key={a}
                           type="button"
