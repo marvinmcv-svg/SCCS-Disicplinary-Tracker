@@ -74,11 +74,23 @@ router.post('/api/auth/fix-admin', async (req: Request, res: Response) => {
   try {
     const bcrypt = await import('bcryptjs');
     const hashedPassword = bcrypt.hashSync('admin123', 10);
-    await runQuery(
-      "UPDATE users SET role = 'admin', password = $1 WHERE username = 'admin'",
-      [hashedPassword]
-    );
-    const user = await queryOne("SELECT * FROM users WHERE username = 'admin'");
+
+    const existingAdmin = await queryOne("SELECT * FROM users WHERE username = 'admin'");
+    let user;
+    if (existingAdmin) {
+      await runQuery(
+        "UPDATE users SET role = 'admin', password = $1 WHERE username = 'admin'",
+        [hashedPassword]
+      );
+      user = await queryOne("SELECT * FROM users WHERE username = 'admin'");
+    } else {
+      await runQuery(
+        "INSERT INTO users (username, password, role, first_name, last_name) VALUES ($1, $2, $3, $4, $5)",
+        ['admin', hashedPassword, 'admin', 'System', 'Admin']
+      );
+      user = await queryOne("SELECT * FROM users WHERE username = 'admin'");
+    }
+
     const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
     res.json({
       success: true,
@@ -234,10 +246,10 @@ router.post('/api/students', authenticate, async (req: Request, res: Response) =
 
 router.put('/api/students/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const { last_name, first_name, grade, counselor, advisory, gpa, total_points, conduct_status, observations } = req.body;
+    const { student_id, last_name, first_name, grade, counselor, advisory, gpa, total_points, conduct_status, observations } = req.body;
     await runQuery(
-      'UPDATE students SET last_name = $1, first_name = $2, grade = $3, counselor = $4, advisory = $5, gpa = $6, total_points = $7, conduct_status = $8, observations = $9 WHERE id = $10',
-      [last_name, first_name, grade, counselor, advisory || '', gpa, total_points, conduct_status, observations || '', parseInt(req.params.id)]
+      'UPDATE students SET student_id = $1, last_name = $2, first_name = $3, grade = $4, counselor = $5, advisory = $6, gpa = $7, total_points = $8, conduct_status = $9, observations = $10 WHERE id = $11',
+      [student_id || '', last_name || '', first_name || '', grade || '9', counselor || '', advisory || '', gpa || 0, total_points || 100, conduct_status || 'Good', observations || '', parseInt(req.params.id)]
     );
     res.json({ success: true });
   } catch (error: any) {
@@ -458,6 +470,29 @@ router.post('/api/mtss', authenticate, async (req: Request, res: Response) => {
   }
 });
 
+router.put('/api/mtss/:id', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { student_id, tier, intervention, advisor, start_date, end_date, progress, notes } = req.body;
+    const id = parseInt(req.params.id);
+    await runQuery(
+      'UPDATE mtss_interventions SET student_id = $1, tier = $2, intervention = $3, advisor = $4, start_date = $5, end_date = $6, progress = $7, notes = $8 WHERE id = $9',
+      [student_id, tier, intervention, advisor || '', start_date, end_date || null, progress || 'Not Started', notes || '', id]
+    );
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.delete('/api/mtss/:id', authenticate, async (req: Request, res: Response) => {
+  try {
+    await runQuery('DELETE FROM mtss_interventions WHERE id = $1', [parseInt(req.params.id)]);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 router.get('/api/settings', authenticate, async (req: Request, res: Response) => {
   try {
     const settings = await queryAll('SELECT * FROM settings');
@@ -596,6 +631,15 @@ router.post('/api/migrate-users', async (req: Request, res: Response) => {
 
     const users = await queryAll('SELECT id, username, email, phone, classroom FROM users');
     res.json({ success: true, message: 'Migration complete', users });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/api/debug/users', async (req: Request, res: Response) => {
+  try {
+    const users = await queryAll('SELECT id, username, role, email, first_name, last_name FROM users ORDER BY id');
+    res.json({ users });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
