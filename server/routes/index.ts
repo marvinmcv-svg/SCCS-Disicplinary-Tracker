@@ -493,7 +493,7 @@ router.get('/api/users', authenticate, async (req: Request, res: Response) => {
     if (user.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
-    const users = await queryAll('SELECT id, username, role, first_name, last_name, created_at FROM users ORDER BY created_at DESC');
+    const users = await queryAll('SELECT id, username, role, first_name, last_name, email, phone, classroom, profile_picture, created_at FROM users ORDER BY created_at DESC');
     res.json(users);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -506,14 +506,14 @@ router.post('/api/users', authenticate, async (req: Request, res: Response) => {
     if (user.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
-    const { username, password, role, first_name, last_name } = req.body;
+    const { username, password, role, first_name, last_name, email, phone, classroom } = req.body;
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password required' });
     }
     const hashedPassword = bcrypt.hashSync(password, 10);
     await runQuery(
-      'INSERT INTO users (username, password, role, first_name, last_name) VALUES ($1, $2, $3, $4, $5)',
-      [username, hashedPassword, role || 'user', first_name || '', last_name || '']
+      'INSERT INTO users (username, password, role, first_name, last_name, email, phone, classroom) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+      [username, hashedPassword, role || 'user', first_name || '', last_name || '', email || '', phone || '', classroom || '']
     );
     res.json({ success: true });
   } catch (error: any) {
@@ -528,10 +528,10 @@ router.put('/api/users/:id', authenticate, async (req: Request, res: Response) =
       return res.status(403).json({ error: 'Admin access required' });
     }
     const { id } = req.params;
-    const { username, role, first_name, last_name } = req.body;
+    const { username, role, first_name, last_name, email, phone, classroom, profile_picture } = req.body;
     await runQuery(
-      'UPDATE users SET username = COALESCE($1, username), role = COALESCE($2, role), first_name = COALESCE($3, first_name), last_name = COALESCE($4, last_name) WHERE id = $5',
-      [username, role, first_name, last_name, id]
+      'UPDATE users SET username = COALESCE($1, username), role = COALESCE($2, role), first_name = COALESCE($3, first_name), last_name = COALESCE($4, last_name), email = COALESCE($5, email), phone = COALESCE($6, phone), classroom = COALESCE($7, classroom), profile_picture = COALESCE($8, profile_picture) WHERE id = $9',
+      [username, role, first_name, last_name, email, phone, classroom, profile_picture, id]
     );
     res.json({ success: true });
   } catch (error: any) {

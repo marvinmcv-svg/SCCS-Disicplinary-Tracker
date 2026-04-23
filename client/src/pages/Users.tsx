@@ -1,18 +1,23 @@
 import { useState, useEffect } from 'react';
 import api from '../lib/api';
-import { User, Shield, Trash2, Plus, X, Check } from 'lucide-react';
+import { User, Shield, Trash2, Plus, X, Check, Mail, Phone, MapPin, Image, Loader } from 'lucide-react';
 
 export default function Users() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
     password: '',
     role: 'user',
     first_name: '',
     last_name: '',
+    email: '',
+    phone: '',
+    classroom: '',
+    profile_picture: '',
   });
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -33,6 +38,7 @@ export default function Users() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
     try {
       if (editingUser) {
         await api.put(`/users/${editingUser.id}`, {
@@ -40,6 +46,10 @@ export default function Users() {
           role: formData.role,
           first_name: formData.first_name,
           last_name: formData.last_name,
+          email: formData.email,
+          phone: formData.phone,
+          classroom: formData.classroom,
+          profile_picture: formData.profile_picture,
         });
         if (formData.password) {
           await api.put(`/users/${editingUser.id}/password`, { password: formData.password });
@@ -54,6 +64,8 @@ export default function Users() {
       loadUsers();
     } catch (error: any) {
       setMessage({ type: 'error', text: error.response?.data?.error || 'Failed to save user' });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -77,6 +89,10 @@ export default function Users() {
         role: user.role,
         first_name: user.first_name || '',
         last_name: user.last_name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        classroom: user.classroom || '',
+        profile_picture: user.profile_picture || '',
       });
     } else {
       resetForm();
@@ -86,15 +102,25 @@ export default function Users() {
 
   const resetForm = () => {
     setEditingUser(null);
-    setFormData({ username: '', password: '', role: 'user', first_name: '', last_name: '' });
+    setFormData({
+      username: '',
+      password: '',
+      role: 'user',
+      first_name: '',
+      last_name: '',
+      email: '',
+      phone: '',
+      classroom: '',
+      profile_picture: '',
+    });
   };
 
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Shield className="w-6 h-6 text-blue-600" />
-          <h1 className="text-2xl font-bold">User Management</h1>
+          <h1 className="text-xl md:text-2xl font-bold">User Management</h1>
         </div>
         <button onClick={() => openModal()} className="btn btn-primary flex items-center gap-2">
           <Plus className="w-5 h-5" /> Add User
@@ -111,113 +137,139 @@ export default function Users() {
       {loading ? (
         <div className="text-center py-8 text-gray-400">Loading...</div>
       ) : (
-        <div className="bg-white rounded-xl shadow overflow-hidden">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Username</th>
-                <th>Name</th>
-                <th>Role</th>
-                <th>Created</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((user) => (
-                <tr key={user.id}>
-                  <td className="font-medium">{user.username}</td>
-                  <td>{user.first_name} {user.last_name}</td>
-                  <td>
-                    <span className={`px-2 py-1 rounded-full text-xs ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {users.map((user) => (
+            <div key={user.id} className="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => openModal(user)}>
+              <div className="flex items-start gap-4">
+                <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {user.profile_picture ? (
+                    <img src={user.profile_picture} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="w-7 h-7 text-blue-600" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-gray-900 truncate">{user.first_name} {user.last_name}</h3>
+                  <p className="text-sm text-blue-600 font-medium">@{user.username}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                       {user.role}
                     </span>
-                  </td>
-                  <td className="text-gray-500 text-sm">{new Date(user.created_at).toLocaleDateString()}</td>
-                  <td>
-                    <div className="flex gap-2">
-                      <button onClick={() => openModal(user)} className="btn btn-secondary text-sm py-1.5 px-3">
-                        Edit
-                      </button>
-                      <button onClick={() => handleDelete(user.id)} className="btn btn-danger text-sm py-1.5 px-3">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-gray-100 space-y-1">
+                {user.email && (
+                  <p className="text-xs text-gray-500 flex items-center gap-2">
+                    <Mail className="w-3 h-3" /> {user.email}
+                  </p>
+                )}
+                {user.phone && (
+                  <p className="text-xs text-gray-500 flex items-center gap-2">
+                    <Phone className="w-3 h-3" /> {user.phone}
+                  </p>
+                )}
+                {user.classroom && (
+                  <p className="text-xs text-gray-500 flex items-center gap-2">
+                    <MapPin className="w-3 h-3" /> {user.classroom}
+                  </p>
+                )}
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button onClick={(e) => { e.stopPropagation(); openModal(user); }} className="btn btn-secondary text-xs py-1.5 px-3 flex-1">
+                  Edit
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); handleDelete(user.id); }} className="btn btn-danger text-xs py-1.5 px-3">
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal max-w-md" onClick={(e) => e.stopPropagation()}>
+          <div className="modal max-w-lg" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">{editingUser ? 'Edit User' : 'Add New User'}</h2>
+              <h2 className="text-lg font-semibold">{editingUser ? 'Edit User Profile' : 'Add New User'}</h2>
               <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="form-label">Username</label>
-                <input
-                  type="text"
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  className="input"
-                  required
-                />
+              <div className="flex justify-center mb-2">
+                <div className="relative">
+                  <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-gray-200">
+                    {formData.profile_picture ? (
+                      <img src={formData.profile_picture} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-10 h-10 text-gray-400" />
+                    )}
+                  </div>
+                  <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-1.5 rounded-full cursor-pointer hover:bg-blue-700">
+                    <Image className="w-3 h-3" />
+                    <input type="text" value={formData.profile_picture} onChange={(e) => setFormData({ ...formData, profile_picture: e.target.value })} className="hidden" placeholder="Image URL" />
+                  </label>
+                </div>
               </div>
-              <div>
-                <label className="form-label">{editingUser ? 'New Password (leave blank to keep)' : 'Password'}</label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="input"
-                  required={!editingUser}
-                />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="form-label">Username</label>
+                  <input type="text" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} className="input" required />
+                </div>
+                <div>
+                  <label className="form-label">Role</label>
+                  <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })} className="select">
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="form-label">Role</label>
-                <select
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="select"
-                >
-                  <option value="user">User</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="form-label">First Name</label>
-                  <input
-                    type="text"
-                    value={formData.first_name}
-                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                    className="input"
-                  />
+                  <input type="text" value={formData.first_name} onChange={(e) => setFormData({ ...formData, first_name: e.target.value })} className="input" />
                 </div>
                 <div>
                   <label className="form-label">Last Name</label>
-                  <input
-                    type="text"
-                    value={formData.last_name}
-                    onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                    className="input"
-                  />
+                  <input type="text" value={formData.last_name} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} className="input" />
                 </div>
               </div>
+
+              <div>
+                <label className="form-label">{editingUser ? 'New Password (leave blank)' : 'Password'}</label>
+                <input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className="input" required={!editingUser} />
+              </div>
+
+              <div>
+                <label className="form-label">Email</label>
+                <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="input" placeholder="user@school.edu" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="form-label">Phone</label>
+                  <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="input" placeholder="(555) 123-4567" />
+                </div>
+                <div>
+                  <label className="form-label">Classroom</label>
+                  <input type="text" value={formData.classroom} onChange={(e) => setFormData({ ...formData, classroom: e.target.value })} className="input" placeholder="Room 101" />
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label">Profile Picture URL</label>
+                <input type="url" value={formData.profile_picture} onChange={(e) => setFormData({ ...formData, profile_picture: e.target.value })} className="input" placeholder="https://..." />
+              </div>
+
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary flex-1">
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary flex-1">
-                  {editingUser ? 'Update' : 'Create'}
+                <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary flex-1">Cancel</button>
+                <button type="submit" disabled={saving} className="btn btn-primary flex-1">
+                  {saving ? <Loader className="w-5 h-5 animate-spin" /> : (editingUser ? 'Update' : 'Create')}
                 </button>
               </div>
             </form>
@@ -234,5 +286,9 @@ interface User {
   role: string;
   first_name: string;
   last_name: string;
+  email: string;
+  phone: string;
+  classroom: string;
+  profile_picture: string;
   created_at: string;
 }
