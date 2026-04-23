@@ -530,8 +530,8 @@ router.put('/api/users/:id', authenticate, async (req: Request, res: Response) =
     const { id } = req.params;
     const { username, role, first_name, last_name, email, phone, classroom, profile_picture } = req.body;
     await runQuery(
-      'UPDATE users SET username = COALESCE($1, username), role = COALESCE($2, role), first_name = COALESCE($3, first_name), last_name = COALESCE($4, last_name), email = COALESCE($5, email), phone = COALESCE($6, phone), classroom = COALESCE($7, classroom), profile_picture = COALESCE($8, profile_picture) WHERE id = $9',
-      [username, role, first_name, last_name, email, phone, classroom, profile_picture, id]
+      'UPDATE users SET username = $1, role = $2, first_name = $3, last_name = $4, email = $5, phone = $6, classroom = $7, profile_picture = $8 WHERE id = $9',
+      [username, role, first_name || '', last_name || '', email || '', phone || '', classroom || '', profile_picture || '', id]
     );
     res.json({ success: true });
   } catch (error: any) {
@@ -576,3 +576,27 @@ router.put('/api/users/:id/password', authenticate, async (req: Request, res: Re
 });
 
 export default router;
+
+router.post('/api/migrate-users', async (req: Request, res: Response) => {
+  try {
+    const migrations = [
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS classroom TEXT',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture TEXT',
+    ];
+
+    for (const sql of migrations) {
+      try {
+        await runQuery(sql, []);
+      } catch (e) {
+        console.log('Migration note:', (e as Error).message);
+      }
+    }
+
+    const users = await queryAll('SELECT id, username, email, phone, classroom FROM users');
+    res.json({ success: true, message: 'Migration complete', users });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});

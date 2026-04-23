@@ -92,6 +92,8 @@ export async function initializeDatabase() {
     }
   }
 
+  await migrateUsersTable();
+
   try {
     await seedViolations();
     await seedAlerts();
@@ -182,6 +184,28 @@ async function createDefaultAdmin() {
     `INSERT INTO users (username, password, role, first_name, last_name) VALUES ($1, $2, $3, $4, $5)`,
     ['admin', hashedPassword, 'admin', 'System', 'Admin']
   );
+}
+
+async function migrateUsersTable() {
+  const columns = [
+    { name: 'email', sql: 'ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT' },
+    { name: 'phone', sql: 'ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT' },
+    { name: 'classroom', sql: 'ALTER TABLE users ADD COLUMN IF NOT EXISTS classroom TEXT' },
+    { name: 'profile_picture', sql: 'ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture TEXT' },
+  ];
+
+  for (const col of columns) {
+    try {
+      await pool.query(col.sql);
+      console.log(`✓ users column ${col.name} ready`);
+    } catch (e) {
+      if ((e as Error).message.includes('already exists')) {
+        console.log(`  users column ${col.name} already exists`);
+      } else {
+        console.log(`  users column ${col.name}:`, (e as Error).message);
+      }
+    }
+  }
 }
 
 export default pool;
