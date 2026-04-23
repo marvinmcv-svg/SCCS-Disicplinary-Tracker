@@ -511,10 +511,10 @@ export default function Incidents() {
                       }}
                       onFocus={() => setShowViolationDropdown(true)}
                       placeholder="Search violation..."
-                      className="input pr-8"
+                      className="input pr-10"
                       required
                     />
-                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   </div>
                   {showViolationDropdown && filteredViolationsForSelect.length > 0 && (
                     <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">

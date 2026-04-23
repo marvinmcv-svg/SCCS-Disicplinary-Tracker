@@ -283,24 +283,22 @@ export default function Students() {
 
       {/* Filter Tabs */}
       <div className="bg-white rounded-2xl shadow-sm p-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search students by name or ID..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="input pl-10"
-              />
-            </div>
+        <div className="flex flex-col gap-4">
+          <div className="relative w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by name or ID..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input pl-12"
+            />
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 md:overflow-visible md:flex-wrap">
             <select
               value={filterGrade}
               onChange={(e) => setFilterGrade(e.target.value)}
-              className="select"
+              className="select min-w-[140px]"
             >
               <option value="all">All Grades</option>
               {[6, 7, 8, 9, 10, 11, 12].map(g => (
@@ -313,9 +311,9 @@ export default function Students() {
             {filterGrade !== 'all' && (
               <button
                 onClick={() => setFilterGrade('all')}
-                className="btn btn-secondary"
+                className="btn btn-secondary whitespace-nowrap"
               >
-                Clear Filter
+                Clear
               </button>
             )}
           </div>
@@ -400,7 +398,7 @@ export default function Students() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="form-label">Student ID</label>
                   <input
@@ -420,34 +418,35 @@ export default function Students() {
                   >
                     {[6, 7, 8, 9, 10, 11, 12].map(g => (
                       <>
-                        <option key={`${g}A`} value={`${g}A`}>Grade {g}A</option>
-                        <option key={`${g}B`} value={`${g}B`}>Grade {g}B</option>
+                        <option key={`${g}A`} value={`${g}A`}>{g}A</option>
+                        <option key={`${g}B`} value={`${g}B`}>{g}B</option>
                       </>
                     ))}
                   </select>
                 </div>
               </div>
 
-              <div>
-                <label className="form-label">Last Name</label>
-                <input
-                  type="text"
-                  value={formData.last_name}
-                  onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                  className="input"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="form-label">First Name</label>
-                <input
-                  type="text"
-                  value={formData.first_name}
-                  onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                  className="input"
-                  required
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="form-label">Last Name</label>
+                  <input
+                    type="text"
+                    value={formData.last_name}
+                    onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                    className="input"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label">First Name</label>
+                  <input
+                    type="text"
+                    value={formData.first_name}
+                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                    className="input"
+                    required
+                  />
+                </div>
               </div>
 
               <div>
@@ -470,9 +469,9 @@ export default function Students() {
                     setFormData({ ...formData, advisory: e.target.value });
                   }}
                   placeholder="Search or select..."
-                  className="input pr-8"
+                  className="input pr-10"
                 />
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
               </div>
               {advisorSearch && (
                 <div className="bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
