@@ -464,48 +464,36 @@ export default function Students() {
                 <label className="form-label">Advisory</label>
                 <input
                   type="text"
-                  value={advisorSearch}
-                  onChange={(e) => setAdvisorSearch(e.target.value)}
-                  placeholder="Search advisors..."
+                  value={formData.advisory || advisorSearch}
+                  onChange={(e) => {
+                    setAdvisorSearch(e.target.value);
+                    setFormData({ ...formData, advisory: e.target.value });
+                  }}
+                  placeholder="Search or select..."
                   className="input pr-8"
                 />
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" style={{top: advisorSearch ? 'calc(50% + 8px)' : '50%'}} />
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               </div>
-              <div className="bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                {advisorSearch && (
-                  <div className="sticky top-0 bg-gray-50 border-b">
-                    {filteredAdvisors.map(a => (
-                      <button
-                        key={a}
-                        type="button"
-                        onClick={() => {
-                          setFormData({ ...formData, advisory: a });
-                          setAdvisorSearch(a);
-                        }}
-                        className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
-                      >
-                        {a}
-                      </button>
-                    ))}
-                    {filteredAdvisors.length === 0 && (
-                      <div className="px-3 py-2 text-gray-500 text-sm">No matches</div>
-                    )}
-                  </div>
-                )}
-                {!advisorSearch && ADVISORS.map(a => (
-                  <button
-                    key={a}
-                    type="button"
-                    onClick={() => {
-                      setFormData({ ...formData, advisory: a });
-                      setAdvisorSearch(a);
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
-                  >
-                    {a}
-                  </button>
-                ))}
-              </div>
+              {advisorSearch && (
+                <div className="bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  {filteredAdvisors.map(a => (
+                    <button
+                      key={a}
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, advisory: a });
+                        setAdvisorSearch(a);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
+                    >
+                      {a}
+                    </button>
+                  ))}
+                  {filteredAdvisors.length === 0 && (
+                    <div className="px-3 py-2 text-gray-500 text-sm">No matches</div>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="form-label">Observations / Notes</label>
