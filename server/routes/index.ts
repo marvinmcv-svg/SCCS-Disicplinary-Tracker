@@ -585,6 +585,12 @@ router.put('/api/users/:id', authenticate, async (req: Request, res: Response) =
       return res.status(403).json({ error: 'You cannot change your own role' });
     }
 
+    // Check for duplicate username
+    const existingUser = await queryOne('SELECT id FROM users WHERE username = $1 AND id != $2', [username, id]);
+    if (existingUser) {
+      return res.status(400).json({ error: 'Username already exists. Please choose a different one.' });
+    }
+
     if (newPassword) {
       const hashedPassword = bcrypt.hashSync(newPassword, 10);
       await runQuery(
