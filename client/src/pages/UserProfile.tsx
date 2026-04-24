@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Save, Upload, User, Mail, Phone, MapPin, Shield, Clock, Check, X, Edit3 } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Save, Upload, User, Mail, Phone, MapPin, Shield, Clock, Check, X, Edit3, Lock } from 'lucide-react';
 import api from '../lib/api';
 import { useAuth } from '../App';
 
@@ -24,7 +24,6 @@ export default function UserProfile() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
@@ -36,7 +35,9 @@ export default function UserProfile() {
     classroom: '',
   });
   const [profilePicture, setProfilePicture] = useState('');
-  const [hasChanges, setHasChanges] = useState(false);
+  const [passwordData, setPasswordData] = useState({ newPassword: '', confirmPassword: '' });
+  const [passwordError, setPasswordError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const isAdmin = currentUser?.role === 'admin';
   const isOwnProfile = currentUser?.id === parseInt(id || '0');
@@ -67,34 +68,54 @@ export default function UserProfile() {
     loadUser();
   }, [loadUser]);
 
-  useEffect(() => {
-    if (user) {
-      const changed =
-        formData.username !== user.username ||
-        formData.role !== user.role ||
-        formData.first_name !== user.first_name ||
-        formData.last_name !== user.last_name ||
-        formData.email !== user.email ||
-        formData.phone !== user.phone ||
-        formData.classroom !== user.classroom ||
-        profilePicture !== user.profile_picture;
-      setHasChanges(changed);
-    }
-  }, [formData, profilePicture, user]);
+  const handleChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handlePasswordChange = (field: string, value: string) => {
+    setPasswordData(prev => ({ ...prev, [field]: value }));
+    setPasswordError('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setSuccessMessage('');
+    setPasswordError('');
+
     try {
-      await api.put(`/users/${id}`, {
-        ...formData,
+      const payload: any = {
+        username: formData.username,
+        role: formData.role,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        email: formData.email,
+        phone: formData.phone,
+        classroom: formData.classroom,
         profile_picture: profilePicture,
-      });
-      setSaved(true);
+      };
+
+      if (passwordData.newPassword) {
+        if (passwordData.newPassword.length < 6) {
+          setPasswordError('Password must be at least 6 characters');
+          setSaving(false);
+          return;
+        }
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+          setPasswordError('Passwords do not match');
+          setSaving(false);
+          return;
+        }
+        payload.newPassword = passwordData.newPassword;
+      }
+
+      await api.put(`/users/${id}`, payload);
+      setSuccessMessage('Profile updated successfully!');
+      setPasswordData({ newPassword: '', confirmPassword: '' });
       setEditing(false);
-      setHasChanges(false);
       loadUser();
-      setTimeout(() => setSaved(false), 2000);
+
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error: any) {
       alert(error.response?.data?.error || 'Failed to update profile');
     } finally {
@@ -115,8 +136,9 @@ export default function UserProfile() {
       });
       setProfilePicture(user.profile_picture || '');
     }
+    setPasswordData({ newPassword: '', confirmPassword: '' });
+    setPasswordError('');
     setEditing(false);
-    setHasChanges(false);
   };
 
   const handlePictureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,6 +170,13 @@ export default function UserProfile() {
         Back to Users
       </button>
 
+      {successMessage && (
+        <div className="fixed top-4 right-4 bg-green-500 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 z-50 animate-fade-in">
+          <Check className="w-5 h-5" />
+          {successMessage}
+        </div>
+      )}
+
       {/* Profile Header Card */}
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-4">
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6">
@@ -164,17 +193,15 @@ export default function UserProfile() {
                   <User className="w-12 h-12 md:w-16 md:h-16 text-white/80" />
                 </div>
               )}
-              {(isOwnProfile || isAdmin) && (
-                <label className="absolute bottom-0 right-0 bg-white text-blue-600 p-2 rounded-full cursor-pointer hover:bg-gray-100 shadow-lg">
-                  <Upload className="w-4 h-4" />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePictureUpload}
-                    className="hidden"
-                  />
-                </label>
-              )}
+              <label className="absolute bottom-0 right-0 bg-white text-blue-600 p-2 rounded-full cursor-pointer hover:bg-gray-100 shadow-lg">
+                <Upload className="w-4 h-4" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePictureUpload}
+                  className="hidden"
+                />
+              </label>
             </div>
             <div className="text-white flex-1">
               <h1 className="text-2xl md:text-3xl font-bold">
@@ -241,134 +268,164 @@ export default function UserProfile() {
       </div>
 
       {/* Edit Form */}
-      {(editing || (isOwnProfile || isAdmin)) && (
-        <div className="bg-white rounded-2xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            {editing ? 'Edit Profile' : 'Profile Information'}
-          </h2>
+      <div className="bg-white rounded-2xl shadow-sm p-6">
+        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          {editing ? 'Edit Profile' : 'Profile Information'}
+        </h2>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="form-label">Username</label>
-                <input
-                  type="text"
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  className="input"
-                  disabled={!editing}
-                  required
-                />
-              </div>
-              <div>
-                <label className="form-label">Role</label>
-                <select
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="select"
-                  disabled={!isAdmin || !editing}
-                >
-                  <option value="user">User</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="form-label">First Name</label>
-                <input
-                  type="text"
-                  value={formData.first_name}
-                  onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                  className="input"
-                  disabled={!editing}
-                />
-              </div>
-              <div>
-                <label className="form-label">Last Name</label>
-                <input
-                  type="text"
-                  value={formData.last_name}
-                  onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                  className="input"
-                  disabled={!editing}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="form-label">Email</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="input"
-                  disabled={!editing}
-                  placeholder="email@school.edu"
-                />
-              </div>
-              <div>
-                <label className="form-label">Phone</label>
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="input"
-                  disabled={!editing}
-                  placeholder="(555) 123-4567"
-                />
-              </div>
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="form-label">Classroom</label>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="form-label">Username</label>
               <input
                 type="text"
-                value={formData.classroom}
-                onChange={(e) => setFormData({ ...formData, classroom: e.target.value })}
-                className="input max-w-md"
+                value={formData.username}
+                onChange={(e) => handleChange('username', e.target.value)}
+                className="input"
                 disabled={!editing}
-                placeholder="Room 101, Building A"
+                required
               />
             </div>
+            <div>
+              <label className="form-label">Role</label>
+              <select
+                value={formData.role}
+                onChange={(e) => handleChange('role', e.target.value)}
+                className="select"
+                disabled={!isAdmin}
+              >
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          </div>
 
-            {editing && (
-              <div className="flex items-center gap-3 pt-4 border-t">
-                <button
-                  type="submit"
-                  disabled={saving || !hasChanges}
-                  className="btn btn-primary flex items-center gap-2"
-                >
-                  {saving ? (
-                    <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <Check className="w-5 h-5" />
-                      Save Changes
-                    </>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="btn btn-secondary flex items-center gap-2"
-                >
-                  <X className="w-5 h-5" />
-                  Cancel
-                </button>
-                {saved && (
-                  <span className="text-green-600 text-sm font-medium flex items-center gap-1">
-                    <Check className="w-4 h-4" />
-                    Saved!
-                  </span>
-                )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="form-label">First Name</label>
+              <input
+                type="text"
+                value={formData.first_name}
+                onChange={(e) => handleChange('first_name', e.target.value)}
+                className="input"
+                disabled={!editing}
+              />
+            </div>
+            <div>
+              <label className="form-label">Last Name</label>
+              <input
+                type="text"
+                value={formData.last_name}
+                onChange={(e) => handleChange('last_name', e.target.value)}
+                className="input"
+                disabled={!editing}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="form-label">Email</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => handleChange('email', e.target.value)}
+                className="input"
+                disabled={!editing}
+                placeholder="email@school.edu"
+              />
+            </div>
+            <div>
+              <label className="form-label">Phone</label>
+              <input
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => handleChange('phone', e.target.value)}
+                className="input"
+                disabled={!editing}
+                placeholder="(555) 123-4567"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="form-label">Classroom</label>
+            <input
+              type="text"
+              value={formData.classroom}
+              onChange={(e) => handleChange('classroom', e.target.value)}
+              className="input max-w-md"
+              disabled={!editing}
+              placeholder="Room 101, Building A"
+            />
+          </div>
+
+          {/* Password Change Section */}
+          {editing && (
+            <div className="pt-4 border-t">
+              <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                <Lock className="w-4 h-4" />
+                Change Password
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="form-label">New Password</label>
+                  <input
+                    type="password"
+                    value={passwordData.newPassword}
+                    onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
+                    className="input"
+                    placeholder="Min 6 characters"
+                    minLength={6}
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Confirm New Password</label>
+                  <input
+                    type="password"
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => handlePasswordChange('confirmPassword', e.target.value)}
+                    className="input"
+                    placeholder="Re-enter password"
+                    minLength={6}
+                  />
+                </div>
               </div>
-            )}
-          </form>
-        </div>
-      )}
+              {passwordError && (
+                <p className="text-red-500 text-sm mt-2">{passwordError}</p>
+              )}
+              <p className="text-gray-500 text-xs mt-2">Leave password fields empty to keep current password</p>
+            </div>
+          )}
+
+          {editing && (
+            <div className="flex items-center gap-3 pt-4 border-t">
+              <button
+                type="submit"
+                disabled={saving}
+                className="btn btn-primary flex items-center gap-2"
+              >
+                {saving ? (
+                  <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Save className="w-5 h-5" />
+                    Save Changes
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="btn btn-secondary flex items-center gap-2"
+              >
+                <X className="w-5 h-5" />
+                Cancel
+              </button>
+            </div>
+          )}
+        </form>
+      </div>
     </div>
   );
 }

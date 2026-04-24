@@ -571,16 +571,32 @@ router.post('/api/users', authenticate, async (req: Request, res: Response) => {
 
 router.put('/api/users/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (user.role !== 'admin') {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
+    const currentUser = (req as any).user;
     const { id } = req.params;
-    const { username, role, first_name, last_name, email, phone, classroom, profile_picture } = req.body;
-    await runQuery(
-      'UPDATE users SET username = $1, role = $2, first_name = $3, last_name = $4, email = $5, phone = $6, classroom = $7, profile_picture = $8 WHERE id = $9',
-      [username, role, first_name || '', last_name || '', email || '', phone || '', classroom || '', profile_picture || '', id]
-    );
+    const { username, role, first_name, last_name, email, phone, classroom, profile_picture, newPassword } = req.body;
+
+    // Allow if admin OR if editing own profile
+    if (currentUser.role !== 'admin' && currentUser.userId !== parseInt(id)) {
+      return res.status(403).json({ error: 'You can only edit your own profile' });
+    }
+
+    // Non-admins cannot change roles
+    if (currentUser.role !== 'admin' && role !== currentUser.role) {
+      return res.status(403).json({ error: 'You cannot change your own role' });
+    }
+
+    if (newPassword) {
+      const hashedPassword = bcrypt.hashSync(newPassword, 10);
+      await runQuery(
+        'UPDATE users SET username = $1, role = $2, first_name = $3, last_name = $4, email = $5, phone = $6, classroom = $7, profile_picture = $8, password = $9 WHERE id = $10',
+        [username, role, first_name || '', last_name || '', email || '', phone || '', classroom || '', profile_picture || '', hashedPassword, id]
+      );
+    } else {
+      await runQuery(
+        'UPDATE users SET username = $1, role = $2, first_name = $3, last_name = $4, email = $5, phone = $6, classroom = $7, profile_picture = $8 WHERE id = $9',
+        [username, role, first_name || '', last_name || '', email || '', phone || '', classroom || '', profile_picture || '', id]
+      );
+    }
     res.json({ success: true });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
