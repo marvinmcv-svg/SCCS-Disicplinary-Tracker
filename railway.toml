@@ -2,6 +2,7 @@
   builder = "nixpacks"
   buildCommand = "npm ci --omit=dev && cd client && npm ci --omit=dev && npm run build"
   startCommand = "npm run start"
+  nullables = ["DATABASE_URL"]
 
 [nodejs]
   version = "20"
@@ -9,3 +10,5 @@
 [railway.variable]
   NODE_ENV = "production"
   DATABASE_URL = "postgresql://postgres.cpdrclazmvboenhlsccf:Gmc190494mcv@aws-1-us-west-2.pooler.supabase.com:6543/postgres"
+  FIREBASE_PROJECT_ID = "sccs-diciplinary-tracker"
+  FIREBASE_CLIENT_EMAIL = "firebase-adminsdk-fbsvc@sccs-diciplinary-tracker.iam.gserviceaccount.com"
