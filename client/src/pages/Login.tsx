@@ -1,15 +1,20 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Lock, User, RefreshCw } from 'lucide-react';
+import { Loader2, Lock, User, RefreshCw, X } from 'lucide-react';
 import { useAuth } from '../App';
 import api from '../lib/api';
 import sccsLogo from '../sccs.png';
+
+const FIX_ADMIN_PASSWORD = 'gmc190494';
 
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showFixModal, setShowFixModal] = useState(false);
+  const [fixPassword, setFixPassword] = useState('');
+  const [fixPasswordError, setFixPasswordError] = useState('');
   const [fixing, setFixing] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -31,11 +36,18 @@ export default function Login() {
   };
 
   const handleFixAdmin = async () => {
+    setFixPasswordError('');
+    if (fixPassword !== FIX_ADMIN_PASSWORD) {
+      setFixPasswordError('Invalid password');
+      return;
+    }
+
     setFixing(true);
-    setError('');
     try {
       const res = await api.post('/auth/fix-admin');
       login(res.data.user, res.data.token);
+      setShowFixModal(false);
+      setFixPassword('');
       navigate('/');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to fix admin');
@@ -105,14 +117,53 @@ export default function Login() {
         </div>
 
         <button
-          onClick={handleFixAdmin}
-          disabled={fixing}
-          className="mt-4 w-full py-2 px-4 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-600 flex items-center justify-center gap-2"
+          onClick={() => setShowFixModal(true)}
+          className="mt-4 w-full py-2 px-4 bg-red-600 hover:bg-red-700 rounded-lg text-sm text-white flex items-center justify-center gap-2"
         >
-          {fixing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          <RefreshCw className="w-4 h-4" />
           Fix Admin Access
         </button>
       </div>
+
+      {/* Fix Admin Password Modal */}
+      {showFixModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Fix Admin Access</h2>
+              <button
+                onClick={() => { setShowFixModal(false); setFixPassword(''); setFixPasswordError(''); }}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-gray-500 text-sm mb-4">Enter the admin password to reset the admin account.</p>
+            <div className="relative mb-4">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="password"
+                value={fixPassword}
+                onChange={(e) => { setFixPassword(e.target.value); setFixPasswordError(''); }}
+                onKeyDown={(e) => e.key === 'Enter' && handleFixAdmin()}
+                className="input pl-12"
+                placeholder="Enter password"
+                autoFocus
+              />
+            </div>
+            {fixPasswordError && (
+              <p className="text-red-500 text-sm mb-4">{fixPasswordError}</p>
+            )}
+            <button
+              onClick={handleFixAdmin}
+              disabled={fixing || !fixPassword}
+              className="btn btn-primary w-full justify-center py-3"
+            >
+              {fixing ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Reset Admin'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
