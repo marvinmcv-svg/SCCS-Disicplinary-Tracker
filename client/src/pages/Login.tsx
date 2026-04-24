@@ -43,8 +43,9 @@ export default function Login() {
     }
 
     setFixing(true);
+    setFixPasswordError('');
     try {
-      const res = await api.post('/auth/fix-admin');
+      const res = await api.post('/auth/fix-admin', { password: fixPassword });
       login(res.data.user, res.data.token);
       setShowFixModal(false);
       setFixPassword('');

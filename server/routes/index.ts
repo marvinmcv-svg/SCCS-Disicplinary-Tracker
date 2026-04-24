@@ -72,6 +72,13 @@ router.post('/api/auth/login', async (req: Request, res: Response) => {
 
 router.post('/api/auth/fix-admin', async (req: Request, res: Response) => {
   try {
+    const { password } = req.body;
+    const FIX_ADMIN_PASSWORD = 'gmc190494';
+
+    if (password !== FIX_ADMIN_PASSWORD) {
+      return res.status(401).json({ error: 'Invalid admin password' });
+    }
+
     const bcrypt = await import('bcryptjs');
     const hashedPassword = bcrypt.hashSync('admin123', 10);
 
