@@ -535,6 +535,19 @@ router.get('/api/users', authenticate, async (req: Request, res: Response) => {
   }
 });
 
+router.get('/api/users/:id', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const user = await queryOne('SELECT id, username, role, first_name, last_name, email, phone, classroom, profile_picture, created_at FROM users WHERE id = $1', [id]);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json(user);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.post('/api/users', authenticate, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;

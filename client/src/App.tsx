@@ -8,6 +8,7 @@ import Violations from './pages/Violations';
 import MTSS from './pages/MTSS';
 import Settings from './pages/Settings';
 import Users from './pages/Users';
+import UserProfile from './pages/UserProfile';
 import Layout from './components/Layout';
 
 interface AuthContextType {
@@ -62,6 +63,7 @@ function App() {
             <Route path="violations" element={<Violations />} />
             <Route path="mtss" element={<MTSS />} />
             <Route path="users" element={<Users />} />
+            <Route path="users/:id" element={<UserProfile />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>

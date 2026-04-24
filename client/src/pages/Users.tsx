@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { User as UserIcon, Shield, Trash2, Plus, X, Mail, Phone, MapPin, Image, Loader } from 'lucide-react';
 
@@ -33,6 +34,7 @@ export default function Users() {
     profile_picture: '',
   });
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadUsers();
@@ -172,7 +174,7 @@ export default function Users() {
             <div
               key={user.id}
               className="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => openModal(user)}
+              onClick={() => navigate(`/users/${user.id}`)}
             >
               <div className="flex items-start gap-4">
                 <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden flex-shrink-0">
