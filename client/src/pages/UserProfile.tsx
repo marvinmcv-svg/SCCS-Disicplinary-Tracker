@@ -309,7 +309,7 @@ export default function UserProfile() {
                 value={formData.username}
                 onChange={(e) => {
                   handleChange('username', e.target.value);
-                  setShowSavePrompt(true);
+                  setHasUnsavedChanges(true);
                 }}
                 className="input"
                 disabled={!canEdit}
@@ -322,7 +322,7 @@ export default function UserProfile() {
                 value={formData.role}
                 onChange={(e) => {
                   handleChange('role', e.target.value);
-                  setShowSavePrompt(true);
+                  setHasUnsavedChanges(true);
                 }}
                 className="select"
                 disabled={!isAdmin}
@@ -345,7 +345,7 @@ export default function UserProfile() {
                 value={formData.first_name}
                 onChange={(e) => {
                   handleChange('first_name', e.target.value);
-                  setShowSavePrompt(true);
+                  setHasUnsavedChanges(true);
                 }}
                 className="input"
                 disabled={!canEdit}
@@ -358,7 +358,7 @@ export default function UserProfile() {
                 value={formData.last_name}
                 onChange={(e) => {
                   handleChange('last_name', e.target.value);
-                  setShowSavePrompt(true);
+                  setHasUnsavedChanges(true);
                 }}
                 className="input"
                 disabled={!canEdit}
@@ -374,7 +374,7 @@ export default function UserProfile() {
                 value={formData.email}
                 onChange={(e) => {
                   handleChange('email', e.target.value);
-                  setShowSavePrompt(true);
+                  setHasUnsavedChanges(true);
                 }}
                 className="input"
                 disabled={!canEdit}
@@ -388,7 +388,7 @@ export default function UserProfile() {
                 value={formData.phone}
                 onChange={(e) => {
                   handleChange('phone', e.target.value);
-                  setShowSavePrompt(true);
+                  setHasUnsavedChanges(true);
                 }}
                 className="input"
                 disabled={!canEdit}
@@ -404,7 +404,7 @@ export default function UserProfile() {
               value={formData.classroom}
               onChange={(e) => {
                 handleChange('classroom', e.target.value);
-                setShowSavePrompt(true);
+                setHasUnsavedChanges(true);
               }}
               className="input max-w-md"
               disabled={!canEdit}
@@ -439,7 +439,6 @@ export default function UserProfile() {
                       accept="image/*"
                       onChange={(e) => {
                         handlePictureUpload(e);
-                        setShowSavePrompt(true);
                       }}
                       className="hidden"
                     />
@@ -449,7 +448,6 @@ export default function UserProfile() {
                       type="button"
                       onClick={() => {
                         setProfilePicture('');
-                        setShowSavePrompt(true);
                       }}
                       className="ml-2 text-sm text-red-500 hover:underline"
                     >
