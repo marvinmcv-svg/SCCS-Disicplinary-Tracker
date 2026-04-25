@@ -75,6 +75,7 @@ export default function Students() {
         grade: formData.grade,
         counselor: formData.counselor,
         advisory: formData.advisory,
+        observations: formData.observations,
       };
       if (editingStudent) {
         await api.put(`/students/${editingStudent.id}`, payload);

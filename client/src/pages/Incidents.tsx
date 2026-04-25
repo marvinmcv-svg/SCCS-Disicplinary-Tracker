@@ -63,6 +63,16 @@ export default function Incidents() {
   const [filterCategory, setFilterCategory] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [editingIncident, setEditingIncident] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    location: '',
+    description: '',
+    witnesses: '',
+    advisor: '',
+    action_taken: '',
+    consequence: '',
+    notes: '',
+  });
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -728,13 +738,62 @@ export default function Incidents() {
         <div className="modal-overlay" onClick={() => setShowViewModal(false)}>
           <div className="modal max-w-5xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-semibold">Incident {viewIncident.incident_id}</h2>
-                <p className="text-sm text-gray-500">{viewIncident.date} at {viewIncident.time || 'N/A'}</p>
+              <div className="flex items-center gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold">Incident {viewIncident.incident_id}</h2>
+                  <p className="text-sm text-gray-500">{viewIncident.date} at {viewIncident.time || 'N/A'}</p>
+                </div>
+                {!editingIncident && (
+                  <button
+                    onClick={() => {
+                      setEditFormData({
+                        location: viewIncident.location || '',
+                        description: viewIncident.description || '',
+                        witnesses: viewIncident.witnesses || '',
+                        advisor: viewIncident.advisor || '',
+                        action_taken: viewIncident.action_taken || '',
+                        consequence: viewIncident.consequence || '',
+                        notes: viewIncident.notes || '',
+                      });
+                      setEditingIncident(true);
+                    }}
+                    className="btn btn-secondary text-sm py-1.5 px-3"
+                  >
+                    Edit
+                  </button>
+                )}
+                {editingIncident && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={async () => {
+                        try {
+                          await api.put(`/incidents/${viewIncident.id}`, editFormData);
+                          loadData();
+                          setEditingIncident(false);
+                        } catch (error) {
+                          console.error(error);
+                          alert('Failed to save changes');
+                        }
+                      }}
+                      disabled={saving}
+                      className="btn btn-primary text-sm py-1.5 px-3"
+                    >
+                      {saving ? <Loader className="w-4 h-4 animate-spin" /> : 'Save'}
+                    </button>
+                    <button
+                      onClick={() => setEditingIncident(false)}
+                      className="btn btn-secondary text-sm py-1.5 px-3"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
               </div>
-              <span className={`badge ${getStatusColor(viewIncident.status)}`}>
-                {viewIncident.status}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`badge ${getStatusColor(viewIncident.status)}`}>
+                  {viewIncident.status}
+                </span>
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -752,17 +811,53 @@ export default function Incidents() {
 
               <div>
                 <p className="text-sm text-gray-500">Description</p>
-                <p className="">{viewIncident.description || 'No description'}</p>
+                {editingIncident ? (
+                  <textarea
+                    value={editFormData.description}
+                    onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                    className="input min-h-[60px]"
+                    placeholder="Describe the incident..."
+                  />
+                ) : (
+                  <p className="">{viewIncident.description || 'No description'}</p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-gray-500">Location</p>
-                  <p>{viewIncident.location || '-'}</p>
+                  {editingIncident ? (
+                    <select
+                      value={editFormData.location}
+                      onChange={(e) => setEditFormData({ ...editFormData, location: e.target.value })}
+                      className="select"
+                    >
+                      <option value="">Select</option>
+                      <option value="Classroom">Classroom</option>
+                      <option value="Hallway">Hallway</option>
+                      <option value="Cafeteria">Cafeteria</option>
+                      <option value="Gym">Gym</option>
+                      <option value="Bathroom">Bathroom</option>
+                      <option value="Parking Lot">Parking Lot</option>
+                      <option value="Bus">Bus</option>
+                    </select>
+                  ) : (
+                    <p>{viewIncident.location || '-'}</p>
+                  )}
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Witnesses</p>
-                  <p>{viewIncident.witnesses || '-'}</p>
+                  {editingIncident ? (
+                    <input
+                      type="text"
+                      value={editFormData.witnesses}
+                      onChange={(e) => setEditFormData({ ...editFormData, witnesses: e.target.value })}
+                      className="input"
+                      placeholder="Enter witness names"
+                    />
+                  ) : (
+                    <p>{viewIncident.witnesses || '-'}</p>
+                  )}
                 </div>
               </div>
 
@@ -770,13 +865,53 @@ export default function Incidents() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Action Taken</p>
-                    <p>{viewIncident.action_taken || '-'}</p>
+                    {editingIncident ? (
+                      <select
+                        value={editFormData.action_taken}
+                        onChange={(e) => setEditFormData({ ...editFormData, action_taken: e.target.value })}
+                        className="select"
+                      >
+                        <option value="">Select Action</option>
+                        <option value="Warning">Warning</option>
+                        <option value="Parent Call">Parent Call</option>
+                        <option value="Detention">Detention</option>
+                        <option value="Saturday School">Saturday School</option>
+                        <option value="ISS">ISS</option>
+                        <option value="OSS">OSS</option>
+                      </select>
+                    ) : (
+                      <p>{viewIncident.action_taken || '-'}</p>
+                    )}
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Consequence</p>
-                    <p>{viewIncident.consequence || '-'}</p>
+                    {editingIncident ? (
+                      <input
+                        type="text"
+                        value={editFormData.consequence}
+                        onChange={(e) => setEditFormData({ ...editFormData, consequence: e.target.value })}
+                        className="input"
+                        placeholder="Enter consequence"
+                      />
+                    ) : (
+                      <p>{viewIncident.consequence || '-'}</p>
+                    )}
                   </div>
                 </div>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-500">Notes</p>
+                {editingIncident ? (
+                  <textarea
+                    value={editFormData.notes}
+                    onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
+                    className="input min-h-[60px]"
+                    placeholder="Additional notes..."
+                  />
+                ) : (
+                  <p>{viewIncident.notes || '-'}</p>
+                )}
               </div>
 
               {/* Parent Contact Section */}

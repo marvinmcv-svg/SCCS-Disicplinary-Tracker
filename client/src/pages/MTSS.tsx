@@ -50,6 +50,8 @@ export default function MTSS() {
   const [interventions, setInterventions] = useState<Intervention[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [filterTier, setFilterTier] = useState('');
   const [filterAdvisor, setFilterAdvisor] = useState('');
@@ -60,6 +62,7 @@ export default function MTSS() {
     advisor: '',
     start_date: new Date().toISOString().split('T')[0],
     end_date: '',
+    progress: 'Not Started',
     notes: '',
   });
 
@@ -84,20 +87,36 @@ export default function MTSS() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
     try {
-      await api.post('/mtss', {
-        student_id: Number(formData.student_id),
-        tier: formData.tier,
-        intervention: formData.intervention,
-        advisor: formData.advisor || null,
-        start_date: formData.start_date,
-        end_date: formData.end_date || null,
-        notes: formData.notes,
-      });
+      if (editingId) {
+        await api.put(`/mtss/${editingId}`, {
+          student_id: Number(formData.student_id),
+          tier: formData.tier,
+          intervention: formData.intervention,
+          advisor: formData.advisor || null,
+          start_date: formData.start_date,
+          end_date: formData.end_date || null,
+          progress: formData.progress || 'In Progress',
+          notes: formData.notes,
+        });
+      } else {
+        await api.post('/mtss', {
+          student_id: Number(formData.student_id),
+          tier: formData.tier,
+          intervention: formData.intervention,
+          advisor: formData.advisor || null,
+          start_date: formData.start_date,
+          end_date: formData.end_date || null,
+          notes: formData.notes,
+        });
+      }
       loadData();
       closeModal();
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Error creating intervention');
+      alert(error.response?.data?.error || 'Error saving intervention');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -112,6 +131,7 @@ export default function MTSS() {
   };
 
   const openModal = () => {
+    setEditingId(null);
     setFormData({
       student_id: '',
       tier: 1,
@@ -119,6 +139,7 @@ export default function MTSS() {
       advisor: '',
       start_date: new Date().toISOString().split('T')[0],
       end_date: '',
+      progress: 'Not Started',
       notes: '',
     });
     setShowModal(true);
@@ -126,6 +147,7 @@ export default function MTSS() {
 
   const closeModal = () => {
     setShowModal(false);
+    setEditingId(null);
   };
 
   const filteredInterventions = interventions.filter(i => {
@@ -265,9 +287,28 @@ export default function MTSS() {
                   <td>
                     <button
                       onClick={() => handleDelete(intervention.id)}
-                      className="text-sm text-red-600 hover:text-red-700"
+                      className="text-sm text-red-600 hover:text-red-700 mr-2"
                     >
                       Complete
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingId(intervention.id);
+                        setFormData({
+                          student_id: intervention.student_id,
+                          tier: intervention.tier,
+                          intervention: intervention.intervention,
+                          advisor: intervention.advisor || '',
+                          start_date: intervention.start_date,
+                          end_date: intervention.end_date || '',
+                          progress: intervention.progress,
+                          notes: intervention.notes || '',
+                        });
+                        setShowModal(true);
+                      }}
+                      className="text-sm text-blue-600 hover:text-blue-700"
+                    >
+                      Edit
                     </button>
                   </td>
                 </tr>
@@ -291,7 +332,9 @@ export default function MTSS() {
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">New MTSS Intervention</h2>
+              <h2 className="text-lg font-semibold">
+                {editingId ? 'Edit Intervention' : 'New MTSS Intervention'}
+              </h2>
               <button onClick={closeModal} className="p-1 hover:bg-gray-100 rounded">
                 <X className="w-5 h-5" />
               </button>
@@ -369,14 +412,27 @@ export default function MTSS() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">End Date (Planned)</label>
-                  <input
-                    type="date"
-                    value={formData.end_date}
-                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                    className="input"
-                  />
+                  <label className="form-label">Progress</label>
+                  <select
+                    value={formData.progress}
+                    onChange={(e) => setFormData({ ...formData, progress: e.target.value })}
+                    className="select"
+                  >
+                    <option value="Not Started">Not Started</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                  </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="form-label">End Date (Planned)</label>
+                <input
+                  type="date"
+                  value={formData.end_date}
+                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                  className="input"
+                />
               </div>
 
               <div>
@@ -393,8 +449,8 @@ export default function MTSS() {
                 <button type="button" onClick={closeModal} className="btn btn-danger">
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  Create Intervention
+                <button type="submit" disabled={saving} className="btn btn-primary">
+                  {saving ? 'Saving...' : (editingId ? 'Update Intervention' : 'Create Intervention')}
                 </button>
               </div>
             </form>
