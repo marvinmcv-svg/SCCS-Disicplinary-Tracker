@@ -515,24 +515,24 @@ export default function UserProfile() {
             </div>
           )}
 
-          {/* Save / Cancel Buttons - Always visible when can edit */}
+          {/* Save / Cancel Buttons - Always visible when canEdit */}
           {canEdit && (
             <div className="flex items-center gap-3 pt-4 border-t">
               <button
                 type="submit"
-                disabled={saving || !hasUnsavedChanges}
-                className={`btn flex items-center gap-2 ${hasUnsavedChanges ? 'btn-primary' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                disabled={saving}
+                className={`btn flex items-center gap-2 ${hasUnsavedChanges || passwordData.newPassword ? 'btn-primary' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
               >
                 {saving ? (
                   <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <>
                     <Save className="w-5 h-5" />
-                    Save Changes
+                    {hasUnsavedChanges || passwordData.newPassword ? 'Save Changes' : 'No Changes'}
                   </>
                 )}
               </button>
-              {hasUnsavedChanges && (
+              {(hasUnsavedChanges || passwordData.newPassword) && (
                 <button
                   type="button"
                   onClick={handleCancel}
