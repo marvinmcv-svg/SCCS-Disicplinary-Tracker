@@ -164,12 +164,12 @@ export interface VersionInfo {
   minAppVersion: string;
 }
 
-// Typed API functions
+// Typed API functions - use apiClient to get baseURL and interceptors
 export const api = {
-  get: <T>(url: string) => axios.get<T>(url),
-  post: <T>(url: string, data?: unknown) => axios.post<T>(url, data),
-  put: <T>(url: string, data?: unknown) => axios.put<T>(url, data),
-  delete: <T>(url: string) => axios.delete<T>(url),
+  get: <T>(url: string) => apiClient.get<T>(url),
+  post: <T>(url: string, data?: unknown) => apiClient.post<T>(url, data),
+  put: <T>(url: string, data?: unknown) => apiClient.put<T>(url, data),
+  delete: <T>(url: string) => apiClient.delete<T>(url),
 };
 
 const apiClient = axios.create({
