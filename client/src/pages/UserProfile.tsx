@@ -143,12 +143,44 @@ export default function UserProfile() {
         payload.newPassword = passwordData.newPassword;
       }
 
-      await api.put(`/users/${id}`, payload);
-      setSuccessMessage('Profile updated successfully!');
+      const response = await api.put(`/users/${id}`, payload);
+
+      // Verify the update was actually saved by re-fetching
+      const verifyRes = await api.get(`/users/${id}`);
+      const savedData = verifyRes.data;
+
+      // Check if the data matches what we tried to save
+      const fieldsMatch =
+        savedData.username === formData.username &&
+        savedData.role === formData.role &&
+        savedData.first_name === formData.first_name &&
+        savedData.last_name === formData.last_name &&
+        savedData.email === formData.email &&
+        savedData.phone === formData.phone &&
+        savedData.classroom === formData.classroom &&
+        (savedData.profile_picture || '') === profilePicture;
+
+      if (fieldsMatch) {
+        setSuccessMessage('Profile updated successfully!');
+        setUser(savedData);
+        setFormData({
+          username: savedData.username || '',
+          role: savedData.role || '',
+          first_name: savedData.first_name || '',
+          last_name: savedData.last_name || '',
+          email: savedData.email || '',
+          phone: savedData.phone || '',
+          classroom: savedData.classroom || '',
+        });
+        setProfilePicture(savedData.profile_picture || '');
+        setHasUnsavedChanges(false);
+      } else {
+        console.error('Verification failed. Saved data:', savedData);
+        console.error('Expected data:', formData, 'profilePicture:', profilePicture);
+        alert('Warning: Update may not have saved correctly. Please refresh and try again.');
+      }
+
       setPasswordData({ newPassword: '', confirmPassword: '' });
-      setHasUnsavedChanges(false);
-      // Reload user data after successful save
-      loadUser();
 
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error: any) {
