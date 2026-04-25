@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Upload, User, Mail, Phone, MapPin, Shield, Clock, Check, X, Edit3, Lock } from 'lucide-react';
+import { ArrowLeft, Save, Upload, User, Mail, Phone, MapPin, Shield, Clock, Check, X, Lock } from 'lucide-react';
 import api from '../lib/api';
 import { useAuth } from '../App';
 
@@ -24,7 +24,8 @@ export default function UserProfile() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [editing, setEditing] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
     role: '',
@@ -37,10 +38,17 @@ export default function UserProfile() {
   const [profilePicture, setProfilePicture] = useState('');
   const [passwordData, setPasswordData] = useState({ newPassword: '', confirmPassword: '' });
   const [passwordError, setPasswordError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
 
   const isAdmin = currentUser?.role === 'admin';
   const isOwnProfile = currentUser?.id === parseInt(id || '0');
+  const canEdit = isOwnProfile || isAdmin;
+
+  const roleOptions = [
+    { value: 'user', label: 'User', description: 'Standard access' },
+    { value: 'teacher', label: 'Teacher', description: 'Teacher access' },
+    { value: 'teacher_assistant', label: 'Teacher Assistant', description: 'Assistant access' },
+    { value: 'admin', label: 'Admin', description: 'Full administrative access' },
+  ];
 
   const loadUser = useCallback(async () => {
     try {
@@ -68,6 +76,22 @@ export default function UserProfile() {
     loadUser();
   }, [loadUser]);
 
+  // Track unsaved changes
+  useEffect(() => {
+    if (user) {
+      const hasChanges =
+        formData.username !== user.username ||
+        formData.role !== user.role ||
+        formData.first_name !== user.first_name ||
+        formData.last_name !== user.last_name ||
+        formData.email !== user.email ||
+        formData.phone !== user.phone ||
+        formData.classroom !== user.classroom ||
+        profilePicture !== (user.profile_picture || '');
+      setHasUnsavedChanges(hasChanges);
+    }
+  }, [formData, profilePicture, user]);
+
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -79,6 +103,9 @@ export default function UserProfile() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!hasUnsavedChanges && !passwordData.newPassword) {
+      return; // Nothing to save
+    }
     setSaving(true);
     setSuccessMessage('');
     setPasswordError('');
@@ -109,10 +136,10 @@ export default function UserProfile() {
         payload.newPassword = passwordData.newPassword;
       }
 
-      await api.put(`/users/${id}`, payload);
+      const response = await api.put(`/users/${id}`, payload);
       setSuccessMessage('Profile updated successfully!');
       setPasswordData({ newPassword: '', confirmPassword: '' });
-      setEditing(false);
+      setHasUnsavedChanges(false);
       loadUser();
 
       setTimeout(() => setSuccessMessage(''), 3000);
@@ -138,7 +165,7 @@ export default function UserProfile() {
     }
     setPasswordData({ newPassword: '', confirmPassword: '' });
     setPasswordError('');
-    setEditing(false);
+    setHasUnsavedChanges(false);
   };
 
   const handlePictureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -223,15 +250,6 @@ export default function UserProfile() {
                 )}
               </div>
             </div>
-            {(isOwnProfile || isAdmin) && !editing && (
-              <button
-                onClick={() => setEditing(true)}
-                className="flex items-center gap-2 bg-white text-blue-600 px-4 py-2 rounded-lg font-medium hover:bg-gray-100"
-              >
-                <Edit3 className="w-4 h-4" />
-                Edit Profile
-              </button>
-            )}
           </div>
         </div>
 
@@ -269,9 +287,18 @@ export default function UserProfile() {
 
       {/* Edit Form */}
       <div className="bg-white rounded-2xl shadow-sm p-6">
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          {editing ? 'Edit Profile' : 'Profile Information'}
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <User className="w-5 h-5" />
+            Profile Information
+          </h2>
+          {canEdit && hasUnsavedChanges && (
+            <span className="text-xs text-orange-500 flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              Unsaved changes
+            </span>
+          )}
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -280,9 +307,12 @@ export default function UserProfile() {
               <input
                 type="text"
                 value={formData.username}
-                onChange={(e) => handleChange('username', e.target.value)}
+                onChange={(e) => {
+                  handleChange('username', e.target.value);
+                  setShowSavePrompt(true);
+                }}
                 className="input"
-                disabled={!editing}
+                disabled={!canEdit}
                 required
               />
             </div>
@@ -290,13 +320,20 @@ export default function UserProfile() {
               <label className="form-label">Role</label>
               <select
                 value={formData.role}
-                onChange={(e) => handleChange('role', e.target.value)}
+                onChange={(e) => {
+                  handleChange('role', e.target.value);
+                  setShowSavePrompt(true);
+                }}
                 className="select"
                 disabled={!isAdmin}
               >
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
+                {roleOptions.map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
+              {!isAdmin && <p className="text-xs text-gray-500 mt-1">Only admins can change roles</p>}
             </div>
           </div>
 
@@ -306,9 +343,12 @@ export default function UserProfile() {
               <input
                 type="text"
                 value={formData.first_name}
-                onChange={(e) => handleChange('first_name', e.target.value)}
+                onChange={(e) => {
+                  handleChange('first_name', e.target.value);
+                  setShowSavePrompt(true);
+                }}
                 className="input"
-                disabled={!editing}
+                disabled={!canEdit}
               />
             </div>
             <div>
@@ -316,9 +356,12 @@ export default function UserProfile() {
               <input
                 type="text"
                 value={formData.last_name}
-                onChange={(e) => handleChange('last_name', e.target.value)}
+                onChange={(e) => {
+                  handleChange('last_name', e.target.value);
+                  setShowSavePrompt(true);
+                }}
                 className="input"
-                disabled={!editing}
+                disabled={!canEdit}
               />
             </div>
           </div>
@@ -329,9 +372,12 @@ export default function UserProfile() {
               <input
                 type="email"
                 value={formData.email}
-                onChange={(e) => handleChange('email', e.target.value)}
+                onChange={(e) => {
+                  handleChange('email', e.target.value);
+                  setShowSavePrompt(true);
+                }}
                 className="input"
-                disabled={!editing}
+                disabled={!canEdit}
                 placeholder="email@school.edu"
               />
             </div>
@@ -340,9 +386,12 @@ export default function UserProfile() {
               <input
                 type="tel"
                 value={formData.phone}
-                onChange={(e) => handleChange('phone', e.target.value)}
+                onChange={(e) => {
+                  handleChange('phone', e.target.value);
+                  setShowSavePrompt(true);
+                }}
                 className="input"
-                disabled={!editing}
+                disabled={!canEdit}
                 placeholder="(555) 123-4567"
               />
             </div>
@@ -353,15 +402,68 @@ export default function UserProfile() {
             <input
               type="text"
               value={formData.classroom}
-              onChange={(e) => handleChange('classroom', e.target.value)}
+              onChange={(e) => {
+                handleChange('classroom', e.target.value);
+                setShowSavePrompt(true);
+              }}
               className="input max-w-md"
-              disabled={!editing}
+              disabled={!canEdit}
               placeholder="Room 101, Building A"
             />
           </div>
 
+          {/* Profile Picture Upload */}
+          {canEdit && (
+            <div className="pt-4 border-t">
+              <label className="form-label">Profile Picture</label>
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  {profilePicture ? (
+                    <img
+                      src={profilePicture}
+                      alt="Profile"
+                      className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center">
+                      <User className="w-8 h-8 text-gray-400" />
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="btn btn-secondary cursor-pointer">
+                    <Upload className="w-4 h-4 mr-2" />
+                    {profilePicture ? 'Change Photo' : 'Upload Photo'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        handlePictureUpload(e);
+                        setShowSavePrompt(true);
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                  {profilePicture && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfilePicture('');
+                        setShowSavePrompt(true);
+                      }}
+                      className="ml-2 text-sm text-red-500 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">JPG, PNG or GIF. Max 2MB.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Password Change Section */}
-          {editing && (
+          {canEdit && (
             <div className="pt-4 border-t">
               <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
                 <Lock className="w-4 h-4" />
@@ -398,12 +500,13 @@ export default function UserProfile() {
             </div>
           )}
 
-          {editing && (
+          {/* Save / Cancel Buttons - Always visible when can edit */}
+          {canEdit && (
             <div className="flex items-center gap-3 pt-4 border-t">
               <button
                 type="submit"
-                disabled={saving}
-                className="btn btn-primary flex items-center gap-2"
+                disabled={saving || !hasUnsavedChanges}
+                className={`btn flex items-center gap-2 ${hasUnsavedChanges ? 'btn-primary' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
               >
                 {saving ? (
                   <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -414,14 +517,16 @@ export default function UserProfile() {
                   </>
                 )}
               </button>
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="btn btn-secondary flex items-center gap-2"
-              >
-                <X className="w-5 h-5" />
-                Cancel
-              </button>
+              {hasUnsavedChanges && (
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="btn btn-secondary flex items-center gap-2"
+                >
+                  <X className="w-5 h-5" />
+                  Cancel
+                </button>
+              )}
             </div>
           )}
         </form>
