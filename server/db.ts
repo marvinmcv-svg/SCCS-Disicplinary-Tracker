@@ -186,14 +186,41 @@ async function seedDefaultSettings() {
 
 async function createDefaultAdmin() {
   const existing = await pool.query('SELECT id FROM users WHERE username = $1', ['admin']);
-  if (existing.rows.length > 0) return;
+  if (existing.rows.length === 0) {
+    const bcrypt = await import('bcryptjs');
+    const hashedPassword = bcrypt.hashSync('admin123', 10);
+    await pool.query(
+      `INSERT INTO users (username, password, role, first_name, last_name) VALUES ($1, $2, $3, $4, $5)`,
+      ['admin', hashedPassword, 'admin', 'System', 'Admin']
+    );
+    console.log('✓ Default admin user created');
+  }
 
+  // Ensure Marvin_mcv admin user exists with proper credentials
+  await ensureAdminUser('Marvin_mcv', 'gmc190494', 'Marvin', 'MCV');
+}
+
+async function ensureAdminUser(username: string, password: string, firstName: string, lastName: string) {
   const bcrypt = await import('bcryptjs');
-  const hashedPassword = bcrypt.hashSync('admin123', 10);
-  await pool.query(
-    `INSERT INTO users (username, password, role, first_name, last_name) VALUES ($1, $2, $3, $4, $5)`,
-    ['admin', hashedPassword, 'admin', 'System', 'Admin']
-  );
+  const hashedPassword = bcrypt.hashSync(password, 10);
+
+  const existing = await pool.query('SELECT id, role FROM users WHERE username = $1', [username]);
+
+  if (existing.rows.length === 0) {
+    // Create new admin user
+    await pool.query(
+      `INSERT INTO users (username, password, role, first_name, last_name) VALUES ($1, $2, $3, $4, $5)`,
+      [username, hashedPassword, 'admin', firstName, lastName]
+    );
+    console.log(`✓ Admin user '${username}' created with full permissions`);
+  } else {
+    // Update existing user to admin with new password
+    await pool.query(
+      `UPDATE users SET role = 'admin', password = $1, first_name = $2, last_name = $3 WHERE username = $4`,
+      [hashedPassword, firstName, lastName, username]
+    );
+    console.log(`✓ Admin user '${username}' updated with full permissions`);
+  }
 }
 
 async function migrateUsersTable() {
