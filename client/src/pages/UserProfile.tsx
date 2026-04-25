@@ -53,6 +53,10 @@ export default function UserProfile() {
   const loadUser = useCallback(async () => {
     try {
       const res = await api.get(`/users/${id}`);
+      if (!res.data) {
+        console.error('No data received from server');
+        return;
+      }
       setUser(res.data);
       setFormData({
         username: res.data.username || '',
@@ -64,9 +68,12 @@ export default function UserProfile() {
         classroom: res.data.classroom || '',
       });
       setProfilePicture(res.data.profile_picture || '');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load user', error);
-      navigate('/users');
+      // Only navigate if it's a real error, not just a failed reload after save
+      if (error.response?.status === 401) {
+        navigate('/login');
+      }
     } finally {
       setLoading(false);
     }
@@ -111,7 +118,7 @@ export default function UserProfile() {
     setPasswordError('');
 
     try {
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         username: formData.username,
         role: formData.role,
         first_name: formData.first_name,
@@ -136,15 +143,18 @@ export default function UserProfile() {
         payload.newPassword = passwordData.newPassword;
       }
 
-      const response = await api.put(`/users/${id}`, payload);
+      await api.put(`/users/${id}`, payload);
       setSuccessMessage('Profile updated successfully!');
       setPasswordData({ newPassword: '', confirmPassword: '' });
       setHasUnsavedChanges(false);
+      // Reload user data after successful save
       loadUser();
 
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to update profile');
+      console.error('Failed to update profile:', error);
+      const errorMsg = error.response?.data?.error || 'Failed to update profile';
+      alert(errorMsg);
     } finally {
       setSaving(false);
     }
@@ -170,27 +180,39 @@ export default function UserProfile() {
 
   const handlePictureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      // Check file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        alert('File too large. Maximum size is 10MB.');
-        return;
-      }
-      // Validate it's an image
-      if (!file.type.startsWith('image/')) {
-        alert('Please select an image file.');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfilePicture(reader.result as string);
-        setHasUnsavedChanges(true);
-      };
-      reader.onerror = () => {
-        alert('Failed to read file. Please try a different image.');
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    // Check file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File too large. Maximum size is 10MB.');
+      return;
     }
+
+    // Validate it's an image
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const result = reader.result;
+        if (typeof result === 'string') {
+          setProfilePicture(result);
+          setHasUnsavedChanges(true);
+        } else {
+          alert('Failed to read file. Please try a different image.');
+        }
+      } catch (err) {
+        console.error('Error setting profile picture:', err);
+        alert('Failed to process image.');
+      }
+    };
+    reader.onerror = () => {
+      alert('Failed to read file. Please try a different image.');
+    };
+    reader.readAsDataURL(file);
   };
 
   if (loading) {
