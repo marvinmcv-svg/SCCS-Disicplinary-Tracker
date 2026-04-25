@@ -171,15 +171,23 @@ export default function UserProfile() {
   const handlePictureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Check file size (max 2MB)
-      if (file.size > 2 * 1024 * 1024) {
-        alert('File too large. Maximum size is 2MB.');
+      // Check file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File too large. Maximum size is 10MB.');
+        return;
+      }
+      // Validate it's an image
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file.');
         return;
       }
       const reader = new FileReader();
       reader.onloadend = () => {
         setProfilePicture(reader.result as string);
         setHasUnsavedChanges(true);
+      };
+      reader.onerror = () => {
+        alert('Failed to read file. Please try a different image.');
       };
       reader.readAsDataURL(file);
     }
@@ -231,7 +239,7 @@ export default function UserProfile() {
                   <Upload className="w-4 h-4" />
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/svg+xml,image/bmp,image/tiff,image/heic,image/heif"
                     onChange={handlePictureUpload}
                     className="hidden"
                   />
@@ -444,7 +452,7 @@ export default function UserProfile() {
                     {profilePicture ? 'Change Photo' : 'Upload Photo'}
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/svg+xml,image/bmp,image/tiff,image/heic,image/heif"
                       onChange={(e) => {
                         handlePictureUpload(e);
                       }}
@@ -463,7 +471,7 @@ export default function UserProfile() {
                       Remove
                     </button>
                   )}
-                  <p className="text-xs text-gray-500 mt-1">JPG, PNG or GIF. Max 2MB.</p>
+                  <p className="text-xs text-gray-500 mt-1">JPG, PNG, GIF, WebP, SVG, BMP, HEIC. Max 10MB.</p>
                 </div>
               </div>
             </div>
