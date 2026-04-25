@@ -171,9 +171,15 @@ export default function UserProfile() {
   const handlePictureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Check file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        alert('File too large. Maximum size is 2MB.');
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         setProfilePicture(reader.result as string);
+        setHasUnsavedChanges(true);
       };
       reader.readAsDataURL(file);
     }
@@ -220,15 +226,17 @@ export default function UserProfile() {
                   <User className="w-12 h-12 md:w-16 md:h-16 text-white/80" />
                 </div>
               )}
-              <label className="absolute bottom-0 right-0 bg-white text-blue-600 p-2 rounded-full cursor-pointer hover:bg-gray-100 shadow-lg">
-                <Upload className="w-4 h-4" />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePictureUpload}
-                  className="hidden"
-                />
-              </label>
+              {canEdit && (
+                <label className="absolute bottom-0 right-0 bg-white text-blue-600 p-2 rounded-full cursor-pointer hover:bg-gray-100 shadow-lg">
+                  <Upload className="w-4 h-4" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePictureUpload}
+                    className="hidden"
+                  />
+                </label>
+              )}
             </div>
             <div className="text-white flex-1">
               <h1 className="text-2xl md:text-3xl font-bold">
@@ -448,6 +456,7 @@ export default function UserProfile() {
                       type="button"
                       onClick={() => {
                         setProfilePicture('');
+                        setHasUnsavedChanges(true);
                       }}
                       className="ml-2 text-sm text-red-500 hover:underline"
                     >
