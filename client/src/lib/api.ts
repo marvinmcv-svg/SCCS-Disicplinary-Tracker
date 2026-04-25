@@ -158,6 +158,12 @@ export interface UserUpdatePayload extends UserCreatePayload {
   newPassword?: string;
 }
 
+export interface VersionInfo {
+  version: string;
+  buildDate: string;
+  minAppVersion: string;
+}
+
 // Typed API functions
 export const api = {
   get: <T>(url: string) => axios.get<T>(url),

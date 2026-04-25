@@ -15,6 +15,9 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
+    define: {
+      'import.meta.env.VITE_APP_VERSION': JSON.stringify(process.env.npm_package_version || '1.0.0'),
+    },
   },
   publicDir: 'public',
 });

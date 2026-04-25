@@ -30,6 +30,14 @@ app.get('/api/health', async (req, res) => {
   });
 });
 
+app.get('/api/version', (req, res) => {
+  res.json({
+    version: process.env.APP_VERSION || '1.0.0',
+    buildDate: process.env.BUILD_DATE || new Date().toISOString(),
+    minAppVersion: process.env.MIN_APP_VERSION || '1.0.0'
+  });
+});
+
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(process.cwd(), 'client/dist')));
 

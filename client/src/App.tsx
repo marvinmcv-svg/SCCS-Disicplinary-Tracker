@@ -10,6 +10,7 @@ import Settings from './pages/Settings';
 import Users from './pages/Users';
 import UserProfile from './pages/UserProfile';
 import Layout from './components/Layout';
+import api from './lib/api';
 
 interface AuthContextType {
   user: any;
@@ -25,6 +26,44 @@ export const useAuth = () => {
   if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };
+
+// App version - update this whenever you release new features
+const CURRENT_VERSION = import.meta.env.VITE_APP_VERSION || '1.0.0';
+
+function UpdateBanner() {
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    const checkVersion = async () => {
+      try {
+        const res = await api.get('/version');
+        const latestVersion = res.data.version;
+        // Simple version comparison - treat as string for now
+        if (latestVersion && latestVersion !== CURRENT_VERSION) {
+          setUpdateAvailable(true);
+        }
+      } catch (e) {
+        // Silently fail - don't block app if version check fails
+      }
+    };
+    checkVersion();
+  }, []);
+
+  if (!updateAvailable || dismissed) return null;
+
+  return (
+    <div className="fixed top-0 left-0 right-0 bg-yellow-500 text-black px-4 py-2 text-center text-sm z-50 flex items-center justify-center gap-2">
+      <span>A new version ({CURRENT_VERSION}) is available!</span>
+      <button
+        onClick={() => setDismissed(true)}
+        className="ml-2 px-2 py-1 bg-yellow-600 text-white rounded text-xs"
+      >
+        Dismiss
+      </button>
+    </div>
+  );
+}
 
 function App() {
   const [user, setUser] = useState<any>(null);
@@ -53,6 +92,7 @@ function App() {
 
   return (
     <AuthContext.Provider value={{ user, token, login, logout }}>
+      <UpdateBanner />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={token ? <Navigate to="/" /> : <Login />} />
