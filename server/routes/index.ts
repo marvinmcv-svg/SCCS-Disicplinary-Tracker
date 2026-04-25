@@ -592,6 +592,9 @@ router.put('/api/users/:id', authenticate, async (req: Request, res: Response) =
     const { id } = req.params;
     const { username, role, first_name, last_name, email, phone, classroom, profile_picture, newPassword } = req.body;
 
+    console.log(`PUT /api/users/${id} - user: ${currentUser.userId}, role: ${currentUser.role}`);
+    console.log('Payload:', { username, role, first_name, last_name, email, phone, classroom, profile_picture: profile_picture ? '(base64 length: ' + profile_picture.length + ')' : 'empty', newPassword: newPassword ? '(set)' : 'not set' });
+
     // Allow if admin OR if editing own profile
     if (currentUser.role !== 'admin' && currentUser.userId !== parseInt(id)) {
       return res.status(403).json({ error: 'You can only edit your own profile' });
@@ -610,18 +613,21 @@ router.put('/api/users/:id', authenticate, async (req: Request, res: Response) =
 
     if (newPassword) {
       const hashedPassword = bcrypt.hashSync(newPassword, 10);
-      await runQuery(
-        'UPDATE users SET username = $1, role = $2, first_name = $3, last_name = $4, email = $5, phone = $6, classroom = $7, profile_picture = $8, password = $9 WHERE id = $10',
+      const result = await pool.query(
+        'UPDATE users SET username = $1, role = $2, first_name = $3, last_name = $4, email = $5, phone = $6, classroom = $7, profile_picture = $8, password = $9 WHERE id = $10 RETURNING *',
         [username, role, first_name || '', last_name || '', email || '', phone || '', classroom || '', profile_picture || '', hashedPassword, id]
       );
+      console.log('Update result (with password):', result.rowCount, 'rows affected');
     } else {
-      await runQuery(
-        'UPDATE users SET username = $1, role = $2, first_name = $3, last_name = $4, email = $5, phone = $6, classroom = $7, profile_picture = $8 WHERE id = $9',
+      const result = await pool.query(
+        'UPDATE users SET username = $1, role = $2, first_name = $3, last_name = $4, email = $5, phone = $6, classroom = $7, profile_picture = $8 WHERE id = $9 RETURNING *',
         [username, role, first_name || '', last_name || '', email || '', phone || '', classroom || '', profile_picture || '', id]
       );
+      console.log('Update result:', result.rowCount, 'rows affected');
     }
     res.json({ success: true });
   } catch (error: any) {
+    console.error('Update error:', error.message);
     res.status(400).json({ error: error.message });
   }
 });
