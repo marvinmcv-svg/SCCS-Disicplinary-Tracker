@@ -1,19 +1,29 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import { queryAll, queryOne, runQuery } from '../db';
+import { UserRow } from '../db';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+
+// Augment Express Request to include our custom user property
+declare global {
+  namespace Express {
+    interface Request {
+      user?: { userId: number; role: string };
+    }
+  }
+}
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'discipline-tracker-secret-key';
 
-const authenticate = async (req: Request, res: Response, next: Function) => {
+const authenticate = async (req: Request, res: Response, next: NextFunction) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) {
     return res.status(401).json({ error: 'No token provided' });
   }
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; role: string };
-    (req as any).user = decoded;
+    req.user = decoded;
     next();
   } catch {
     return res.status(401).json({ error: 'Invalid token' });
@@ -298,7 +308,7 @@ router.get('/api/violations', authenticate, async (req: Request, res: Response) 
 router.get('/api/violations/categories', authenticate, async (req: Request, res: Response) => {
   try {
     const categories = await queryAll('SELECT DISTINCT category FROM violations ORDER BY category');
-    res.json(categories.map((c: any) => c.category));
+    res.json(categories.map((c: { category: string }) => c.category));
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -363,7 +373,7 @@ router.post('/api/incidents', authenticate, async (req: Request, res: Response) 
         consequence || violation?.default_consequence,
         violation?.points_deduction || -2,
         violation?.max_oss_days || 0,
-        (req as any).user.userId,
+        req.user!.userId,
         notes
       ]
     );
@@ -503,8 +513,8 @@ router.delete('/api/mtss/:id', authenticate, async (req: Request, res: Response)
 router.get('/api/settings', authenticate, async (req: Request, res: Response) => {
   try {
     const settings = await queryAll('SELECT * FROM settings');
-    const settingsObj: any = {};
-    settings.forEach((s: any) => { settingsObj[s.key] = s.value; });
+    const settingsObj: Record<string, string> = {};
+    settings.forEach((s: { key: string; value: string }) => { settingsObj[s.key] = s.value; });
     res.json(settingsObj);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -531,7 +541,7 @@ router.post('/api/restore', (req, res) => {
 
 router.get('/api/users', authenticate, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     if (user.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
@@ -557,7 +567,7 @@ router.get('/api/users/:id', authenticate, async (req: Request, res: Response) =
 
 router.post('/api/users', authenticate, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     if (user.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
@@ -578,7 +588,7 @@ router.post('/api/users', authenticate, async (req: Request, res: Response) => {
 
 router.put('/api/users/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const currentUser = (req as any).user;
+    const currentUser = req.user!;
     const { id } = req.params;
     const { username, role, first_name, last_name, email, phone, classroom, profile_picture, newPassword } = req.body;
 
@@ -618,7 +628,7 @@ router.put('/api/users/:id', authenticate, async (req: Request, res: Response) =
 
 router.delete('/api/users/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     if (user.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
@@ -635,7 +645,7 @@ router.delete('/api/users/:id', authenticate, async (req: Request, res: Response
 
 router.put('/api/users/:id/password', authenticate, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     if (user.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }

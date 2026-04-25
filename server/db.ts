@@ -1,5 +1,15 @@
 import { Pool } from 'pg';
-import dns from 'dns';
+
+// DB Row Types
+export interface UserRow { id: number; username: string; password: string; role: string; first_name: string; last_name: string; email: string | null; phone: string | null; classroom: string | null; profile_picture: string | null; created_at: Date; }
+export interface StudentRow { id: number; student_id: string; last_name: string; first_name: string; grade: number; house_team: string | null; counselor: string | null; gpa: number; total_points: number; conduct_status: string; observations: string; created_at: Date; }
+export interface ViolationRow { id: number; category: string; violation_type: string; description: string | null; points_deduction: number; default_consequence: string | null; min_oss_days: number; max_oss_days: number; }
+export interface IncidentRow { id: number; incident_id: string; date: string; time: string | null; student_id: number; violation_id: number; location: string | null; description: string | null; witnesses: string | null; parent_contacted: string; contact_date: string | null; action_taken: string | null; consequence: string | null; points_deducted: number; days_iss: number; days_oss: number; detention_hours: number; referral_date: string | null; administrator_id: number | null; notes: string | null; follow_up_needed: string; status: string; resolved_date: string | null; evidence: string | null; created_at: Date; }
+export interface MTSSRow { id: number; student_id: number; tier: number; intervention: string; start_date: string; end_date: string | null; progress: string; notes: string | null; created_at: Date; }
+export interface SettingRow { key: string; value: string; }
+export interface AlertRow { id: number; alert_type: string; threshold: number; action: string | null; enabled: string; }
+
+interface QueryResult { rows: any[]; rowCount: number | null; }
 
 const connectionString = process.env.DATABASE_URL || 'postgresql://postgres.cpdrclazmvboenhlsccf:Gmc190494mcv@aws-1-us-west-2.pooler.supabase.com:6543/postgres';
 
@@ -18,20 +28,20 @@ pool.on('error', (err) => {
   console.error('Unexpected error on idle client', err);
 });
 
-export async function queryAll(sql: string, params: any[] = []): Promise<any[]> {
+export async function queryAll<T = any>(sql: string, params: any[] = []): Promise<T[]> {
   try {
     const result = await pool.query(sql, params);
-    return result.rows;
+    return result.rows as T[];
   } catch (error: any) {
     console.error('Query error:', error.message);
     throw error;
   }
 }
 
-export async function queryOne(sql: string, params: any[] = []): Promise<any | null> {
+export async function queryOne<T = any>(sql: string, params: any[] = []): Promise<T | null> {
   try {
     const result = await pool.query(sql, params);
-    return result.rows[0] || null;
+    return (result.rows[0] as T) || null;
   } catch (error: any) {
     console.error('Query error:', error.message);
     throw error;
@@ -40,7 +50,7 @@ export async function queryOne(sql: string, params: any[] = []): Promise<any | n
 
 export async function runQuery(sql: string, params: any[] = []): Promise<{ lastInsertRowid: number; changes: number }> {
   try {
-    const result = await pool.query(sql, params);
+    const result = await pool.query(sql, params) as QueryResult;
     return {
       lastInsertRowid: result.rows[0]?.id || 0,
       changes: result.rowCount || 0
@@ -68,8 +78,8 @@ export async function initializeDatabase() {
 
   try {
     await testConnection();
-  } catch (e) {
-    console.log('Connection test failed, will retry with queries...');
+  } catch (e: any) {
+    console.log('Connection test failed, will retry with queries:', e.message);
   }
 
   const tableQueries = [

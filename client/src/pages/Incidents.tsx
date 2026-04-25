@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Search, X, AlertCircle, Phone, CheckCircle, Clock, Loader, Check, Trash2 } from 'lucide-react';
+import { Plus, Search, X, AlertCircle, CheckCircle, Clock, Loader, Check, Trash2 } from 'lucide-react';
 import api from '../lib/api';
 
 interface Student {
@@ -23,7 +23,7 @@ interface Incident {
   id: number;
   incident_id: string;
   date: string;
-  time: string;
+  time: string | null;
   student_id: number;
   student_id_raw: string;
   last_name: string;
@@ -31,22 +31,22 @@ interface Incident {
   violation_id: number;
   category: string;
   violation_type: string;
-  location: string;
-  description: string;
-  witnesses: string;
-  advisor: string;
+  location: string | null;
+  description: string | null;
+  witnesses: string | null;
+  advisor: string | null;
   parent_contacted: string;
-  contact_date: string;
-  action_taken: string;
-  consequence: string;
+  contact_date: string | null;
+  action_taken: string | null;
+  consequence: string | null;
   points_deducted: number;
   days_iss: number;
   days_oss: number;
   detention_hours: number;
-  notes: string;
+  notes: string | null;
   follow_up_needed: string;
   status: string;
-  resolved_date: string;
+  resolved_date: string | null;
 }
 
 export default function Incidents() {
@@ -226,19 +226,6 @@ export default function Incidents() {
     } catch (error) {
       console.error(error);
       alert('Failed to delete incident');
-    }
-  };
-
-  const handleParentContact = async (id: number) => {
-    try {
-      await api.put(`/incidents/${id}`, {
-        parent_contacted: contactData.parent_contacted,
-        contact_date: contactData.contact_date || new Date().toISOString().split('T')[0],
-      });
-      loadData();
-      setContactData({ parent_contacted: 'No', contact_date: '' });
-    } catch (error) {
-      console.error(error);
     }
   };
 

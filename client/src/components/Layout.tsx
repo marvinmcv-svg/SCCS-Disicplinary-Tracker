@@ -1,8 +1,8 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
-import { 
-  LayoutDashboard, Users, AlertTriangle, BookOpen, 
-  Gift, HeartHandshake, Settings, LogOut, Menu, X, Shield
+import {
+  LayoutDashboard, Users, AlertTriangle, BookOpen,
+  HeartHandshake, Settings, LogOut, Menu, X, Shield
 } from 'lucide-react';
 import { useState } from 'react';
 import sccsLogo from '../sccs.png';
@@ -20,7 +20,6 @@ const navItems = [
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {

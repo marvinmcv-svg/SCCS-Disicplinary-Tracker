@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  AlertTriangle, Users, Clock, CheckCircle, TrendingUp, 
+import {
+  AlertTriangle, Users, Clock, CheckCircle,
   AlertCircle, UserCheck, Plus, ChevronRight, BarChart3, PieChart as PieChartIcon
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';

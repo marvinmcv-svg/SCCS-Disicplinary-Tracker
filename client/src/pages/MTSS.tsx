@@ -45,10 +45,6 @@ const interventionTypes = [
 
 const allAdvisors = ['Mr Adachi', 'Mr Cohello', 'MrDiPascuale', 'Mr Kane', 'Mr Ortiz', 'Ms Aguirre', 'Ms Camacho', 'Ms Fernandez', 'Ms Guaristi', 'Ms Hopp', 'Ms Meneses', 'Ms Molina', 'Ms Palacios', 'Ms Rios', 'Ms Robinson', 'Ms Skelly', 'Ms Tello', 'Ms Tomelic', 'Ms Zuazo', 'Mr Coronado', 'Mr Herbert', 'Mr Kreller', 'Mr Odekerken', 'Mr Soliz'];
 
-const filteredAdvisors = (search: string) => allAdvisors.filter(a =>
-  !search || a.toLowerCase().includes(search.toLowerCase())
-);
-
 export default function MTSS() {
   const [students, setStudents] = useState<Student[]>([]);
   const [interventions, setInterventions] = useState<Intervention[]>([]);
@@ -57,7 +53,6 @@ export default function MTSS() {
   const [search, setSearch] = useState('');
   const [filterTier, setFilterTier] = useState('');
   const [filterAdvisor, setFilterAdvisor] = useState('');
-  const [advisorSearch, setAdvisorSearch] = useState('');
   const [formData, setFormData] = useState({
     student_id: '' as string | number,
     tier: 1,

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
-import { User as UserIcon, Shield, Trash2, Plus, X, Mail, Phone, MapPin, Image, Loader } from 'lucide-react';
+import { User as UserIcon, Shield, Trash2, Plus, X, Mail, Phone, MapPin, Loader } from 'lucide-react';
 
 interface User {
   id: number;

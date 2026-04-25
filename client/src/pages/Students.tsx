@@ -92,16 +92,6 @@ export default function Students() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this student?')) return;
-    try {
-      await api.delete(`/students/${id}`);
-      loadStudents();
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
