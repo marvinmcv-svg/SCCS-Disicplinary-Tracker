@@ -55,6 +55,7 @@ export default function UserProfile() {
       const res = await api.get(`/users/${id}`);
       if (!res.data) {
         console.error('No data received from server');
+        setLoading(false);
         return;
       }
       setUser(res.data);
@@ -70,10 +71,11 @@ export default function UserProfile() {
       setProfilePicture(res.data.profile_picture || '');
     } catch (error: any) {
       console.error('Failed to load user', error);
-      // Only navigate if it's a real error, not just a failed reload after save
+      // Only navigate on auth errors, not on network issues
       if (error.response?.status === 401) {
         navigate('/login');
       }
+      // For other errors, just log and stay on page
     } finally {
       setLoading(false);
     }
@@ -145,42 +147,13 @@ export default function UserProfile() {
 
       const response = await api.put(`/users/${id}`, payload);
 
-      // Verify the update was actually saved by re-fetching
-      const verifyRes = await api.get(`/users/${id}`);
-      const savedData = verifyRes.data;
-
-      // Check if the data matches what we tried to save
-      const fieldsMatch =
-        savedData.username === formData.username &&
-        savedData.role === formData.role &&
-        savedData.first_name === formData.first_name &&
-        savedData.last_name === formData.last_name &&
-        savedData.email === formData.email &&
-        savedData.phone === formData.phone &&
-        savedData.classroom === formData.classroom &&
-        (savedData.profile_picture || '') === profilePicture;
-
-      if (fieldsMatch) {
-        setSuccessMessage('Profile updated successfully!');
-        setUser(savedData);
-        setFormData({
-          username: savedData.username || '',
-          role: savedData.role || '',
-          first_name: savedData.first_name || '',
-          last_name: savedData.last_name || '',
-          email: savedData.email || '',
-          phone: savedData.phone || '',
-          classroom: savedData.classroom || '',
-        });
-        setProfilePicture(savedData.profile_picture || '');
-        setHasUnsavedChanges(false);
-      } else {
-        console.error('Verification failed. Saved data:', savedData);
-        console.error('Expected data:', formData, 'profilePicture:', profilePicture);
-        alert('Warning: Update may not have saved correctly. Please refresh and try again.');
-      }
-
+      // Update local state immediately since API succeeded
+      setSuccessMessage('Profile updated successfully!');
       setPasswordData({ newPassword: '', confirmPassword: '' });
+      setHasUnsavedChanges(false);
+
+      // Reload user data to confirm changes
+      loadUser();
 
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error: any) {
