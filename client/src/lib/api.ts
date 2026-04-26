@@ -116,6 +116,9 @@ export interface IncidentUpdatePayload {
   status?: string;
   parent_contacted?: string;
   contact_date?: string | null;
+  location?: string;
+  description?: string;
+  witnesses?: string;
   action_taken?: string;
   consequence?: string;
   days_iss?: number;

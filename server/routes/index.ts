@@ -385,7 +385,7 @@ router.post('/api/incidents', authenticate, async (req: Request, res: Response) 
 
 router.put('/api/incidents/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const { status, parent_contacted, contact_date, action_taken, consequence, days_iss, days_oss, detention_hours, notes, follow_up_needed, resolved_date, advisor } = req.body;
+    const { status, parent_contacted, contact_date, location, description, witnesses, action_taken, consequence, days_iss, days_oss, detention_hours, notes, follow_up_needed, resolved_date, advisor } = req.body;
     const id = parseInt(req.params.id);
 
     const updates: string[] = [];
@@ -394,6 +394,9 @@ router.put('/api/incidents/:id', authenticate, async (req: Request, res: Respons
     if (status !== undefined) { updates.push('status = $' + (values.length + 1)); values.push(status); }
     if (parent_contacted !== undefined) { updates.push('parent_contacted = $' + (values.length + 1)); values.push(parent_contacted); }
     if (contact_date !== undefined) { updates.push('contact_date = $' + (values.length + 1)); values.push(contact_date); }
+    if (location !== undefined) { updates.push('location = $' + (values.length + 1)); values.push(location); }
+    if (description !== undefined) { updates.push('description = $' + (values.length + 1)); values.push(description); }
+    if (witnesses !== undefined) { updates.push('witnesses = $' + (values.length + 1)); values.push(witnesses); }
     if (action_taken !== undefined) { updates.push('action_taken = $' + (values.length + 1)); values.push(action_taken); }
     if (consequence !== undefined) { updates.push('consequence = $' + (values.length + 1)); values.push(consequence); }
     if (days_iss !== undefined) { updates.push('days_iss = $' + (values.length + 1)); values.push(days_iss); }
@@ -525,6 +528,26 @@ router.put('/api/settings', authenticate, async (req: Request, res: Response) =>
   try {
     const { key, value } = req.body;
     await runQuery('INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2', [key, value]);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.get('/api/alerts', authenticate, async (req: Request, res: Response) => {
+  try {
+    const alerts = await queryAll('SELECT * FROM alerts ORDER BY id');
+    res.json(alerts);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/api/alerts/:id', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { threshold, enabled } = req.body;
+    await runQuery('UPDATE alerts SET threshold = $1, enabled = $2 WHERE id = $3', [threshold, enabled, id]);
     res.json({ success: true });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
