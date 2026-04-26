@@ -1,6 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#2563eb" rx="64"/>
-  <path d="M160 130h192v32H160zM160 180h192v22H160zM160 220h192v22H160zM160 260h128v22H160z" fill="#fff" opacity="0.9"/>
-  <circle cx="373" cy="360" r="80" fill="#ef4444"/>
-  <path d="M346 360l21 21 42-42" stroke="#fff" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect width="512" height="512" fill="#26A69A" rx="64"/>
+  <text x="256" y="280" font-family="Arial, sans-serif" font-size="280" font-weight="bold" fill="#ffffff" text-anchor="middle">SCCS</text>
 </svg>
