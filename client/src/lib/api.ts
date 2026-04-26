@@ -165,8 +165,9 @@ export interface VersionInfo {
 }
 
 // Typed API functions - use apiClient to get baseURL and interceptors
+// GET requests get cache-busting timestamp to prevent stale data
 export const api = {
-  get: <T>(url: string) => apiClient.get<T>(url),
+  get: <T>(url: string) => apiClient.get<T>(`${url}?_=${Date.now()}`),
   post: <T>(url: string, data?: unknown) => apiClient.post<T>(url, data),
   put: <T>(url: string, data?: unknown) => apiClient.put<T>(url, data),
   delete: <T>(url: string) => apiClient.delete<T>(url),
