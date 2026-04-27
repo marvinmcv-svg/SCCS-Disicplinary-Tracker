@@ -1,14 +1,21 @@
-const CACHE_NAME = 'discipline-tracker-v1';
+const CACHE_NAME = 'discipline-tracker-v2';
 const urlsToCache = [
   '/',
   '/index.html',
+  '/icon-192.png',
+  '/icon.svg',
+  '/manifest.json',
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(urlsToCache))
+      .then((cache) => {
+        console.log('Opened cache');
+        return cache.addAll(urlsToCache);
+      })
   );
+  self.skipWaiting();
 });
 
 self.addEventListener('fetch', (event) => {
@@ -31,6 +38,11 @@ self.addEventListener('fetch', (event) => {
             return response;
           });
       })
+      .catch(() => {
+        if (event.request.mode === 'navigate') {
+          return caches.match('/index.html');
+        }
+      })
   );
 });
 
@@ -41,10 +53,12 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheWhitelist.indexOf(cacheName) === -1) {
+            console.log('Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
     })
   );
+  self.clients.claim();
 });

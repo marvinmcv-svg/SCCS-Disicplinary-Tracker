@@ -1,7 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { queryAll, queryOne, runQuery } from '../db';
 import { UserRow } from '../db';
-import pool from '../db';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -251,17 +250,10 @@ router.get('/api/students/:id', authenticate, async (req: Request, res: Response
 
 router.post('/api/students', authenticate, async (req: Request, res: Response) => {
   try {
-    const { student_id, last_name, first_name, grade, section, counselor, advisory, date_of_birth, parent_name, parent_phone, gender } = req.body;
-
-    // Check if student_id already exists
-    const existing = await queryOne('SELECT id FROM students WHERE student_id = $1', [student_id]);
-    if (existing) {
-      return res.status(400).json({ error: 'A student with this ID already exists. Please use a different student ID.' });
-    }
-
+    const { student_id, last_name, first_name, grade, counselor, advisory } = req.body;
     const result = await runQuery(
-      'INSERT INTO students (student_id, last_name, first_name, grade, section, counselor, advisory, date_of_birth, parent_name, parent_phone, gender) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)',
-      [student_id, last_name, first_name, grade || '9', section || '', counselor || '', advisory || '', date_of_birth || null, parent_name || null, parent_phone || null, gender || null]
+      'INSERT INTO students (student_id, last_name, first_name, grade, counselor, advisory) VALUES ($1, $2, $3, $4, $5, $6)',
+      [student_id, last_name, first_name, grade || '9', counselor || '', advisory || '']
     );
     res.json({ id: result.lastInsertRowid });
   } catch (error: any) {
@@ -271,10 +263,10 @@ router.post('/api/students', authenticate, async (req: Request, res: Response) =
 
 router.put('/api/students/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const { student_id, last_name, first_name, grade, section, counselor, advisory, gpa, total_points, conduct_status, observations, date_of_birth, parent_name, parent_phone, gender } = req.body;
+    const { student_id, last_name, first_name, grade, counselor, advisory, gpa, total_points, conduct_status, observations } = req.body;
     await runQuery(
-      'UPDATE students SET student_id = $1, last_name = $2, first_name = $3, grade = $4, section = $5, counselor = $6, advisory = $7, gpa = $8, total_points = $9, conduct_status = $10, observations = $11, date_of_birth = $12, parent_name = $13, parent_phone = $14, gender = $15 WHERE id = $16',
-      [student_id || '', last_name || '', first_name || '', grade || '9', section || '', counselor || '', advisory || '', gpa || 0, total_points || 100, conduct_status || 'Good', observations || '', date_of_birth || null, parent_name || null, parent_phone || null, gender || null, parseInt(req.params.id)]
+      'UPDATE students SET student_id = $1, last_name = $2, first_name = $3, grade = $4, counselor = $5, advisory = $6, gpa = $7, total_points = $8, conduct_status = $9, observations = $10 WHERE id = $11',
+      [student_id || '', last_name || '', first_name || '', grade || '9', counselor || '', advisory || '', gpa || 0, total_points || 100, conduct_status || 'Good', observations || '', parseInt(req.params.id)]
     );
     res.json({ success: true });
   } catch (error: any) {
@@ -341,7 +333,7 @@ router.get('/api/incidents', authenticate, async (req: Request, res: Response) =
 router.get('/api/incidents/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const incident = await queryOne(`
-      SELECT i.*, s.last_name, s.first_name, s.student_id as student_id_raw,
+      SELECT i.*, s.last_name, s.first_name, s.student_id as student_id_raw, s.grade,
              v.violation_type, v.category
       FROM incidents i
       JOIN students s ON i.student_id = s.id
@@ -356,7 +348,7 @@ router.get('/api/incidents/:id', authenticate, async (req: Request, res: Respons
 
 router.post('/api/incidents', authenticate, async (req: Request, res: Response) => {
   try {
-    const { date, time, student_id, violation_id, location, description, witnesses, advisor, action_taken, consequence, notes } = req.body;
+    const { date, time, student_id, violation_id, location, description, witnesses, reported_by, advisor, action_taken, consequence, notes, follow_up_needed, follow_up_date, parent_contacted, contact_date } = req.body;
 
     const datePrefix = date.replace(/-/g, '').slice(2);
     const count = await queryOne('SELECT COUNT(*) as count FROM incidents WHERE incident_id LIKE $1', [`${datePrefix}%`]);
@@ -365,8 +357,8 @@ router.post('/api/incidents', authenticate, async (req: Request, res: Response) 
     const violation = await queryOne('SELECT * FROM violations WHERE id = $1', [violation_id]);
 
     await runQuery(
-      `INSERT INTO incidents (incident_id, date, time, student_id, violation_id, location, description, witnesses, advisor, action_taken, consequence, points_deducted, days_oss, administrator_id, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+      `INSERT INTO incidents (incident_id, date, time, student_id, violation_id, location, description, witnesses, reported_by, advisor, action_taken, consequence, points_deducted, days_oss, administrator_id, notes, follow_up_needed, follow_up_date, parent_contacted, contact_date)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
       [
         incidentId,
         date,
@@ -376,13 +368,18 @@ router.post('/api/incidents', authenticate, async (req: Request, res: Response) 
         location,
         description,
         witnesses,
+        reported_by || null,
         advisor,
         action_taken,
         consequence || violation?.default_consequence,
         violation?.points_deduction || -2,
         violation?.max_oss_days || 0,
         req.user!.userId,
-        notes
+        notes,
+        follow_up_needed || 'No',
+        follow_up_date || null,
+        parent_contacted || 'No',
+        contact_date || null,
       ]
     );
     res.json({ id: incidentId });
@@ -393,18 +390,29 @@ router.post('/api/incidents', authenticate, async (req: Request, res: Response) 
 
 router.put('/api/incidents/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const { status, parent_contacted, contact_date, location, description, witnesses, action_taken, consequence, days_iss, days_oss, detention_hours, notes, follow_up_needed, resolved_date, advisor } = req.body;
+    const { status, parent_contacted, contact_date, location, description, witnesses, reported_by, action_taken, consequence, days_iss, days_oss, detention_hours, notes, follow_up_needed, follow_up_date, resolved_date, advisor, violation_id, points_deducted } = req.body;
     const id = parseInt(req.params.id);
 
     const updates: string[] = [];
     const values: any[] = [];
 
-    if (status !== undefined) { updates.push('status = $' + (values.length + 1)); values.push(status); }
+    if (status !== undefined) {
+      // Log status change
+      const incident = await queryOne('SELECT status FROM incidents WHERE id = $1', [id]);
+      if (incident && incident.status !== status) {
+        await runQuery(
+          'INSERT INTO incident_status_logs (incident_id, changed_by, previous_status, new_status) VALUES ($1, $2, $3, $4)',
+          [id, req.user!.userId, incident.status, status]
+        );
+      }
+      updates.push('status = $' + (values.length + 1)); values.push(status);
+    }
     if (parent_contacted !== undefined) { updates.push('parent_contacted = $' + (values.length + 1)); values.push(parent_contacted); }
     if (contact_date !== undefined) { updates.push('contact_date = $' + (values.length + 1)); values.push(contact_date); }
     if (location !== undefined) { updates.push('location = $' + (values.length + 1)); values.push(location); }
     if (description !== undefined) { updates.push('description = $' + (values.length + 1)); values.push(description); }
     if (witnesses !== undefined) { updates.push('witnesses = $' + (values.length + 1)); values.push(witnesses); }
+    if (reported_by !== undefined) { updates.push('reported_by = $' + (values.length + 1)); values.push(reported_by); }
     if (action_taken !== undefined) { updates.push('action_taken = $' + (values.length + 1)); values.push(action_taken); }
     if (consequence !== undefined) { updates.push('consequence = $' + (values.length + 1)); values.push(consequence); }
     if (days_iss !== undefined) { updates.push('days_iss = $' + (values.length + 1)); values.push(days_iss); }
@@ -412,8 +420,11 @@ router.put('/api/incidents/:id', authenticate, async (req: Request, res: Respons
     if (detention_hours !== undefined) { updates.push('detention_hours = $' + (values.length + 1)); values.push(detention_hours); }
     if (notes !== undefined) { updates.push('notes = $' + (values.length + 1)); values.push(notes); }
     if (follow_up_needed !== undefined) { updates.push('follow_up_needed = $' + (values.length + 1)); values.push(follow_up_needed); }
+    if (follow_up_date !== undefined) { updates.push('follow_up_date = $' + (values.length + 1)); values.push(follow_up_date); }
     if (resolved_date !== undefined) { updates.push('resolved_date = $' + (values.length + 1)); values.push(resolved_date === null ? null : resolved_date); }
     if (advisor !== undefined) { updates.push('advisor = $' + (values.length + 1)); values.push(advisor); }
+    if (violation_id !== undefined) { updates.push('violation_id = $' + (values.length + 1)); values.push(violation_id); }
+    if (points_deducted !== undefined) { updates.push('points_deducted = $' + (values.length + 1)); values.push(points_deducted); }
 
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
@@ -875,6 +886,194 @@ router.get('/api/notifications/count', authenticate, async (req: Request, res: R
   try {
     const result = await queryOne("SELECT COUNT(*) as count FROM incidents WHERE status IN ('Open', 'Pending')");
     res.json({ count: parseInt(result?.count || 0) });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ===== Incident Status Logs =====
+router.get('/api/incidents/:id/status-logs', authenticate, async (req: Request, res: Response) => {
+  try {
+    const logs = await queryAll(`
+      SELECT l.*, u.first_name || ' ' || u.last_name as changed_by_name
+      FROM incident_status_logs l
+      LEFT JOIN users u ON l.changed_by = u.id
+      WHERE l.incident_id = $1
+      ORDER BY l.changed_at DESC
+    `, [parseInt(req.params.id)]);
+    res.json(logs);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ===== Incident Evidence =====
+router.get('/api/incidents/:id/evidence', authenticate, async (req: Request, res: Response) => {
+  try {
+    const evidence = await queryAll(`
+      SELECT e.*, u.first_name || ' ' || u.last_name as uploaded_by_name
+      FROM incident_evidence e
+      LEFT JOIN users u ON e.uploaded_by = u.id
+      WHERE e.incident_id = $1
+      ORDER BY e.uploaded_at DESC
+    `, [parseInt(req.params.id)]);
+    res.json(evidence);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/api/incidents/:id/evidence', authenticate, async (req: Request, res: Response) => {
+  try {
+    // Handle multipart form data - extract file info from body
+    const { file_name, file_url, file_type } = req.body;
+    const incidentId = parseInt(req.params.id);
+
+    await runQuery(
+      'INSERT INTO incident_evidence (incident_id, file_name, file_url, file_type, uploaded_by) VALUES ($1, $2, $3, $4, $5)',
+      [incidentId, file_name || 'evidence', file_url || '', file_type || 'document', req.user!.userId]
+    );
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.delete('/api/incidents/:id/evidence/:evidenceId', authenticate, async (req: Request, res: Response) => {
+  try {
+    await runQuery('DELETE FROM incident_evidence WHERE id = $1 AND incident_id = $2',
+      [parseInt(req.params.evidenceId), parseInt(req.params.id)]);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// ===== Escalate to Principal =====
+router.put('/api/incidents/:id/escalate', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { escalated } = req.body;
+    await runQuery(
+      'UPDATE incidents SET escalated_to_principal = $1, principal_notified_at = $2 WHERE id = $3',
+      [escalated, escalated ? new Date().toISOString() : null, parseInt(req.params.id)]
+    );
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// ===== Send Notification =====
+router.post('/api/notifications/send', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { incident_id, notification_type, recipient_email, message } = req.body;
+    // This would integrate with email/WhatsApp in production
+    // For now, just log and return success
+    console.log(`Notification sent for incident ${incident_id}: ${notification_type} to ${recipient_email}`);
+    res.json({ success: true, message: 'Notification logged (email integration pending)' });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// ===== Scheduled Reports Settings =====
+router.get('/api/settings/scheduled-reports', authenticate, async (req: Request, res: Response) => {
+  try {
+    const setting = await queryOne("SELECT value FROM settings WHERE key = 'scheduled_reports_enabled'");
+    const emailSetting = await queryOne("SELECT value FROM settings WHERE key = 'scheduled_reports_email'");
+    res.json({
+      enabled: setting?.value === 'true',
+      email: emailSetting?.value || ''
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/api/settings/scheduled-reports', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { enabled, email } = req.body;
+    if (req.user!.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    await runQuery("INSERT INTO settings (key, value) VALUES ('scheduled_reports_enabled', $1) ON CONFLICT (key) DO UPDATE SET value = $1", [enabled ? 'true' : 'false']);
+    await runQuery("INSERT INTO settings (key, value) VALUES ('scheduled_reports_email', $1) ON CONFLICT (key) DO UPDATE SET value = $1", [email || '']);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// ===== Reports API =====
+router.get('/api/reports/summary', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { start_date, end_date, grade, category } = req.query;
+
+    let whereClause = 'WHERE 1=1';
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    if (start_date) {
+      whereClause += ` AND i.date >= $${paramIndex}`;
+      params.push(start_date);
+      paramIndex++;
+    }
+    if (end_date) {
+      whereClause += ` AND i.date <= $${paramIndex}`;
+      params.push(end_date);
+      paramIndex++;
+    }
+    if (grade && grade !== 'all') {
+      whereClause += ` AND s.grade = $${paramIndex}`;
+      params.push(grade);
+      paramIndex++;
+    }
+    if (category && category !== 'all') {
+      whereClause += ` AND v.category = $${paramIndex}`;
+      params.push(category);
+      paramIndex++;
+    }
+
+    const stats = await queryOne(`
+      SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN i.status = 'Open' THEN 1 END) as open,
+        COUNT(CASE WHEN i.status = 'Pending' THEN 1 END) as pending,
+        COUNT(CASE WHEN i.status = 'Resolved' THEN 1 END) as resolved
+      FROM incidents i
+      JOIN students s ON i.student_id = s.id
+      JOIN violations v ON i.violation_id = v.id
+      ${whereClause}
+    `, params);
+
+    const byCategory = await queryAll(`
+      SELECT v.category, COUNT(*) as count
+      FROM incidents i
+      JOIN students s ON i.student_id = s.id
+      JOIN violations v ON i.violation_id = v.id
+      ${whereClause}
+      GROUP BY v.category
+      ORDER BY count DESC
+    `, params);
+
+    const byGrade = await queryAll(`
+      SELECT s.grade, COUNT(*) as count
+      FROM incidents i
+      JOIN students s ON i.student_id = s.id
+      JOIN violations v ON i.violation_id = v.id
+      ${whereClause}
+      GROUP BY s.grade
+      ORDER BY s.grade
+    `, params);
+
+    res.json({
+      total: parseInt(stats?.total || 0),
+      open: parseInt(stats?.open || 0),
+      pending: parseInt(stats?.pending || 0),
+      resolved: parseInt(stats?.resolved || 0),
+      byCategory,
+      byGrade
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

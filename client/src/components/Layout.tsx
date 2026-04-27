@@ -2,25 +2,40 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
 import {
   LayoutDashboard, Users, AlertTriangle, BookOpen,
-  HeartHandshake, Settings, LogOut, Menu, X, Shield
+  HeartHandshake, Settings, LogOut, Menu, X, Shield, Bell
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import sccsLogo from '../sccs.png';
+import api from '../lib/api';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/students', icon: Users, label: 'Students' },
   { to: '/incidents', icon: AlertTriangle, label: 'Incidents' },
-  { to: '/violations', icon: BookOpen, label: 'Violations' },
   { to: '/mtss', icon: HeartHandshake, label: 'MTSS' },
-  { to: '/users', icon: Shield, label: 'Users' },
-  { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
+
+  // Load notification count on mount and periodically
+  useEffect(() => {
+    loadNotificationCount();
+    const interval = setInterval(loadNotificationCount, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, []);
+
+  const loadNotificationCount = async () => {
+    try {
+      const res = await api.get('/notifications/count');
+      setNotificationCount(res.data?.count || 0);
+    } catch (error) {
+      console.error('Failed to load notifications:', error);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -40,7 +55,7 @@ export default function Layout() {
           >
             <Menu className="w-6 h-6" />
           </button>
-          
+
           <button onClick={() => navigate('/')} className="flex items-center gap-2">
             <img src={sccsLogo} alt="Logo" className="w-10 h-10 rounded-xl object-cover border-2 border-white/20" />
             <div className="text-white">
@@ -48,14 +63,25 @@ export default function Layout() {
               <span className="block text-xs text-white/70 -mt-1">Home of the Jaguars</span>
             </div>
           </button>
-          
-          <div className="w-10"></div>
+
+          {/* Notification Bell - Mobile */}
+          <button
+            onClick={() => navigate('/incidents')}
+            className="relative p-2 hover:bg-white/10 rounded-lg text-white"
+          >
+            <Bell className="w-6 h-6" />
+            {notificationCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                {notificationCount > 99 ? '99+' : notificationCount}
+              </span>
+            )}
+          </button>
         </div>
       </header>
 
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
-        <div 
+        <div
           className="md:hidden fixed inset-0 bg-black/50 z-40"
           onClick={closeMobileMenu}
         />
@@ -73,6 +99,22 @@ export default function Layout() {
           </button>
         </div>
 
+        {/* Desktop Notification Bell */}
+        <div className="px-4 py-3 border-b border-white/10">
+          <button
+            onClick={() => navigate('/incidents')}
+            className="relative w-full flex items-center gap-3 px-3 py-2 hover:bg-white/10 rounded-lg transition-colors"
+          >
+            <Bell className="w-5 h-5" />
+            <span className="text-sm font-medium">Notifications</span>
+            {notificationCount > 0 && (
+              <span className="ml-auto bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                {notificationCount > 99 ? '99+' : notificationCount}
+              </span>
+            )}
+          </button>
+        </div>
+
         <nav className="p-2 flex-1">
           {navItems.map((item) => (
             <NavLink
@@ -81,9 +123,9 @@ export default function Layout() {
               end={item.end}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-3 rounded-lg mb-1 transition-colors ${
-                  isActive 
-                    ? 'bg-white/20 text-white' 
-                    : 'text-white/70 hover:bg-white/10 hover:text-white'
+                  isActive
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/70 hover:bg-white/10 hover:text-white'
                 }`
               }
             >
@@ -91,6 +133,45 @@ export default function Layout() {
               <span className="text-sm font-medium">{item.label}</span>
             </NavLink>
           ))}
+          <NavLink
+            to="/violations"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-3 rounded-lg mb-1 transition-colors ${
+                isActive
+                ? 'bg-white/20 text-white'
+                : 'text-white/70 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <BookOpen className="w-5 h-5 flex-shrink-0" />
+            <span className="text-sm font-medium">Violations</span>
+          </NavLink>
+          <NavLink
+            to="/users"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-3 rounded-lg mb-1 transition-colors ${
+                isActive
+                ? 'bg-white/20 text-white'
+                : 'text-white/70 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <Shield className="w-5 h-5 flex-shrink-0" />
+            <span className="text-sm font-medium">Users</span>
+          </NavLink>
+          <NavLink
+            to="/settings"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-3 rounded-lg mb-1 transition-colors ${
+                isActive
+                ? 'bg-white/20 text-white'
+                : 'text-white/70 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <Settings className="w-5 h-5 flex-shrink-0" />
+            <span className="text-sm font-medium">Settings</span>
+          </NavLink>
         </nav>
 
         <div className="p-4 border-t border-white/10">
@@ -139,9 +220,9 @@ export default function Layout() {
               onClick={closeMobileMenu}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors ${
-                  isActive 
-                    ? 'bg-white/20 text-white' 
-                    : 'text-white/70 hover:bg-white/10 hover:text-white'
+                  isActive
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/70 hover:bg-white/10 hover:text-white'
                 }`
               }
             >
@@ -149,6 +230,48 @@ export default function Layout() {
               <span className="text-base font-medium">{item.label}</span>
             </NavLink>
           ))}
+          <NavLink
+            to="/violations"
+            onClick={closeMobileMenu}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors ${
+                isActive
+                ? 'bg-white/20 text-white'
+                : 'text-white/70 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <BookOpen className="w-6 h-6 flex-shrink-0" />
+            <span className="text-base font-medium">Violations</span>
+          </NavLink>
+          <NavLink
+            to="/users"
+            onClick={closeMobileMenu}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors ${
+                isActive
+                ? 'bg-white/20 text-white'
+                : 'text-white/70 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <Shield className="w-6 h-6 flex-shrink-0" />
+            <span className="text-base font-medium">Users</span>
+          </NavLink>
+          <NavLink
+            to="/settings"
+            onClick={closeMobileMenu}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors ${
+                isActive
+                ? 'bg-white/20 text-white'
+                : 'text-white/70 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <Settings className="w-6 h-6 flex-shrink-0" />
+            <span className="text-base font-medium">Settings</span>
+          </NavLink>
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
@@ -174,7 +297,19 @@ export default function Layout() {
               {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </span>
           </div>
-          <div className="flex items-center">
+          <div className="flex items-center gap-4">
+            {/* Desktop Notification Bell */}
+            <button
+              onClick={() => navigate('/incidents')}
+              className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Bell className="w-5 h-5 text-gray-600" />
+              {notificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                  {notificationCount > 99 ? '99+' : notificationCount}
+                </span>
+              )}
+            </button>
             <img src={sccsLogo} alt="SCCS Logo" className="h-12 w-auto object-contain" />
           </div>
         </header>
@@ -183,6 +318,29 @@ export default function Layout() {
           <Outlet />
         </div>
       </main>
+
+      {/* Bottom Navigation - Mobile Only */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-30 px-2 py-1">
+        <div className="flex justify-around items-center">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className={({ isActive }) =>
+                `flex flex-col items-center gap-0.5 px-4 py-2 rounded-lg transition-colors ${
+                  isActive
+                  ? 'text-blue-600'
+                  : 'text-gray-400 hover:text-gray-600'
+                }`
+              }
+            >
+              <item.icon className="w-6 h-6" />
+              <span className="text-[10px] font-medium">{item.label}</span>
+            </NavLink>
+          ))}
+        </div>
+      </nav>
     </div>
   );
 }

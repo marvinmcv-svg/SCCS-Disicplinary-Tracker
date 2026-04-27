@@ -5,11 +5,13 @@ import Dashboard from './pages/Dashboard';
 import Students from './pages/Students';
 import StudentProfile from './pages/StudentProfile';
 import Incidents from './pages/Incidents';
+import IncidentDetail from './pages/IncidentDetail';
 import Violations from './pages/Violations';
 import MTSS from './pages/MTSS';
 import Settings from './pages/Settings';
 import Users from './pages/Users';
 import UserProfile from './pages/UserProfile';
+import Reports from './pages/Reports';
 import Layout from './components/Layout';
 import api from './lib/api';
 
@@ -102,7 +104,9 @@ function App() {
             <Route path="students" element={<Students />} />
             <Route path="students/:id" element={<StudentProfile />} />
             <Route path="incidents" element={<Incidents />} />
+            <Route path="incidents/:id" element={<IncidentDetail />} />
             <Route path="violations" element={<Violations />} />
+            <Route path="reports" element={<Reports />} />
             <Route path="mtss" element={<MTSS />} />
             <Route path="users" element={<Users />} />
             <Route path="users/:id" element={<UserProfile />} />

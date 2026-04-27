@@ -8,11 +8,6 @@ const config: CapacitorConfig = {
     hostname: 'discipline-tracker-production-ba1c.up.railway.app',
     androidScheme: 'https',
   },
-  plugins: {
-    CapacitorHttp: {
-      enabled: true,
-    },
-  },
 };
 
 export default config;

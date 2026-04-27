@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://discipline-tracker-production-ba1c.up.railway.app/api';
 
 // Shared types
 export interface ApiError { error: string; }
@@ -167,37 +167,51 @@ export interface VersionInfo {
   minAppVersion: string;
 }
 
-// Typed API functions - use apiClient to get baseURL and interceptors
-// GET requests get cache-busting timestamp to prevent stale data
-export const api = {
-  get: <T>(url: string) => apiClient.get<T>(`${url}?_=${Date.now()}`),
-  post: <T>(url: string, data?: unknown) => apiClient.post<T>(url, data),
-  put: <T>(url: string, data?: unknown) => apiClient.put<T>(url, data),
-  delete: <T>(url: string) => apiClient.delete<T>(url),
-};
-
+// Create axios instance with proper configuration
 const apiClient = axios.create({
   baseURL: API_URL,
+  timeout: 30000, // 30 second timeout
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
+// Request interceptor - add auth token
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // Add cache-busting for GET requests
+  if (config.method === 'get') {
+    const url = config.url || '';
+    config.url = url + (url.includes('?') ? '&' : '?') + `_=${Date.now()}`;
+  }
   return config;
 });
 
+// Response interceptor - handle 401 and errors
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      // Only redirect to login if not already on login page
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
 );
+
+// API object with typed methods
+export const api = {
+  get: <T>(url: string) => apiClient.get<T>(url),
+  post: <T>(url: string, data?: unknown) => apiClient.post<T>(url, data),
+  put: <T>(url: string, data?: unknown) => apiClient.put<T>(url, data),
+  delete: <T>(url: string) => apiClient.delete<T>(url),
+};
 
 export default apiClient;
