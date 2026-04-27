@@ -1028,12 +1028,12 @@ router.get('/api/dashboard/stats/filtered', authenticate, async (req: Request, r
     let paramIndex = 1;
 
     if (startDate) {
-      dateFilter += ` AND i.date >= $${paramIndex}`;
+      dateFilter += ` AND i.date::date >= $${paramIndex}::date`;
       params.push(startDate);
       paramIndex++;
     }
     if (endDate) {
-      dateFilter += ` AND i.date <= $${paramIndex}`;
+      dateFilter += ` AND i.date::date <= $${paramIndex}::date`;
       params.push(endDate);
       paramIndex++;
     }

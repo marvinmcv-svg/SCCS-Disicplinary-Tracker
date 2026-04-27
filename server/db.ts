@@ -107,6 +107,7 @@ export async function initializeDatabase() {
   }
 
   await migrateUsersTable();
+  await migrateIncidentsTable();
 
   try {
     await seedViolations();
@@ -262,6 +263,26 @@ async function migrateUsersTable() {
         console.log(`  users column ${col.name} already exists`);
       } else {
         console.log(`  users column ${col.name}:`, (e as Error).message);
+      }
+    }
+  }
+}
+
+async function migrateIncidentsTable() {
+  const columns = [
+    { name: 'reported_by', sql: 'ALTER TABLE incidents ADD COLUMN IF NOT EXISTS reported_by TEXT' },
+    { name: 'advisor', sql: 'ALTER TABLE incidents ADD COLUMN IF NOT EXISTS advisor TEXT' },
+  ];
+
+  for (const col of columns) {
+    try {
+      await pool.query(col.sql);
+      console.log(`✓ incidents column ${col.name} ready`);
+    } catch (e) {
+      if ((e as Error).message.includes('already exists')) {
+        console.log(`  incidents column ${col.name} already exists`);
+      } else {
+        console.log(`  incidents column ${col.name}:`, (e as Error).message);
       }
     }
   }
