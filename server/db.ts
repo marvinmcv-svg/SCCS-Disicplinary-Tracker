@@ -292,6 +292,7 @@ async function migrateIncidentsTable() {
 async function migrateStudentsTable() {
   const columns = [
     { name: 'section', sql: 'ALTER TABLE students ADD COLUMN IF NOT EXISTS section TEXT' },
+    { name: 'house_team', sql: 'ALTER TABLE students ADD COLUMN IF NOT EXISTS house_team TEXT' },
     { name: 'advisory', sql: 'ALTER TABLE students ADD COLUMN IF NOT EXISTS advisory TEXT' },
     { name: 'date_of_birth', sql: 'ALTER TABLE students ADD COLUMN IF NOT EXISTS date_of_birth TEXT' },
     { name: 'parent_name', sql: 'ALTER TABLE students ADD COLUMN IF NOT EXISTS parent_name TEXT' },
