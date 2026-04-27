@@ -250,10 +250,21 @@ router.get('/api/students/:id', authenticate, async (req: Request, res: Response
 
 router.post('/api/students', authenticate, async (req: Request, res: Response) => {
   try {
-    const { student_id, last_name, first_name, grade, counselor, advisory } = req.body;
+    const {
+      student_id, last_name, first_name, grade, section, house_team, counselor, advisory,
+      gpa, total_points, conduct_status, observations, date_of_birth,
+      parent_name, parent_phone, parent_email, gender, profile_picture
+    } = req.body;
+
     const result = await runQuery(
-      'INSERT INTO students (student_id, last_name, first_name, grade, counselor, advisory) VALUES ($1, $2, $3, $4, $5, $6)',
-      [student_id, last_name, first_name, grade || '9', counselor || '', advisory || '']
+      `INSERT INTO students (student_id, last_name, first_name, grade, section, house_team, counselor, advisory, gpa, total_points, conduct_status, observations, date_of_birth, parent_name, parent_phone, parent_email, gender, profile_picture)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+      [
+        student_id, last_name, first_name, grade || 9, section || '', house_team || '',
+        counselor || '', advisory || '', gpa || 0, total_points || 100,
+        conduct_status || 'Good', observations || '', date_of_birth || '',
+        parent_name || '', parent_phone || '', parent_email || '', gender || '', profile_picture || ''
+      ]
     );
     res.json({ id: result.lastInsertRowid });
   } catch (error: any) {
@@ -263,10 +274,26 @@ router.post('/api/students', authenticate, async (req: Request, res: Response) =
 
 router.put('/api/students/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const { student_id, last_name, first_name, grade, counselor, advisory, gpa, total_points, conduct_status, observations } = req.body;
+    const {
+      student_id, last_name, first_name, grade, section, house_team, counselor, advisory,
+      gpa, total_points, conduct_status, observations, date_of_birth,
+      parent_name, parent_phone, parent_email, gender, profile_picture
+    } = req.body;
+
     await runQuery(
-      'UPDATE students SET student_id = $1, last_name = $2, first_name = $3, grade = $4, counselor = $5, advisory = $6, gpa = $7, total_points = $8, conduct_status = $9, observations = $10 WHERE id = $11',
-      [student_id || '', last_name || '', first_name || '', grade || '9', counselor || '', advisory || '', gpa || 0, total_points || 100, conduct_status || 'Good', observations || '', parseInt(req.params.id)]
+      `UPDATE students SET
+        student_id = $1, last_name = $2, first_name = $3, grade = $4, section = $5,
+        house_team = $6, counselor = $7, advisory = $8, gpa = $9, total_points = $10,
+        conduct_status = $11, observations = $12, date_of_birth = $13,
+        parent_name = $14, parent_phone = $15, parent_email = $16, gender = $17, profile_picture = $18
+       WHERE id = $19`,
+      [
+        student_id || '', last_name || '', first_name || '', grade || 9, section || '',
+        house_team || '', counselor || '', advisory || '', gpa || 0, total_points || 100,
+        conduct_status || 'Good', observations || '', date_of_birth || '',
+        parent_name || '', parent_phone || '', parent_email || '', gender || '', profile_picture || '',
+        parseInt(req.params.id)
+      ]
     );
     res.json({ success: true });
   } catch (error: any) {

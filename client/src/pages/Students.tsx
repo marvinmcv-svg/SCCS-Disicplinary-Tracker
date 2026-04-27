@@ -9,12 +9,20 @@ interface Student {
   last_name: string;
   first_name: string;
   grade: string;
+  section?: string;
+  house_team?: string;
   counselor: string;
   advisory: string;
   gpa: number;
   total_points: number;
   conduct_status: string;
   observations?: string;
+  date_of_birth?: string;
+  parent_name?: string;
+  parent_phone?: string;
+  parent_email?: string;
+  gender?: string;
+  profile_picture?: string;
 }
 
 export default function Students() {
@@ -44,8 +52,15 @@ export default function Students() {
     last_name: '',
     first_name: '',
     grade: '9',
+    section: '',
+    house_team: '',
     counselor: '',
     advisory: '',
+    date_of_birth: '',
+    parent_name: '',
+    parent_phone: '',
+    parent_email: '',
+    gender: '',
     observations: '',
   });
 
@@ -73,8 +88,15 @@ export default function Students() {
         last_name: formData.last_name,
         first_name: formData.first_name,
         grade: formData.grade,
+        section: formData.section,
+        house_team: formData.house_team,
         counselor: formData.counselor,
         advisory: formData.advisory,
+        date_of_birth: formData.date_of_birth,
+        parent_name: formData.parent_name,
+        parent_phone: formData.parent_phone,
+        parent_email: formData.parent_email,
+        gender: formData.gender,
         observations: formData.observations,
       };
       if (editingStudent) {
@@ -217,14 +239,21 @@ export default function Students() {
         last_name: student.last_name,
         first_name: student.first_name,
         grade: student.grade,
-        counselor: student.counselor,
+        section: student.section || '',
+        house_team: student.house_team || '',
+        counselor: student.counselor || '',
         advisory: student.advisory || '',
+        date_of_birth: student.date_of_birth || '',
+        parent_name: student.parent_name || '',
+        parent_phone: student.parent_phone || '',
+        parent_email: student.parent_email || '',
+        gender: student.gender || '',
         observations: student.observations || '',
       });
       setAdvisorSearch(student.advisory || '');
     } else {
       setEditingStudent(null);
-      setFormData({ student_id: '', last_name: '', first_name: '', grade: '9', counselor: '', advisory: '', observations: '' });
+      setFormData({ student_id: '', last_name: '', first_name: '', grade: '9', section: '', house_team: '', counselor: '', advisory: '', date_of_birth: '', parent_name: '', parent_phone: '', parent_email: '', gender: '', observations: '' });
       setAdvisorSearch('');
     }
     setShowModal(true);
@@ -323,8 +352,8 @@ export default function Students() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Student</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">ID</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">Grade</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">House</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">Advisor</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Observations</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">Status</th>
                 </tr>
               </thead>
@@ -347,12 +376,8 @@ export default function Students() {
                     </td>
                     <td className="px-4 py-3 font-mono text-sm hide-mobile">{student.student_id}</td>
                     <td className="px-4 py-3 hide-mobile">{student.grade}</td>
+                    <td className="px-4 py-3 hide-mobile">{student.house_team || '-'}</td>
                     <td className="px-4 py-3 hide-mobile">{student.advisory || '-'}</td>
-                    <td className="px-4 py-3 max-w-[200px]">
-                      <p className="text-sm text-gray-600 truncate" title={student.observations || ''}>
-                        {student.observations || '-'}
-                      </p>
-                    </td>
                     <td className="px-4 py-3 hide-mobile">
                       <span className={`badge ${
                         student.conduct_status === 'Good Standing' ? 'badge-success' :
@@ -440,6 +465,53 @@ export default function Students() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="form-label">Section</label>
+                  <input
+                    type="text"
+                    value={formData.section}
+                    onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+                    className="input"
+                    placeholder="e.g., A, B, C"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">House Team</label>
+                  <input
+                    type="text"
+                    value={formData.house_team}
+                    onChange={(e) => setFormData({ ...formData, house_team: e.target.value })}
+                    className="input"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="form-label">Date of Birth</label>
+                  <input
+                    type="date"
+                    value={formData.date_of_birth}
+                    onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Gender</label>
+                  <select
+                    value={formData.gender}
+                    onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                    className="select"
+                  >
+                    <option value="">Select...</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
               <div>
                 <label className="form-label">Counselor</label>
                 <input
@@ -484,6 +556,38 @@ export default function Students() {
                   )}
                 </div>
               )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="form-label">Parent/Guardian Name</label>
+                  <input
+                    type="text"
+                    value={formData.parent_name}
+                    onChange={(e) => setFormData({ ...formData, parent_name: e.target.value })}
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Parent Phone</label>
+                  <input
+                    type="tel"
+                    value={formData.parent_phone}
+                    onChange={(e) => setFormData({ ...formData, parent_phone: e.target.value })}
+                    className="input"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label">Parent Email</label>
+                <input
+                  type="email"
+                  value={formData.parent_email}
+                  onChange={(e) => setFormData({ ...formData, parent_email: e.target.value })}
+                  className="input"
+                  placeholder="parent@example.com"
+                />
+              </div>
 
               <div>
                 <label className="form-label">Observations / Notes</label>

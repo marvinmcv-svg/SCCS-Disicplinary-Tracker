@@ -85,7 +85,7 @@ export async function initializeDatabase() {
 
   const tableQueries = [
     { name: 'users', sql: `CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'user', first_name TEXT, last_name TEXT, email TEXT, classroom TEXT, phone TEXT, profile_picture TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, department TEXT, advisory TEXT, is_active BOOLEAN DEFAULT TRUE, last_login TIMESTAMP, two_factor_enabled BOOLEAN DEFAULT FALSE, last_activity TIMESTAMP)` },
-    { name: 'students', sql: `CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, student_id TEXT UNIQUE NOT NULL, last_name TEXT NOT NULL, first_name TEXT NOT NULL, grade INTEGER DEFAULT 9, house_team TEXT, counselor TEXT, gpa REAL DEFAULT 0.0, total_points INTEGER DEFAULT 100, conduct_status TEXT DEFAULT 'Good', observations TEXT DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)` },
+    { name: 'students', sql: `CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, student_id TEXT UNIQUE NOT NULL, last_name TEXT NOT NULL, first_name TEXT NOT NULL, grade INTEGER DEFAULT 9, section TEXT, house_team TEXT, counselor TEXT, advisory TEXT, gpa REAL DEFAULT 0.0, total_points INTEGER DEFAULT 100, conduct_status TEXT DEFAULT 'Good', observations TEXT DEFAULT '', date_of_birth TEXT, parent_name TEXT, parent_phone TEXT, parent_email TEXT, gender TEXT, profile_picture TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)` },
     { name: 'violations', sql: `CREATE TABLE IF NOT EXISTS violations (id SERIAL PRIMARY KEY, category TEXT NOT NULL, violation_type TEXT NOT NULL, description TEXT, points_deduction INTEGER DEFAULT -2, default_consequence TEXT, min_oss_days INTEGER DEFAULT 0, max_oss_days INTEGER DEFAULT 1, severity TEXT DEFAULT 'Medium', mandatory_parent_contact BOOLEAN DEFAULT FALSE, mandatory_admin_review BOOLEAN DEFAULT FALSE, progressive_consequences JSONB DEFAULT '[]'::jsonb)` },
     { name: 'incidents', sql: `CREATE TABLE IF NOT EXISTS incidents (id SERIAL PRIMARY KEY, incident_id TEXT UNIQUE NOT NULL, date TEXT NOT NULL, time TEXT, student_id INTEGER NOT NULL, violation_id INTEGER NOT NULL, location TEXT, description TEXT, witnesses TEXT, parent_contacted TEXT DEFAULT 'No', contact_date TEXT, action_taken TEXT, consequence TEXT, points_deducted INTEGER DEFAULT -2, days_iss INTEGER DEFAULT 0, days_oss INTEGER DEFAULT 0, detention_hours REAL DEFAULT 0, referral_date TEXT, administrator_id INTEGER, notes TEXT, follow_up_needed TEXT DEFAULT 'No', follow_up_date TEXT, status TEXT DEFAULT 'Open', resolved_date TEXT, evidence TEXT, reported_by TEXT, escalated_to_principal BOOLEAN DEFAULT FALSE, principal_notified_at TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)` },
     { name: 'parent_contacts', sql: `CREATE TABLE IF NOT EXISTS parent_contacts (id SERIAL PRIMARY KEY, incident_id INTEGER NOT NULL, contact_date TEXT NOT NULL, contact_method TEXT, parent_name TEXT, notes TEXT, follow_up_required TEXT DEFAULT 'No')` },
@@ -108,6 +108,7 @@ export async function initializeDatabase() {
 
   await migrateUsersTable();
   await migrateIncidentsTable();
+  await migrateStudentsTable();
 
   try {
     await seedViolations();
@@ -283,6 +284,32 @@ async function migrateIncidentsTable() {
         console.log(`  incidents column ${col.name} already exists`);
       } else {
         console.log(`  incidents column ${col.name}:`, (e as Error).message);
+      }
+    }
+  }
+}
+
+async function migrateStudentsTable() {
+  const columns = [
+    { name: 'section', sql: 'ALTER TABLE students ADD COLUMN IF NOT EXISTS section TEXT' },
+    { name: 'advisory', sql: 'ALTER TABLE students ADD COLUMN IF NOT EXISTS advisory TEXT' },
+    { name: 'date_of_birth', sql: 'ALTER TABLE students ADD COLUMN IF NOT EXISTS date_of_birth TEXT' },
+    { name: 'parent_name', sql: 'ALTER TABLE students ADD COLUMN IF NOT EXISTS parent_name TEXT' },
+    { name: 'parent_phone', sql: 'ALTER TABLE students ADD COLUMN IF NOT EXISTS parent_phone TEXT' },
+    { name: 'parent_email', sql: 'ALTER TABLE students ADD COLUMN IF NOT EXISTS parent_email TEXT' },
+    { name: 'gender', sql: 'ALTER TABLE students ADD COLUMN IF NOT EXISTS gender TEXT' },
+    { name: 'profile_picture', sql: 'ALTER TABLE students ADD COLUMN IF NOT EXISTS profile_picture TEXT' },
+  ];
+
+  for (const col of columns) {
+    try {
+      await pool.query(col.sql);
+      console.log(`✓ students column ${col.name} ready`);
+    } catch (e) {
+      if ((e as Error).message.includes('already exists')) {
+        console.log(`  students column ${col.name} already exists`);
+      } else {
+        console.log(`  students column ${col.name}:`, (e as Error).message);
       }
     }
   }

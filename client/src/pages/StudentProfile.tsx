@@ -11,6 +11,7 @@ interface Student {
   first_name: string;
   grade: string;
   section?: string;
+  house_team?: string;
   counselor: string;
   advisory: string;
   gpa: number;
@@ -20,7 +21,9 @@ interface Student {
   date_of_birth?: string;
   parent_name?: string;
   parent_phone?: string;
+  parent_email?: string;
   gender?: string;
+  profile_picture?: string;
   created_at: string;
 }
 
@@ -195,6 +198,12 @@ export default function StudentProfile() {
                   <GraduationCap className="w-4 h-4" />
                   Grade {student.grade}{student.section ? `-${student.section}` : ''}
                 </span>
+                {student.house_team && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-4 h-4" />
+                    {student.house_team}
+                  </span>
+                )}
                 <span className="flex items-center gap-1">
                   <MapPin className="w-4 h-4" />
                   {student.advisory || 'No Advisory'}
@@ -238,8 +247,15 @@ export default function StudentProfile() {
           <div className="flex items-center gap-3 p-4">
             <Phone className="w-5 h-5 text-gray-400" />
             <div>
-              <p className="text-xs text-gray-500">Parent Contact</p>
+              <p className="text-xs text-gray-500">Parent Phone</p>
               <p className="text-sm font-medium text-gray-900">{student.parent_phone || '-'}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-4">
+            <Mail className="w-5 h-5 text-gray-400" />
+            <div>
+              <p className="text-xs text-gray-500">Parent Email</p>
+              <p className="text-sm font-medium text-gray-900 truncate">{student.parent_email || '-'}</p>
             </div>
           </div>
           <div className="flex items-center gap-3 p-4">
@@ -250,10 +266,31 @@ export default function StudentProfile() {
             </div>
           </div>
           <div className="flex items-center gap-3 p-4">
-            <Mail className="w-5 h-5 text-gray-400" />
+            <User className="w-5 h-5 text-gray-400" />
             <div>
               <p className="text-xs text-gray-500">Parent/Guardian</p>
               <p className="text-sm font-medium text-gray-900 truncate">{student.parent_name || '-'}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-4">
+            <GraduationCap className="w-5 h-5 text-gray-400" />
+            <div>
+              <p className="text-xs text-gray-500">House Team</p>
+              <p className="text-sm font-medium text-gray-900">{student.house_team || '-'}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-4">
+            <User className="w-5 h-5 text-gray-400" />
+            <div>
+              <p className="text-xs text-gray-500">Gender</p>
+              <p className="text-sm font-medium text-gray-900">{student.gender || '-'}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-4">
+            <MapPin className="w-5 h-5 text-gray-400" />
+            <div>
+              <p className="text-xs text-gray-500">Section</p>
+              <p className="text-sm font-medium text-gray-900">{student.section || '-'}</p>
             </div>
           </div>
         </div>
