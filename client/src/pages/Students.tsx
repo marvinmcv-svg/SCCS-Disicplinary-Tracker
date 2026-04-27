@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Search, X, User, Check, Loader, Upload, FileSpreadsheet } from 'lucide-react';
+import { Plus, Search, X, User, Check, Loader, Upload, FileSpreadsheet, Camera } from 'lucide-react';
 import api from '../lib/api';
 import * as XLSX from 'xlsx';
 
@@ -61,6 +61,7 @@ export default function Students() {
     parent_phone: '',
     parent_email: '',
     gender: '',
+    profile_picture: '',
     observations: '',
   });
 
@@ -77,6 +78,40 @@ export default function Students() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePictureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File too large. Maximum size is 10MB.');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const result = reader.result;
+        if (typeof result === 'string') {
+          setFormData({ ...formData, profile_picture: result });
+        } else {
+          alert('Failed to read file. Please try a different image.');
+        }
+      } catch (err) {
+        console.error('Error setting profile picture:', err);
+        alert('Failed to process image.');
+      }
+    };
+    reader.onerror = () => {
+      alert('Failed to read file. Please try a different image.');
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -248,12 +283,13 @@ export default function Students() {
         parent_phone: student.parent_phone || '',
         parent_email: student.parent_email || '',
         gender: student.gender || '',
+        profile_picture: student.profile_picture || '',
         observations: student.observations || '',
       });
       setAdvisorSearch(student.advisory || '');
     } else {
       setEditingStudent(null);
-      setFormData({ student_id: '', last_name: '', first_name: '', grade: '9', section: '', house_team: '', counselor: '', advisory: '', date_of_birth: '', parent_name: '', parent_phone: '', parent_email: '', gender: '', observations: '' });
+      setFormData({ student_id: '', last_name: '', first_name: '', grade: '9', section: '', house_team: '', counselor: '', advisory: '', date_of_birth: '', parent_name: '', parent_phone: '', parent_email: '', gender: '', profile_picture: '', observations: '' });
       setAdvisorSearch('');
     }
     setShowModal(true);
@@ -362,8 +398,12 @@ export default function Students() {
                   <tr key={student.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <User className="w-5 h-5 text-blue-600" />
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
+                          {student.profile_picture ? (
+                            <img src={student.profile_picture} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <User className="w-5 h-5 text-blue-600" />
+                          )}
                         </div>
                         <button
                           onClick={() => openModal(student)}
@@ -414,6 +454,28 @@ export default function Students() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Profile Picture Upload */}
+              <div className="flex justify-center mb-2">
+                <div className="relative">
+                  <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-gray-200">
+                    {formData.profile_picture ? (
+                      <img src={formData.profile_picture} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-10 h-10 text-gray-400" />
+                    )}
+                  </div>
+                  <label className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center cursor-pointer hover:bg-blue-700 transition-colors">
+                    <Camera className="w-4 h-4 text-white" />
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                      onChange={handlePictureUpload}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="form-label">Student ID</label>

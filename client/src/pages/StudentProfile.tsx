@@ -185,9 +185,15 @@ export default function StudentProfile() {
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-6 print:shadow-none">
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6">
           <div className="flex items-start gap-6">
-            {/* Grade-colored Avatar */}
-            <div className={`w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center text-2xl md:text-3xl font-bold ${getGradeColor(student.grade)}`}>
-              {getInitials(student.first_name, student.last_name)}
+            {/* Profile Picture or Grade-colored Avatar */}
+            <div className="w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center text-2xl md:text-3xl font-bold overflow-hidden">
+              {student.profile_picture ? (
+                <img src={student.profile_picture} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className={`w-full h-full flex items-center justify-center ${getGradeColor(student.grade)}`}>
+                  {getInitials(student.first_name, student.last_name)}
+                </div>
+              )}
             </div>
             <div className="flex-1 text-white">
               <h1 className="text-2xl md:text-3xl font-bold">
