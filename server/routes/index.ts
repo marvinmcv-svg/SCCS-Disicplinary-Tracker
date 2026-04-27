@@ -314,16 +314,56 @@ router.get('/api/violations/categories', authenticate, async (req: Request, res:
   }
 });
 
+router.put('/api/violations/:id', authenticate, async (req: Request, res: Response) => {
+  try {
+    // Check admin role
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { category, violation_type, description, points_deduction, default_consequence, min_oss_days, max_oss_days, severity, mandatory_parent_contact, mandatory_admin_review, progressive_consequences } = req.body;
+    const id = parseInt(req.params.id);
+
+    await runQuery(
+      `UPDATE violations SET
+        category = $1, violation_type = $2, description = $3, points_deduction = $4,
+        default_consequence = $5, min_oss_days = $6, max_oss_days = $7,
+        severity = $8, mandatory_parent_contact = $9, mandatory_admin_review = $10,
+        progressive_consequences = $11
+       WHERE id = $12`,
+      [category, violation_type, description, points_deduction, default_consequence, min_oss_days, max_oss_days, severity, mandatory_parent_contact, mandatory_admin_review, JSON.stringify(progressive_consequences || []), id]
+    );
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 router.get('/api/incidents', authenticate, async (req: Request, res: Response) => {
   try {
-    const incidents = await queryAll(`
-      SELECT i.*, s.last_name, s.first_name, s.student_id as student_id_raw, 
+    const currentUser = req.user!;
+    const userRole = currentUser.role || 'user'; // Default to most-restricted
+
+    let query = `
+      SELECT i.*, s.last_name, s.first_name, s.student_id as student_id_raw,
+             s.counselor, s.advisory,
              v.violation_type, v.category
       FROM incidents i
       JOIN students s ON i.student_id = s.id
       JOIN violations v ON i.violation_id = v.id
-      ORDER BY i.date DESC, i.id DESC
-    `);
+    `;
+    const params: any[] = [];
+
+    // RBAC: Teachers can only see incidents they reported OR involving their assigned students
+    if (userRole === 'teacher' || userRole === 'counselor') {
+      // Teachers see: incidents they reported OR where they're the counselor/advisory
+      query += ` WHERE (i.reported_by = $1 OR s.counselor = $2 OR s.advisory = $3)`;
+      params.push(currentUser.first_name + ' ' + currentUser.last_name, currentUser.first_name + ' ' + currentUser.last_name, currentUser.first_name + ' ' + currentUser.last_name);
+    }
+
+    query += ' ORDER BY i.date DESC, i.id DESC';
+
+    const incidents = await queryAll(query, params);
     res.json(incidents);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -484,12 +524,33 @@ router.get('/api/dashboard/stats', authenticate, async (req: Request, res: Respo
 
 router.get('/api/mtss', authenticate, async (req: Request, res: Response) => {
   try {
-    const interventions = await queryAll(`
+    const { advisor, review_soon, tier } = req.query;
+    let query = `
       SELECT m.*, s.last_name, s.first_name
       FROM mtss_interventions m
       JOIN students s ON m.student_id = s.id
-      ORDER BY m.start_date DESC
-    `);
+      WHERE 1=1
+    `;
+    const params: any[] = [];
+
+    if (advisor) {
+      params.push(advisor);
+      query += ` AND m.advisor = $${params.length}`;
+    }
+
+    if (tier) {
+      params.push(parseInt(tier as string));
+      query += ` AND m.tier = $${params.length}`;
+    }
+
+    if (review_soon === 'true') {
+      // Show interventions with review_date within next 30 days
+      query += ` AND m.review_date IS NOT NULL AND m.review_date != '' AND date(m.review_date) <= date('now', '+30 days') AND date(m.review_date) >= date('now')`;
+    }
+
+    query += ' ORDER BY m.start_date DESC';
+
+    const interventions = await queryAll(query, params);
     res.json(interventions);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -498,10 +559,11 @@ router.get('/api/mtss', authenticate, async (req: Request, res: Response) => {
 
 router.post('/api/mtss', authenticate, async (req: Request, res: Response) => {
   try {
-    const { student_id, tier, intervention, advisor, start_date, end_date, progress, notes } = req.body;
+    const { student_id, tier, intervention, advisor, start_date, end_date, progress, notes, intervention_goal, progress_monitoring, review_date, exit_criteria, incident_link, tier_history } = req.body;
     const result = await runQuery(
-      'INSERT INTO mtss_interventions (student_id, tier, intervention, advisor, start_date, end_date, progress, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-      [student_id, tier, intervention, advisor, start_date, end_date, progress || 'Not Started', notes]
+      `INSERT INTO mtss_interventions (student_id, tier, intervention, advisor, start_date, end_date, progress, notes, intervention_goal, progress_monitoring, review_date, exit_criteria, incident_link, tier_history)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+      [student_id, tier, intervention, advisor || null, start_date, end_date || null, progress || 'Not Started', notes || '', intervention_goal || null, progress_monitoring || null, review_date || null, exit_criteria || null, incident_link || null, JSON.stringify(tier_history || [])]
     );
     res.json({ id: result.lastInsertRowid });
   } catch (error: any) {
@@ -511,11 +573,16 @@ router.post('/api/mtss', authenticate, async (req: Request, res: Response) => {
 
 router.put('/api/mtss/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const { student_id, tier, intervention, advisor, start_date, end_date, progress, notes } = req.body;
+    const { student_id, tier, intervention, advisor, start_date, end_date, progress, notes, intervention_goal, progress_monitoring, review_date, exit_criteria, incident_link, tier_history } = req.body;
     const id = parseInt(req.params.id);
     await runQuery(
-      'UPDATE mtss_interventions SET student_id = $1, tier = $2, intervention = $3, advisor = $4, start_date = $5, end_date = $6, progress = $7, notes = $8 WHERE id = $9',
-      [student_id, tier, intervention, advisor || '', start_date, end_date || null, progress || 'Not Started', notes || '', id]
+      `UPDATE mtss_interventions SET
+        student_id = $1, tier = $2, intervention = $3, advisor = $4, start_date = $5,
+        end_date = $6, progress = $7, notes = $8,
+        intervention_goal = $9, progress_monitoring = $10, review_date = $11,
+        exit_criteria = $12, incident_link = $13, tier_history = $14
+       WHERE id = $15`,
+      [student_id, tier, intervention, advisor || null, start_date, end_date || null, progress || 'Not Started', notes || '', intervention_goal || null, progress_monitoring || null, review_date || null, exit_criteria || null, incident_link || null, JSON.stringify(tier_history || []), id]
     );
     res.json({ success: true });
   } catch (error: any) {
@@ -587,7 +654,19 @@ router.get('/api/users', authenticate, async (req: Request, res: Response) => {
     if (user.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
-    const users = await queryAll('SELECT id, username, role, first_name, last_name, email, phone, classroom, profile_picture, created_at FROM users ORDER BY created_at DESC');
+
+    // Get users with stats
+    const users = await queryAll(`
+      SELECT
+        u.id, u.username, u.role, u.first_name, u.last_name,
+        u.email, u.phone, u.classroom, u.profile_picture, u.created_at,
+        u.department, u.advisory, u.is_active, u.last_login,
+        u.two_factor_enabled, u.last_activity,
+        (SELECT COUNT(*) FROM students s WHERE s.counselor = u.first_name || ' ' || u.last_name) as assigned_students_count,
+        (SELECT COUNT(*) FROM incidents i WHERE i.reported_by = u.first_name || ' ' || u.last_name) as incidents_logged_count
+      FROM users u
+      ORDER BY u.created_at DESC
+    `);
     res.json(users);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -597,10 +676,31 @@ router.get('/api/users', authenticate, async (req: Request, res: Response) => {
 router.get('/api/users/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const user = await queryOne('SELECT id, username, role, first_name, last_name, email, phone, classroom, profile_picture, created_at FROM users WHERE id = $1', [id]);
+    const currentUser = req.user!;
+
+    const user = await queryOne(`
+      SELECT id, username, role, first_name, last_name, email, phone, classroom,
+             profile_picture, created_at, department, advisory, is_active,
+             last_login, two_factor_enabled, last_activity
+      FROM users WHERE id = $1`, [id]);
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
+
+    // Get stats for this user
+    const assignedStudents = await queryOne(
+      `SELECT COUNT(*) as count FROM students WHERE counselor = $1`,
+      [(user as any).first_name + ' ' + (user as any).last_name]
+    );
+    const incidentsLogged = await queryOne(
+      `SELECT COUNT(*) as count FROM incidents WHERE reported_by = $1`,
+      [(user as any).first_name + ' ' + (user as any).last_name]
+    );
+
+    (user as any).assigned_students_count = parseInt((assignedStudents as any).count) || 0;
+    (user as any).incidents_logged_count = parseInt((incidentsLogged as any).count) || 0;
+
     res.json(user);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -609,19 +709,39 @@ router.get('/api/users/:id', authenticate, async (req: Request, res: Response) =
 
 router.post('/api/users', authenticate, async (req: Request, res: Response) => {
   try {
-    const user = req.user!;
-    if (user.role !== 'admin') {
+    const currentUser = req.user!;
+    if (currentUser.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
-    const { username, password, role, first_name, last_name, email, phone, classroom } = req.body;
+    const { username, password, role, first_name, last_name, email, phone, classroom, department, advisory } = req.body;
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password required' });
     }
+
+    // Stronger password validation
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+    if (!/\d/.test(password)) {
+      return res.status(400).json({ error: 'Password must contain at least one number' });
+    }
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+      return res.status(400).json({ error: 'Password must contain at least one special character' });
+    }
+
     const hashedPassword = bcrypt.hashSync(password, 10);
     await runQuery(
-      'INSERT INTO users (username, password, role, first_name, last_name, email, phone, classroom) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-      [username, hashedPassword, role || 'user', first_name || '', last_name || '', email || '', phone || '', classroom || '']
+      `INSERT INTO users (username, password, role, first_name, last_name, email, phone, classroom, department, advisory)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [username, hashedPassword, role || 'user', first_name || '', last_name || '', email || '', phone || '', classroom || '', department || '', advisory || '']
     );
+
+    // Log activity
+    await runQuery(
+      `INSERT INTO user_activity_log (user_id, action, details) VALUES ($1, $2, $3)`,
+      [currentUser.userId, 'CREATE_USER', `Created user: ${username} (${role || 'user'})`]
+    );
+
     res.json({ success: true });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
@@ -632,10 +752,7 @@ router.put('/api/users/:id', authenticate, async (req: Request, res: Response) =
   try {
     const currentUser = req.user!;
     const { id } = req.params;
-    const { username, role, first_name, last_name, email, phone, classroom, profile_picture, newPassword } = req.body;
-
-    console.log(`PUT /api/users/${id} - user: ${currentUser.userId}, role: ${currentUser.role}`);
-    console.log('Payload:', { username, role, first_name, last_name, email, phone, classroom, profile_picture: profile_picture ? '(base64 length: ' + profile_picture.length + ')' : 'empty', newPassword: newPassword ? '(set)' : 'not set' });
+    const { username, role, first_name, last_name, email, phone, classroom, profile_picture, newPassword, department, advisory, is_active, two_factor_enabled } = req.body;
 
     // Allow if admin OR if editing own profile
     if (currentUser.role !== 'admin' && currentUser.userId !== parseInt(id)) {
@@ -647,26 +764,49 @@ router.put('/api/users/:id', authenticate, async (req: Request, res: Response) =
       return res.status(403).json({ error: 'You cannot change your own role' });
     }
 
+    // Only admins can change is_active or two_factor_enabled
+    if ((is_active !== undefined || two_factor_enabled !== undefined) && currentUser.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can modify active status or 2FA settings' });
+    }
+
     // Check for duplicate username
     const existingUser = await queryOne('SELECT id FROM users WHERE username = $1 AND id != $2', [username, id]);
     if (existingUser) {
       return res.status(400).json({ error: 'Username already exists. Please choose a different one.' });
     }
 
+    // Password validation if changing
+    if (newPassword) {
+      if (newPassword.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters' });
+      }
+      if (!/\d/.test(newPassword)) {
+        return res.status(400).json({ error: 'Password must contain at least one number' });
+      }
+      if (!/[!@#$%^&*(),.?":{}|<>]/.test(newPassword)) {
+        return res.status(400).json({ error: 'Password must contain at least one special character' });
+      }
+    }
+
     if (newPassword) {
       const hashedPassword = bcrypt.hashSync(newPassword, 10);
-      const result = await pool.query(
-        'UPDATE users SET username = $1, role = $2, first_name = $3, last_name = $4, email = $5, phone = $6, classroom = $7, profile_picture = $8, password = $9 WHERE id = $10 RETURNING *',
-        [username, role, first_name || '', last_name || '', email || '', phone || '', classroom || '', profile_picture || '', hashedPassword, id]
+      await pool.query(
+        `UPDATE users SET username = $1, role = $2, first_name = $3, last_name = $4, email = $5, phone = $6, classroom = $7, profile_picture = $8, password = $9, department = $10, advisory = $11, is_active = $12, two_factor_enabled = $13 WHERE id = $14`,
+        [username, role, first_name || '', last_name || '', email || '', phone || '', classroom || '', profile_picture || '', hashedPassword, department || null, advisory || null, is_active !== undefined ? is_active : true, two_factor_enabled !== undefined ? two_factor_enabled : false, id]
       );
-      console.log('Update result (with password):', result.rowCount, 'rows affected');
     } else {
-      const result = await pool.query(
-        'UPDATE users SET username = $1, role = $2, first_name = $3, last_name = $4, email = $5, phone = $6, classroom = $7, profile_picture = $8 WHERE id = $9 RETURNING *',
-        [username, role, first_name || '', last_name || '', email || '', phone || '', classroom || '', profile_picture || '', id]
+      await pool.query(
+        `UPDATE users SET username = $1, role = $2, first_name = $3, last_name = $4, email = $5, phone = $6, classroom = $7, profile_picture = $8, department = $9, advisory = $10, is_active = $11, two_factor_enabled = $12 WHERE id = $13`,
+        [username, role, first_name || '', last_name || '', email || '', phone || '', classroom || '', profile_picture || '', department || null, advisory || null, is_active !== undefined ? is_active : true, two_factor_enabled !== undefined ? two_factor_enabled : false, id]
       );
-      console.log('Update result:', result.rowCount, 'rows affected');
     }
+
+    // Log activity
+    await runQuery(
+      `INSERT INTO user_activity_log (user_id, action, details) VALUES ($1, $2, $3)`,
+      [currentUser.userId, 'UPDATE_USER', `Updated user: ${username} (ID: ${id})`]
+    );
+
     res.json({ success: true });
   } catch (error: any) {
     console.error('Update error:', error.message);
@@ -676,16 +816,25 @@ router.put('/api/users/:id', authenticate, async (req: Request, res: Response) =
 
 router.delete('/api/users/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const user = req.user!;
-    if (user.role !== 'admin') {
+    const currentUser = req.user!;
+    if (currentUser.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
     const { id } = req.params;
-    if (user.userId === parseInt(id)) {
-      return res.status(400).json({ error: 'Cannot delete your own account' });
+    if (currentUser.userId === parseInt(id)) {
+      return res.status(400).json({ error: 'Cannot deactivate your own account' });
     }
-    await runQuery('DELETE FROM users WHERE id = $1', [id]);
-    res.json({ success: true });
+
+    // Soft delete - set is_active = false
+    await runQuery('UPDATE users SET is_active = FALSE WHERE id = $1', [id]);
+
+    // Log activity
+    await runQuery(
+      `INSERT INTO user_activity_log (user_id, action, details) VALUES ($1, $2, $3)`,
+      [currentUser.userId, 'DEACTIVATE_USER', `Deactivated user ID: ${id}`]
+    );
+
+    res.json({ success: true, message: 'User deactivated successfully' });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
@@ -702,8 +851,129 @@ router.put('/api/users/:id/password', authenticate, async (req: Request, res: Re
     if (!password) {
       return res.status(400).json({ error: 'Password required' });
     }
+    // Stronger password validation
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+    if (!/\d/.test(password)) {
+      return res.status(400).json({ error: 'Password must contain at least one number' });
+    }
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+      return res.status(400).json({ error: 'Password must contain at least one special character' });
+    }
     const hashedPassword = bcrypt.hashSync(password, 10);
     await runQuery('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, id]);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Heartbeat - update last_activity for "Currently Online" indicator
+router.put('/api/users/:id/heartbeat', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await runQuery('UPDATE users SET last_activity = CURRENT_TIMESTAMP, last_login = COALESCE(last_login, CURRENT_TIMESTAMP) WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get user activity log (admin only)
+router.get('/api/users/activity', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = req.user!;
+    if (currentUser.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { user_id, action, from_date, to_date, limit = 100 } = req.query;
+
+    let query = `
+      SELECT l.*, u.username, u.first_name, u.last_name
+      FROM user_activity_log l
+      JOIN users u ON l.user_id = u.id
+      WHERE 1=1
+    `;
+    const params: any[] = [];
+
+    if (user_id) {
+      params.push(user_id);
+      query += ` AND l.user_id = $${params.length}`;
+    }
+    if (action) {
+      params.push(action);
+      query += ` AND l.action = $${params.length}`;
+    }
+    if (from_date) {
+      params.push(from_date);
+      query += ` AND l.created_at >= $${params.length}`;
+    }
+    if (to_date) {
+      params.push(to_date);
+      query += ` AND l.created_at <= $${params.length}`;
+    }
+
+    params.push(parseInt(limit as string) || 100);
+    query += ` ORDER BY l.created_at DESC LIMIT $${params.length}`;
+
+    const logs = await queryAll(query, params);
+    res.json(logs);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Log an activity (internal use)
+router.post('/api/users/activity', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = req.user!;
+    const { action, details } = req.body;
+
+    await runQuery(
+      `INSERT INTO user_activity_log (user_id, action, details) VALUES ($1, $2, $3)`,
+      [currentUser.userId, action || 'UNKNOWN', details || '']
+    );
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get unique advisory/homeroom values for dropdowns
+router.get('/api/advisories', authenticate, async (req: Request, res: Response) => {
+  try {
+    const advisories = await queryAll(`
+      SELECT DISTINCT advisory FROM students
+      WHERE advisory IS NOT NULL AND advisory != ''
+      UNION
+      SELECT DISTINCT advisory FROM users
+      WHERE advisory IS NOT NULL AND advisory != ''
+      ORDER BY advisory
+    `);
+    res.json(advisories.map((a: { advisory: string }) => a.advisory));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Reactivate user (admin only)
+router.put('/api/users/:id/reactivate', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = req.user!;
+    if (currentUser.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    const { id } = req.params;
+    await runQuery('UPDATE users SET is_active = TRUE WHERE id = $1', [id]);
+
+    // Log activity
+    await runQuery(
+      `INSERT INTO user_activity_log (user_id, action, details) VALUES ($1, $2, $3)`,
+      [currentUser.userId, 'REACTIVATE_USER', `Reactivated user ID: ${id}`]
+    );
+
     res.json({ success: true });
   } catch (error: any) {
     res.status(400).json({ error: error.message });

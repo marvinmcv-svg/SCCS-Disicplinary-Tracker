@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect, createContext, useContext, useCallback, useRef } from 'react';
+import { Clock, LogOut } from 'lucide-react';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Students from './pages/Students';
@@ -33,6 +34,10 @@ export const useAuth = () => {
 // App version - update this whenever you release new features
 const CURRENT_VERSION = import.meta.env.VITE_APP_VERSION || '1.0.0';
 
+// Session timeout constants (in milliseconds)
+const WARNING_TIME = 25 * 60 * 1000; // 25 minutes (show warning)
+const WARNING_DURATION = 5 * 60 * 1000; // 5 minutes to respond before logout
+
 function UpdateBanner() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [dismissed, setDismissed] = useState(false);
@@ -42,12 +47,11 @@ function UpdateBanner() {
       try {
         const res = await api.get('/version');
         const latestVersion = res.data.version;
-        // Simple version comparison - treat as string for now
         if (latestVersion && latestVersion !== CURRENT_VERSION) {
           setUpdateAvailable(true);
         }
       } catch (e) {
-        // Silently fail - don't block app if version check fails
+        // Silently fail
       }
     };
     checkVersion();
@@ -68,9 +72,178 @@ function UpdateBanner() {
   );
 }
 
+function SessionTimeoutWarning({
+  remainingTime,
+  onStayLoggedIn,
+  onLogout
+}: {
+  remainingTime: number;
+  onStayLoggedIn: () => void;
+  onLogout: () => void;
+}) {
+  const minutes = Math.floor(remainingTime / 60000);
+  const seconds = Math.floor((remainingTime % 60000) / 1000);
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+              <Clock className="w-5 h-5 text-orange-600" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900">Session Expiring Soon</h2>
+          </div>
+        </div>
+        <p className="text-gray-600 mb-4">
+          Your session will expire in <strong>{minutes}:{seconds.toString().padStart(2, '0')}</strong> due to inactivity.
+        </p>
+        <p className="text-gray-500 text-sm mb-6">
+          Click "Stay Logged In" to continue your session, or "Log Out" to end it now.
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={onLogout}
+            className="btn btn-secondary flex-1 flex items-center justify-center gap-2"
+          >
+            <LogOut className="w-4 h-4" />
+            Log Out
+          </button>
+          <button
+            onClick={onStayLoggedIn}
+            className="btn btn-primary flex-1"
+          >
+            Stay Logged In
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [user, setUser] = useState<any>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [showSessionWarning, setShowSessionWarning] = useState(false);
+  const [warningCountdown, setWarningCountdown] = useState(WARNING_DURATION);
+
+  const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const logoutTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const logoutCallbackRef = useRef<(() => void) | null>(null);
+
+  // Set up logout callback
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setToken(null);
+    setUser(null);
+    setShowSessionWarning(false);
+    if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
+  }, []);
+
+  // Store logout in ref for timer callbacks
+  logoutCallbackRef.current = handleLogout;
+
+  // Reset activity timer
+  const resetActivityTimer = useCallback(() => {
+    // Clear existing timers
+    if (warningTimerRef.current) {
+      clearTimeout(warningTimerRef.current);
+      warningTimerRef.current = null;
+    }
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
+    if (logoutTimerRef.current) {
+      clearTimeout(logoutTimerRef.current);
+      logoutTimerRef.current = null;
+    }
+
+    setShowSessionWarning(false);
+
+    // Set new warning timer (30 min timeout, warning at 25 min)
+    warningTimerRef.current = setTimeout(() => {
+      setShowSessionWarning(true);
+      setWarningCountdown(WARNING_DURATION);
+
+      // Start countdown
+      countdownRef.current = setInterval(() => {
+        setWarningCountdown(prev => {
+          const newTime = prev - 1000;
+          if (newTime <= 0 && countdownRef.current) {
+            clearInterval(countdownRef.current);
+          }
+          return Math.max(0, newTime);
+        });
+      }, 1000);
+
+      // Set logout timer (5 minutes after warning starts)
+      logoutTimerRef.current = setTimeout(() => {
+        setShowSessionWarning(false);
+        logoutCallbackRef.current?.();
+      }, WARNING_DURATION);
+    }, WARNING_TIME);
+  }, []);
+
+  // Activity event listeners
+  useEffect(() => {
+    if (!token) return;
+
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'mousemove'];
+
+    // Throttle activity events
+    let lastThrottle = 0;
+    const throttledHandler = () => {
+      const now = Date.now();
+      if (now - lastThrottle > 10000) { // Max once per 10 seconds
+        lastThrottle = now;
+        if (!showSessionWarning) {
+          resetActivityTimer();
+        }
+      }
+    };
+
+    events.forEach(event => {
+      window.addEventListener(event, throttledHandler, { passive: true });
+    });
+
+    // Initialize timer on mount
+    resetActivityTimer();
+
+    return () => {
+      events.forEach(event => {
+        window.removeEventListener(event, throttledHandler);
+      });
+      if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+      if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
+    };
+  }, [token, showSessionWarning, resetActivityTimer]);
+
+  // Extend session on API calls
+  useEffect(() => {
+    if (!token) return;
+
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+      if (!showSessionWarning) {
+        resetActivityTimer();
+      }
+      return originalFetch(...args);
+    };
+
+    return () => {
+      window.fetch = originalFetch;
+    };
+  }, [token, showSessionWarning, resetActivityTimer]);
+
+  const handleStayLoggedIn = () => {
+    resetActivityTimer();
+  };
 
   useEffect(() => {
     if (token) {
@@ -84,18 +257,19 @@ function App() {
     localStorage.setItem('user', JSON.stringify(user));
     setToken(token);
     setUser(user);
-  };
-
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setToken(null);
-    setUser(null);
+    resetActivityTimer();
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
+    <AuthContext.Provider value={{ user, token, login, logout: handleLogout }}>
       <UpdateBanner />
+      {showSessionWarning && (
+        <SessionTimeoutWarning
+          remainingTime={warningCountdown}
+          onStayLoggedIn={handleStayLoggedIn}
+          onLogout={handleLogout}
+        />
+      )}
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={token ? <Navigate to="/" /> : <Login />} />
