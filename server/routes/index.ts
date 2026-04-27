@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { queryAll, queryOne, runQuery } from '../db';
 import { UserRow } from '../db';
+import pool from '../db';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -250,10 +251,17 @@ router.get('/api/students/:id', authenticate, async (req: Request, res: Response
 
 router.post('/api/students', authenticate, async (req: Request, res: Response) => {
   try {
-    const { student_id, last_name, first_name, grade, counselor, advisory } = req.body;
+    const { student_id, last_name, first_name, grade, section, counselor, advisory, date_of_birth, parent_name, parent_phone, gender } = req.body;
+
+    // Check if student_id already exists
+    const existing = await queryOne('SELECT id FROM students WHERE student_id = $1', [student_id]);
+    if (existing) {
+      return res.status(400).json({ error: 'A student with this ID already exists. Please use a different student ID.' });
+    }
+
     const result = await runQuery(
-      'INSERT INTO students (student_id, last_name, first_name, grade, counselor, advisory) VALUES ($1, $2, $3, $4, $5, $6)',
-      [student_id, last_name, first_name, grade || '9', counselor || '', advisory || '']
+      'INSERT INTO students (student_id, last_name, first_name, grade, section, counselor, advisory, date_of_birth, parent_name, parent_phone, gender) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)',
+      [student_id, last_name, first_name, grade || '9', section || '', counselor || '', advisory || '', date_of_birth || null, parent_name || null, parent_phone || null, gender || null]
     );
     res.json({ id: result.lastInsertRowid });
   } catch (error: any) {
@@ -263,10 +271,10 @@ router.post('/api/students', authenticate, async (req: Request, res: Response) =
 
 router.put('/api/students/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const { student_id, last_name, first_name, grade, counselor, advisory, gpa, total_points, conduct_status, observations } = req.body;
+    const { student_id, last_name, first_name, grade, section, counselor, advisory, gpa, total_points, conduct_status, observations, date_of_birth, parent_name, parent_phone, gender } = req.body;
     await runQuery(
-      'UPDATE students SET student_id = $1, last_name = $2, first_name = $3, grade = $4, counselor = $5, advisory = $6, gpa = $7, total_points = $8, conduct_status = $9, observations = $10 WHERE id = $11',
-      [student_id || '', last_name || '', first_name || '', grade || '9', counselor || '', advisory || '', gpa || 0, total_points || 100, conduct_status || 'Good', observations || '', parseInt(req.params.id)]
+      'UPDATE students SET student_id = $1, last_name = $2, first_name = $3, grade = $4, section = $5, counselor = $6, advisory = $7, gpa = $8, total_points = $9, conduct_status = $10, observations = $11, date_of_birth = $12, parent_name = $13, parent_phone = $14, gender = $15 WHERE id = $16',
+      [student_id || '', last_name || '', first_name || '', grade || '9', section || '', counselor || '', advisory || '', gpa || 0, total_points || 100, conduct_status || 'Good', observations || '', date_of_birth || null, parent_name || null, parent_phone || null, gender || null, parseInt(req.params.id)]
     );
     res.json({ success: true });
   } catch (error: any) {
@@ -721,6 +729,152 @@ router.get('/api/debug/users', async (req: Request, res: Response) => {
   try {
     const users = await queryAll('SELECT id, username, role, email, first_name, last_name FROM users ORDER BY id');
     res.json({ users });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Enhanced dashboard stats with date range, grade, and category filters
+router.get('/api/dashboard/stats/filtered', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate, grade, category, status } = req.query;
+
+    let dateFilter = '';
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    if (startDate) {
+      dateFilter += ` AND i.date >= $${paramIndex}`;
+      params.push(startDate);
+      paramIndex++;
+    }
+    if (endDate) {
+      dateFilter += ` AND i.date <= $${paramIndex}`;
+      params.push(endDate);
+      paramIndex++;
+    }
+
+    let gradeFilter = '';
+    if (grade && grade !== 'all') {
+      gradeFilter = ` AND s.grade = $${paramIndex}`;
+      params.push(grade);
+      paramIndex++;
+    }
+
+    let categoryFilter = '';
+    if (category && category !== 'all') {
+      categoryFilter = ` AND v.category = $${paramIndex}`;
+      params.push(category);
+      paramIndex++;
+    }
+
+    let statusFilter = '';
+    if (status && status !== 'all') {
+      statusFilter = ` AND i.status = $${paramIndex}`;
+      params.push(status);
+      paramIndex++;
+    }
+
+    const whereClause = `WHERE 1=1${dateFilter}${gradeFilter}${categoryFilter}${statusFilter}`;
+
+    const total = await queryOne(`SELECT COUNT(*) as count FROM incidents i JOIN students s ON i.student_id = s.id JOIN violations v ON i.violation_id = v.id ${whereClause}`, params);
+    const pending = await queryOne(`SELECT COUNT(*) as count FROM incidents i JOIN students s ON i.student_id = s.id JOIN violations v ON i.violation_id = v.id ${whereClause} AND i.status = 'Open'`, params);
+    const resolved = await queryOne(`SELECT COUNT(*) as count FROM incidents i JOIN students s ON i.student_id = s.id JOIN violations v ON i.violation_id = v.id ${whereClause} AND i.status = 'Resolved'`, params);
+
+    const byCategory = await queryAll(`
+      SELECT v.category, COUNT(*) as count
+      FROM incidents i
+      JOIN students s ON i.student_id = s.id
+      JOIN violations v ON i.violation_id = v.id
+      ${whereClause}
+      GROUP BY v.category
+    `, params);
+
+    const byGrade = await queryAll(`
+      SELECT s.grade, COUNT(*) as count
+      FROM incidents i
+      JOIN students s ON i.student_id = s.id
+      JOIN violations v ON i.violation_id = v.id
+      ${whereClause}
+      GROUP BY s.grade
+      ORDER BY s.grade
+    `, params);
+
+    const byStatus = await queryAll(`
+      SELECT i.status, COUNT(*) as count
+      FROM incidents i
+      JOIN students s ON i.student_id = s.id
+      JOIN violations v ON i.violation_id = v.id
+      ${whereClause}
+      GROUP BY i.status
+    `, params);
+
+    const recentIncidents = await queryAll(`
+      SELECT i.id, i.incident_id, i.date, i.status, i.last_name, i.first_name, i.violation_type, i.advisor
+      FROM (
+        SELECT i.*, s.last_name, s.first_name, v.violation_type
+        FROM incidents i
+        JOIN students s ON i.student_id = s.id
+        JOIN violations v ON i.violation_id = v.id
+        ${whereClause}
+        ORDER BY i.date DESC, i.id DESC
+      ) i
+      LIMIT 10
+    `, params);
+
+    // Get weekly trend for line chart
+    const weeklyTrend = await queryAll(`
+      SELECT DATE_TRUNC('week', i.date::date) as week, COUNT(*) as count
+      FROM incidents i
+      JOIN students s ON i.student_id = s.id
+      JOIN violations v ON i.violation_id = v.id
+      WHERE i.date >= NOW() - INTERVAL '12 weeks'
+      ${gradeFilter}${categoryFilter}
+      GROUP BY DATE_TRUNC('week', i.date::date)
+      ORDER BY week
+    `, gradeFilter || categoryFilter ? [grade, category].filter(Boolean) : []);
+
+    res.json({
+      total: parseInt(total?.count || 0),
+      pending: parseInt(pending?.count || 0),
+      resolved: parseInt(resolved?.count || 0),
+      byCategory,
+      byGrade,
+      byStatus,
+      recentIncidents,
+      weeklyTrend
+    });
+  } catch (error: any) {
+    console.error('Dashboard filtered error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get student count
+router.get('/api/dashboard/student-count', authenticate, async (req: Request, res: Response) => {
+  try {
+    const result = await queryOne('SELECT COUNT(*) as count FROM students');
+    res.json({ count: parseInt(result?.count || 0) });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get unique grades from students
+router.get('/api/dashboard/grades', authenticate, async (req: Request, res: Response) => {
+  try {
+    const grades = await queryAll('SELECT DISTINCT grade FROM students WHERE grade IS NOT NULL ORDER BY grade');
+    res.json(grades.map((g: { grade: string }) => g.grade));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get notification count (unresolved incidents)
+router.get('/api/notifications/count', authenticate, async (req: Request, res: Response) => {
+  try {
+    const result = await queryOne("SELECT COUNT(*) as count FROM incidents WHERE status IN ('Open', 'Pending')");
+    res.json({ count: parseInt(result?.count || 0) });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

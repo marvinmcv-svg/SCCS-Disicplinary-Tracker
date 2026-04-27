@@ -3,6 +3,7 @@ import { useState, useEffect, createContext, useContext } from 'react';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Students from './pages/Students';
+import StudentProfile from './pages/StudentProfile';
 import Incidents from './pages/Incidents';
 import Violations from './pages/Violations';
 import MTSS from './pages/MTSS';
@@ -99,6 +100,7 @@ function App() {
           <Route path="/" element={token ? <Layout /> : <Navigate to="/login" />}>
             <Route index element={<Dashboard />} />
             <Route path="students" element={<Students />} />
+            <Route path="students/:id" element={<StudentProfile />} />
             <Route path="incidents" element={<Incidents />} />
             <Route path="violations" element={<Violations />} />
             <Route path="mtss" element={<MTSS />} />
