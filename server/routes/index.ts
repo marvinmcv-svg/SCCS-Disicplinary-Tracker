@@ -356,9 +356,12 @@ router.get('/api/incidents', authenticate, async (req: Request, res: Response) =
 
     // RBAC: Teachers can only see incidents they reported OR involving their assigned students
     if (userRole === 'teacher' || userRole === 'counselor') {
+      // Look up the current user's full name for filtering
+      const currentUserData = await queryOne('SELECT first_name, last_name FROM users WHERE id = $1', [currentUser.userId]);
+      const fullName = currentUserData ? `${currentUserData.first_name} ${currentUserData.last_name}` : '';
       // Teachers see: incidents they reported OR where they're the counselor/advisory
       query += ` WHERE (i.reported_by = $1 OR s.counselor = $2 OR s.advisory = $3)`;
-      params.push(currentUser.first_name + ' ' + currentUser.last_name, currentUser.first_name + ' ' + currentUser.last_name, currentUser.first_name + ' ' + currentUser.last_name);
+      params.push(fullName, fullName, fullName);
     }
 
     query += ' ORDER BY i.date DESC, i.id DESC';
@@ -790,12 +793,12 @@ router.put('/api/users/:id', authenticate, async (req: Request, res: Response) =
 
     if (newPassword) {
       const hashedPassword = bcrypt.hashSync(newPassword, 10);
-      await pool.query(
+      await runQuery(
         `UPDATE users SET username = $1, role = $2, first_name = $3, last_name = $4, email = $5, phone = $6, classroom = $7, profile_picture = $8, password = $9, department = $10, advisory = $11, is_active = $12, two_factor_enabled = $13 WHERE id = $14`,
         [username, role, first_name || '', last_name || '', email || '', phone || '', classroom || '', profile_picture || '', hashedPassword, department || null, advisory || null, is_active !== undefined ? is_active : true, two_factor_enabled !== undefined ? two_factor_enabled : false, id]
       );
     } else {
-      await pool.query(
+      await runQuery(
         `UPDATE users SET username = $1, role = $2, first_name = $3, last_name = $4, email = $5, phone = $6, classroom = $7, profile_picture = $8, department = $9, advisory = $10, is_active = $11, two_factor_enabled = $12 WHERE id = $13`,
         [username, role, first_name || '', last_name || '', email || '', phone || '', classroom || '', profile_picture || '', department || null, advisory || null, is_active !== undefined ? is_active : true, two_factor_enabled !== undefined ? two_factor_enabled : false, id]
       );
