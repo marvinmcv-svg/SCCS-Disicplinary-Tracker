@@ -1055,12 +1055,12 @@ router.get('/api/dashboard/stats/filtered', authenticate, async (req: Request, r
     let paramIndex = 1;
 
     if (startDate) {
-      dateFilter += ` AND i.date::date >= $${paramIndex}::date`;
+      dateFilter += ` AND i.date::date >= CAST($${paramIndex} AS date)`;
       params.push(startDate);
       paramIndex++;
     }
     if (endDate) {
-      dateFilter += ` AND i.date::date <= $${paramIndex}::date`;
+      dateFilter += ` AND i.date::date <= CAST($${paramIndex} AS date)`;
       params.push(endDate);
       paramIndex++;
     }
@@ -1139,7 +1139,7 @@ router.get('/api/dashboard/stats/filtered', authenticate, async (req: Request, r
       FROM incidents i
       JOIN students s ON i.student_id = s.id
       JOIN violations v ON i.violation_id = v.id
-      WHERE i.date >= NOW() - INTERVAL '12 weeks'
+      WHERE i.date::date >= (NOW() - INTERVAL '12 weeks')::date
       ${gradeFilter}${categoryFilter}
       GROUP BY DATE_TRUNC('week', i.date::date)
       ORDER BY week
