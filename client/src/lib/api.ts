@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://discipline-tracker-production-ba1c.up.railway.app/api';
+// Force local backend for development
+const API_URL = 'http://localhost:3001/api';
 
 // Shared types
 export interface ApiError { error: string; }

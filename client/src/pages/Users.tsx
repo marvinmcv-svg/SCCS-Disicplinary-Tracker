@@ -386,7 +386,7 @@ export default function Users() {
               <div className="flex items-start gap-4">
                 <div className="relative">
                   <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                    {user.profile_picture ? (
+                    {user.profile_picture && typeof user.profile_picture === 'string' && user.profile_picture.trim() ? (
                       <img src={user.profile_picture} alt="" className="w-full h-full object-cover" />
                     ) : (
                       <UserIcon className="w-7 h-7 text-blue-600" />
@@ -510,7 +510,7 @@ export default function Users() {
               <div className="flex justify-center mb-2">
                 <div className="relative">
                   <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-gray-200">
-                    {formData.profile_picture ? (
+                    {formData.profile_picture && typeof formData.profile_picture === 'string' && formData.profile_picture.trim() ? (
                       <img src={formData.profile_picture} alt="" className="w-full h-full object-cover" />
                     ) : (
                       <UserIcon className="w-10 h-10 text-gray-400" />

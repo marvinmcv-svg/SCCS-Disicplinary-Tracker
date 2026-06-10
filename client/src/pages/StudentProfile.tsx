@@ -88,13 +88,19 @@ export default function StudentProfile() {
   const getGradeColor = (grade: string): string => {
     const gradeNum = parseInt(grade);
     switch (gradeNum) {
-      case 6: return 'bg-blue-100 text-blue-700';
-      case 7: return 'bg-green-100 text-green-700';
-      case 8: return 'bg-orange-100 text-orange-700';
-      case 9: return 'bg-purple-100 text-purple-700';
-      case 10: return 'bg-pink-100 text-pink-700';
-      case 11: return 'bg-indigo-100 text-indigo-700';
-      case 12: return 'bg-red-100 text-red-700';
+      case 0: return 'bg-pink-100 text-pink-700';     // Pre-K/K - Pink
+      case 1: return 'bg-rose-100 text-rose-700';     // Grade 1 - Rose
+      case 2: return 'bg-purple-100 text-purple-700'; // Grade 2 - Purple
+      case 3: return 'bg-violet-100 text-violet-700'; // Grade 3 - Violet
+      case 4: return 'bg-indigo-100 text-indigo-700'; // Grade 4 - Indigo
+      case 5: return 'bg-blue-100 text-blue-700';     // Grade 5 - Blue
+      case 6: return 'bg-cyan-100 text-cyan-700';     // Grade 6 - Cyan
+      case 7: return 'bg-teal-100 text-teal-700';     // Grade 7 - Teal
+      case 8: return 'bg-emerald-100 text-emerald-700'; // Grade 8 - Emerald
+      case 9: return 'bg-green-100 text-green-700';   // Grade 9 - Green
+      case 10: return 'bg-lime-100 text-lime-700';    // Grade 10 - Lime
+      case 11: return 'bg-yellow-100 text-yellow-700'; // Grade 11 - Yellow
+      case 12: return 'bg-orange-100 text-orange-700'; // Grade 12 - Orange
       default: return 'bg-gray-100 text-gray-700';
     }
   };
@@ -187,7 +193,7 @@ export default function StudentProfile() {
           <div className="flex items-start gap-6">
             {/* Profile Picture or Grade-colored Avatar */}
             <div className="w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center text-2xl md:text-3xl font-bold overflow-hidden">
-              {student.profile_picture ? (
+              {student.profile_picture && typeof student.profile_picture === 'string' && student.profile_picture.trim() ? (
                 <img src={student.profile_picture} alt="" className="w-full h-full object-cover" />
               ) : (
                 <div className={`w-full h-full flex items-center justify-center ${getGradeColor(student.grade)}`}>

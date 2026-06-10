@@ -361,7 +361,7 @@ export default function UserProfile() {
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6">
           <div className="flex items-center gap-6">
             <div className="relative">
-              {profilePicture ? (
+              {profilePicture && typeof profilePicture === 'string' && profilePicture.trim() ? (
                 <img
                   src={profilePicture}
                   alt="Profile"
@@ -656,7 +656,7 @@ export default function UserProfile() {
               <label className="form-label">Profile Picture</label>
               <div className="flex items-center gap-4">
                 <div className="relative">
-                  {profilePicture ? (
+                  {profilePicture && typeof profilePicture === 'string' && profilePicture.trim() ? (
                     <img
                       src={profilePicture}
                       alt="Profile"

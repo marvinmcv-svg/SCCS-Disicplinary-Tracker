@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Plus, Search, X, User, Check, Loader, Upload, FileSpreadsheet, Camera } from 'lucide-react';
 import api from '../lib/api';
 import * as XLSX from 'xlsx';
+import { getGradeColor, getInitials } from '../lib/gradeUtils';
 
 interface Student {
   id: number;
@@ -305,7 +306,10 @@ export default function Students() {
       s.last_name.toLowerCase().includes(search.toLowerCase()) ||
       s.first_name.toLowerCase().includes(search.toLowerCase()) ||
       s.student_id.toLowerCase().includes(search.toLowerCase());
-    const matchesGrade = filterGrade === 'all' || s.grade === filterGrade;
+    const matchesGrade = filterGrade === 'all' ||
+      (filterGrade.endsWith('A') || filterGrade.endsWith('B'))
+        ? s.grade === parseInt(filterGrade) && s.section === filterGrade.slice(-1)
+        : s.grade === parseInt(filterGrade);
     return matchesSearch && matchesGrade;
   });
 
@@ -357,10 +361,10 @@ export default function Students() {
               className="select min-w-[140px]"
             >
               <option value="all">All Grades</option>
-              {[6, 7, 8, 9, 10, 11, 12].map(g => (
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(g => (
                 <>
-                  <option key={`${g}A`} value={`${g}A`}>Grade {g}A</option>
-                  <option key={`${g}B`} value={`${g}B`}>Grade {g}B</option>
+                  <option key={`${g}A`} value={`${g}A`}>{g === 0 ? 'Pre-K/K' : 'Grade ' + g}A</option>
+                  <option key={`${g}B`} value={`${g}B`}>{g === 0 ? 'Pre-K/K' : 'Grade ' + g}B</option>
                 </>
               ))}
             </select>
@@ -398,11 +402,11 @@ export default function Students() {
                   <tr key={student.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
-                          {student.profile_picture ? (
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center overflow-hidden text-sm font-bold ${getGradeColor(student.grade)}`}>
+                          {student.profile_picture && typeof student.profile_picture === 'string' && student.profile_picture.trim() ? (
                             <img src={student.profile_picture} alt="" className="w-full h-full object-cover" />
                           ) : (
-                            <User className="w-5 h-5 text-blue-600" />
+                            <span>{getInitials(student.first_name, student.last_name)}</span>
                           )}
                         </div>
                         <button
@@ -458,7 +462,7 @@ export default function Students() {
               <div className="flex justify-center mb-2">
                 <div className="relative">
                   <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-gray-200">
-                    {formData.profile_picture ? (
+                    {formData.profile_picture && typeof formData.profile_picture === 'string' && formData.profile_picture.trim() ? (
                       <img src={formData.profile_picture} alt="" className="w-full h-full object-cover" />
                     ) : (
                       <User className="w-10 h-10 text-gray-400" />

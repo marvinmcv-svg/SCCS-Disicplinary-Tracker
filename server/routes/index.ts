@@ -3,6 +3,8 @@ import { queryAll, queryOne, runQuery } from '../db';
 import { UserRow } from '../db';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 
 // Augment Express Request to include our custom user property
 declare global {
@@ -133,11 +135,9 @@ router.post('/api/auth/firebase-login', async (req: Request, res: Response) => {
     if (!idToken) {
       return res.status(400).json({ error: 'ID token required' });
     }
-
-    const admin = await import('firebase-admin');
-    if (!admin.default.apps.length) {
-      admin.default.initializeApp({
-        credential: admin.default.credential.cert({
+    if (!getApps().length) {
+      initializeApp({
+        credential: cert({
           projectId: process.env.FIREBASE_PROJECT_ID,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
           privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
@@ -145,7 +145,7 @@ router.post('/api/auth/firebase-login', async (req: Request, res: Response) => {
       });
     }
 
-    const decoded = await admin.default.auth().verifyIdToken(idToken);
+    const decoded = await getAuth().verifyIdToken(idToken);
     const email = decoded.email;
 
     let user = await queryOne('SELECT * FROM users WHERE email = $1', [email]);
@@ -177,6 +177,95 @@ router.post('/api/auth/firebase-login', async (req: Request, res: Response) => {
   }
 });
 
+// Password Reset Routes
+router.post('/api/auth/forgot-password', async (req: Request, res: Response) => {
+  try {
+    const { username } = req.body;
+
+    if (!username) {
+      return res.status(400).json({ error: 'Username is required' });
+    }
+
+    // Find user by username
+    const user = await queryOne('SELECT * FROM users WHERE username = $1', [username]);
+    if (!user) {
+      // Don't reveal if user exists or not for security
+      return res.json({ message: 'If an account exists with that username, a password reset link will be sent.' });
+    }
+
+    // Generate reset token (random 32 character hex)
+    const token = require('crypto').randomBytes(16).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+
+    // Delete any existing tokens for this user
+    await runQuery('DELETE FROM password_reset_tokens WHERE user_id = $1', [user.id]);
+
+    // Create new token
+    await runQuery(
+      'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+      [user.id, token, expiresAt]
+    );
+
+    // In production, send email with reset link
+    // For now, return the token directly (development only)
+    console.log(`Password reset token for ${username}: ${token}`);
+    res.json({ 
+      message: 'If an account exists with that username, a password reset link will be sent.',
+      // Include token for development/testing
+      resetToken: token,
+      expiresIn: '1 hour'
+    });
+  } catch (error: any) {
+    console.error('Forgot password error:', error.message);
+    res.status(500).json({ error: 'Password reset request failed' });
+  }
+});
+
+router.post('/api/auth/reset-password', async (req: Request, res: Response) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: 'Token and new password are required' });
+    }
+
+    // Password validation
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+    if (!/\d/.test(newPassword)) {
+      return res.status(400).json({ error: 'Password must contain at least one number' });
+    }
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(newPassword)) {
+      return res.status(400).json({ error: 'Password must contain at least one special character' });
+    }
+
+    // Find valid token
+    const resetToken = await queryOne(
+      'SELECT * FROM password_reset_tokens WHERE token = $1 AND used = FALSE AND expires_at > NOW()',
+      [token]
+    );
+
+    if (!resetToken) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+
+    // Hash new password
+    const hashedPassword = bcrypt.hashSync(newPassword, 10);
+
+    // Update user password
+    await runQuery('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, (resetToken as any).user_id]);
+
+    // Mark token as used
+    await runQuery('UPDATE password_reset_tokens SET used = TRUE WHERE id = $1', [(resetToken as any).id]);
+
+    res.json({ success: true, message: 'Password has been reset successfully' });
+  } catch (error: any) {
+    console.error('Reset password error:', error.message);
+    res.status(500).json({ error: 'Password reset failed' });
+  }
+});
+
 router.post('/api/auth/firebase-register', async (req: Request, res: Response) => {
   try {
     const { idToken, email } = req.body;
@@ -184,11 +273,9 @@ router.post('/api/auth/firebase-register', async (req: Request, res: Response) =
     if (!idToken || !email) {
       return res.status(400).json({ error: 'ID token and email required' });
     }
-
-    const admin = await import('firebase-admin');
-    if (!admin.default.apps.length) {
-      admin.default.initializeApp({
-        credential: admin.default.credential.cert({
+    if (!getApps().length) {
+      initializeApp({
+        credential: cert({
           projectId: process.env.FIREBASE_PROJECT_ID,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
           privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
@@ -196,7 +283,7 @@ router.post('/api/auth/firebase-register', async (req: Request, res: Response) =
       });
     }
 
-    const decoded = await admin.default.auth().verifyIdToken(idToken);
+    const decoded = await getAuth().verifyIdToken(idToken);
 
     let user = await queryOne('SELECT * FROM users WHERE email = $1', [email]);
 

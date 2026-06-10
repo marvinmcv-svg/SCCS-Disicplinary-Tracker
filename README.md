@@ -5,7 +5,7 @@ A full-stack school discipline tracking web application built with modern tech.
 ## Tech Stack
 
 - **Backend:** Node.js + Express + TypeScript
-- **Database:** SQLite (better-sqlite3)
+- **Database:** PostgreSQL (pg)
 - **Auth:** JWT + bcryptjs
 - **Frontend:** React 18 + Vite + TypeScript
 - **Styling:** Tailwind CSS
@@ -30,7 +30,22 @@ A full-stack school discipline tracking web application built with modern tech.
 npm run install:all
 ```
 
-### 2. Run Development Server
+### 2. Configure Environment
+Copy the example environment file:
+```bash
+cp .env.example .env
+```
+
+For local development with Docker PostgreSQL:
+```bash
+# Start PostgreSQL
+docker run -d --name sccs-pg -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=sccs_discipline -p 5432:5432 postgres:16-alpine
+
+# Set DATABASE_URL in .env:
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/sccs_discipline
+```
+
+### 3. Run Development Server
 ```bash
 npm run dev
 ```
@@ -39,7 +54,7 @@ This opens:
 - Frontend: http://localhost:5173
 - Backend API: http://localhost:3001
 
-### 3. Login
+### 4. Login
 ```
 Username: admin
 Password: admin123
@@ -59,7 +74,7 @@ discipline-tracker-app/
 │   │   ├── lib/    # API client
 │   │   └── App.tsx # Main app
 │   └── ...
-├── data/            # SQLite database
+├── .env.example    # Environment variables template
 ├── package.json
 └── README.md
 ```

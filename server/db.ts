@@ -12,11 +12,15 @@ export interface AlertRow { id: number; alert_type: string; threshold: number; a
 
 interface QueryResult { rows: any[]; rowCount: number | null; }
 
-const connectionString = process.env.DATABASE_URL || 'postgresql://postgres.cpdrclazmvboenhlsccf:Gmc190494mcv@aws-1-us-west-2.pooler.supabase.com:6543/postgres';
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  throw new Error('DATABASE_URL environment variable is required');
+}
 
+const isLocalConnection = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
 const pool = new Pool({
   connectionString,
-  ssl: { rejectUnauthorized: false },
+  ssl: isLocalConnection ? false : { rejectUnauthorized: false },
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 15000,
@@ -75,7 +79,8 @@ export async function testConnection(): Promise<boolean> {
 
 export async function initializeDatabase() {
   console.log('Initializing PostgreSQL database...');
-  console.log('Connection:', connectionString.replace(/:[^:@]+@/, ':****@'));
+  const maskedConn = connectionString!.replace(/:[^:@]+@/, ':****@');
+  console.log('Connection:', maskedConn);
 
   try {
     await testConnection();
@@ -95,6 +100,7 @@ export async function initializeDatabase() {
     { name: 'incident_status_logs', sql: `CREATE TABLE IF NOT EXISTS incident_status_logs (id SERIAL PRIMARY KEY, incident_id INTEGER NOT NULL, changed_by INTEGER NOT NULL, previous_status TEXT, new_status TEXT NOT NULL, changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, notes TEXT)` },
     { name: 'incident_evidence', sql: `CREATE TABLE IF NOT EXISTS incident_evidence (id SERIAL PRIMARY KEY, incident_id INTEGER NOT NULL, file_name TEXT NOT NULL, file_url TEXT, file_type TEXT, uploaded_by INTEGER NOT NULL, uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)` },
     { name: 'user_activity_log', sql: `CREATE TABLE IF NOT EXISTS user_activity_log (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, action TEXT NOT NULL, details TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)` },
+    { name: 'password_reset_tokens', sql: `CREATE TABLE IF NOT EXISTS password_reset_tokens (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, token TEXT UNIQUE NOT NULL, expires_at TIMESTAMP NOT NULL, used BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)` },
   ];
 
   for (const table of tableQueries) {
@@ -166,7 +172,7 @@ async function seedViolations() {
     await pool.query(
       `INSERT INTO violations (category, violation_type, description, points_deduction, default_consequence, min_oss_days, max_oss_days, severity, mandatory_parent_contact, mandatory_admin_review, progressive_consequences)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) ON CONFLICT DO NOTHING`,
-      v
+      [...v.slice(0, 10), JSON.stringify(v[10])]
     );
   }
 }

@@ -23,7 +23,7 @@ interface Stats {
   weeklyTrend: { week: string; count: number }[];
 }
 
-type DateRange = 'today' | 'week' | 'month' | 'custom';
+type DateRange = 'all' | 'today' | 'week' | 'month' | 'quarter' | 'custom';
 type ChartView = 'bar' | 'line';
 
 export default function Dashboard() {
@@ -35,10 +35,10 @@ export default function Dashboard() {
   const [studentCount, setStudentCount] = useState(0);
   const [notificationCount, setNotificationCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [academicYear, setAcademicYear] = useState('AY 2025-2026 | Semester 2');
+  const [academicYear, setAcademicYear] = useState('AY 2026-2027 | Semester 1');
 
   // Filters
-  const [dateRange, setDateRange] = useState<DateRange>('month');
+  const [dateRange, setDateRange] = useState<DateRange>('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('all');
@@ -119,6 +119,11 @@ export default function Dashboard() {
     let endDate = today.toISOString().split('T')[0];
 
     switch (dateRange) {
+      case 'all':
+        // No date filter - show everything
+        startDate = '';
+        endDate = '';
+        break;
       case 'today':
         startDate = endDate;
         break;
@@ -131,6 +136,11 @@ export default function Dashboard() {
         const monthAgo = new Date(today);
         monthAgo.setDate(monthAgo.getDate() - 30);
         startDate = monthAgo.toISOString().split('T')[0];
+        break;
+      case 'quarter':
+        const quarterAgo = new Date(today);
+        quarterAgo.setDate(quarterAgo.getDate() - 90);
+        startDate = quarterAgo.toISOString().split('T')[0];
         break;
       case 'custom':
         startDate = customStartDate;
@@ -203,7 +213,12 @@ export default function Dashboard() {
   // Navigate to incidents with filters
   const navigateToIncidents = (filterType?: string, filterValue?: string) => {
     const params = new URLSearchParams();
-    if (dateRange !== 'month') {
+    if (dateRange !== 'all' && dateRange !== 'month') {
+      const { startDate, endDate } = getDateFilters();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+    }
+    if (dateRange === 'custom') {
       const { startDate, endDate } = getDateFilters();
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
@@ -325,7 +340,7 @@ export default function Dashboard() {
         {/* Date Range Selector */}
         <div className="flex items-center gap-2 mt-4 overflow-x-auto pb-1">
           <Calendar className="w-4 h-4 text-blue-200 flex-shrink-0" />
-          {['today', 'week', 'month', 'custom'].map(range => (
+          {['all', 'today', 'week', 'month', 'quarter', 'custom'].map(range => (
             <button
               key={range}
               onClick={() => setDateRange(range as DateRange)}
@@ -333,7 +348,7 @@ export default function Dashboard() {
                 dateRange === range ? 'bg-white text-blue-700' : 'bg-white/20 text-white hover:bg-white/30'
               }`}
             >
-              {range === 'today' ? 'Today' : range === 'week' ? 'This Week' : range === 'month' ? 'This Month' : 'Custom'}
+              {range === 'all' ? 'All Time' : range === 'today' ? 'Today' : range === 'week' ? 'Week' : range === 'month' ? 'Month' : range === 'quarter' ? 'Quarter' : 'Custom'}
             </button>
           ))}
           {dateRange === 'custom' && (

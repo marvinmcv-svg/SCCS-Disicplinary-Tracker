@@ -69,6 +69,7 @@ const DATE_PRESETS = [
   { label: 'Today', getValue: () => { const d = new Date(); return { start: d.toISOString().split('T')[0], end: d.toISOString().split('T')[0] }; } },
   { label: 'This Week', getValue: () => { const d = new Date(); const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1); const start = new Date(d.setDate(diff)); return { start: start.toISOString().split('T')[0], end: new Date().toISOString().split('T')[0] }; } },
   { label: 'This Month', getValue: () => { const d = new Date(); return { start: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`, end: new Date().toISOString().split('T')[0] }; } },
+  { label: 'This Quarter', getValue: () => { const d = new Date(); const quarter = Math.floor(d.getMonth() / 3); const startMonth = quarter * 3; const start = new Date(d.getFullYear(), startMonth, 1); return { start: start.toISOString().split('T')[0], end: new Date().toISOString().split('T')[0] }; } },
   { label: 'All Time', getValue: () => { return { start: '', end: '' }; } },
 ];
 
@@ -89,7 +90,7 @@ export default function Incidents() {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterGrade, setFilterGrade] = useState('');
-  const [datePreset, setDatePreset] = useState('This Month');
+  const [datePreset, setDatePreset] = useState('All Time');
   const [customDateStart, setCustomDateStart] = useState('');
   const [customDateEnd, setCustomDateEnd] = useState('');
   const [saving, setSaving] = useState(false);
@@ -411,10 +412,10 @@ export default function Incidents() {
             </select>
             <select value={filterGrade} onChange={(e) => { setFilterGrade(e.target.value); setCurrentPage(1); }} className="select w-32">
               <option value="">All Grades</option>
-              {[6, 7, 8, 9, 10, 11, 12].map(g => <option key={g} value={`${g}`}>Grade {g}</option>)}
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(g => <option key={g} value={`${g}`}>{g === 0 ? 'Pre-K/K' : 'Grade ' + g}</option>)}
             </select>
-            {(search || filterStatus || filterCategory || filterGrade || datePreset !== 'This Month') && (
-              <button onClick={() => { setSearch(''); setFilterStatus(''); setFilterCategory(''); setFilterGrade(''); setDatePreset('This Month'); setCurrentPage(1); }} className="btn btn-secondary">
+            {(search || filterStatus || filterCategory || filterGrade || datePreset !== 'All Time') && (
+              <button onClick={() => { setSearch(''); setFilterStatus(''); setFilterCategory(''); setFilterGrade(''); setDatePreset('All Time'); setCurrentPage(1); }} className="btn btn-secondary">
                 Clear Filters
               </button>
             )}
