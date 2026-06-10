@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Force local backend for development
-const API_URL = 'http://localhost:3001/api';
+// Use environment variable in production, localhost in development
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 // Shared types
 export interface ApiError { error: string; }
