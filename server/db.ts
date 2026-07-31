@@ -116,6 +116,7 @@ export async function initializeDatabase() {
   await migrateIncidentsTable();
   await migrateStudentsTable();
   await createIndexes();
+  await createForeignKeys();
 
   try {
     await seedViolations();
@@ -207,6 +208,127 @@ async function seedDefaultSettings() {
   for (const s of settings) {
     await pool.query(`INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`, s);
   }
+}
+
+/**
+ * Referential integrity between the tables.
+ *
+ * Every relationship was a bare `INTEGER NOT NULL` with no constraint, so
+ * deleting a student left their entire incident history pointing at an id that
+ * no longer existed — invisible orphans in a disciplinary record.
+ *
+ * Two policies, chosen per relationship:
+ *
+ *   RESTRICT — for records that stand on their own. You should not be able to
+ *   delete a student who has incidents, or a violation type that incidents
+ *   cite. The API turns the resulting error into a clear message.
+ *
+ *   CASCADE — for rows that only exist as part of a parent: evidence files,
+ *   status log entries and parent-contact notes belong to one incident and are
+ *   meaningless without it.
+ *
+ * Adding a constraint fails if the table already violates it, so each is
+ * preceded by an orphan check. When orphans exist the constraint is skipped and
+ * the count reported, rather than crashing the boot — an app that will not start
+ * is worse than one missing a constraint, and the operator needs to see the
+ * problem to fix it.
+ */
+async function createForeignKeys() {
+  const constraints = [
+    {
+      name: 'fk_incidents_student',
+      table: 'incidents',
+      column: 'student_id',
+      references: 'students(id)',
+      onDelete: 'RESTRICT',
+    },
+    {
+      name: 'fk_incidents_violation',
+      table: 'incidents',
+      column: 'violation_id',
+      references: 'violations(id)',
+      onDelete: 'RESTRICT',
+    },
+    {
+      name: 'fk_mtss_student',
+      table: 'mtss_interventions',
+      column: 'student_id',
+      references: 'students(id)',
+      onDelete: 'RESTRICT',
+    },
+    {
+      name: 'fk_evidence_incident',
+      table: 'incident_evidence',
+      column: 'incident_id',
+      references: 'incidents(id)',
+      onDelete: 'CASCADE',
+    },
+    {
+      name: 'fk_status_logs_incident',
+      table: 'incident_status_logs',
+      column: 'incident_id',
+      references: 'incidents(id)',
+      onDelete: 'CASCADE',
+    },
+    {
+      name: 'fk_parent_contacts_incident',
+      table: 'parent_contacts',
+      column: 'incident_id',
+      references: 'incidents(id)',
+      onDelete: 'CASCADE',
+    },
+    {
+      name: 'fk_reset_tokens_user',
+      table: 'password_reset_tokens',
+      column: 'user_id',
+      references: 'users(id)',
+      onDelete: 'CASCADE',
+    },
+  ];
+
+  let added = 0;
+  let skipped = 0;
+
+  for (const c of constraints) {
+    try {
+      const exists = await pool.query(
+        `SELECT 1 FROM pg_constraint WHERE conname = $1`,
+        [c.name]
+      );
+      if (exists.rows.length > 0) continue;
+
+      const referencedTable = c.references.split('(')[0];
+      const { rows } = await pool.query(
+        `SELECT COUNT(*)::int AS count FROM ${c.table} child
+         WHERE child.${c.column} IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM ${referencedTable} parent WHERE parent.id = child.${c.column})`
+      );
+      const orphans = rows[0]?.count ?? 0;
+
+      if (orphans > 0) {
+        console.warn(
+          `⚠ ${c.table}.${c.column}: ${orphans} row(s) reference a missing ${referencedTable} record. ` +
+          `Constraint ${c.name} not applied — clean up these rows and restart to enforce it.`
+        );
+        skipped++;
+        continue;
+      }
+
+      await pool.query(
+        `ALTER TABLE ${c.table} ADD CONSTRAINT ${c.name}
+         FOREIGN KEY (${c.column}) REFERENCES ${c.references} ON DELETE ${c.onDelete}`
+      );
+      added++;
+    } catch (error: any) {
+      console.error(`Foreign key ${c.name} error:`, error.message);
+      skipped++;
+    }
+  }
+
+  console.log(
+    `✓ foreign keys ready (${added} added this run, ${skipped} skipped, ` +
+    `${constraints.length - added - skipped} already present)`
+  );
 }
 
 /**

@@ -4,8 +4,9 @@
 **Verdict: production is up and running the hardened build.** Phases 0, 1 and 3 are complete, and Phase 4's
 backup and email work is done. Items marked ✅ are fixed; ⬜ need you, not code.
 
-**Still blocking a real rollout:** no tested restore of a *production* dump (⬜ you), no foreign keys, no
-input validation, and a database that pauses itself on the free tier.
+**Accepted risks, decided by the owner (2026-07-31):** production backups and the free-tier pausing behaviour
+are known and accepted — the data is reconstructable and the project will be kept active. Documented here so
+the decision is on the record rather than an oversight.
 
 ---
 
@@ -137,10 +138,15 @@ took the user id from the URL and wrote `last_activity` / `last_login` for whoev
 authenticated account could mark a colleague as "currently online" or backfill their last-login time. Now
 uses the caller's own id and ignores the parameter.
 
-**H2 — No foreign keys, no cascade behaviour.** `server/db.ts:92-103`
-`incidents.student_id`, `incidents.violation_id`, `mtss_interventions.student_id`, `incident_evidence.incident_id`
-are plain `INTEGER NOT NULL` with no `REFERENCES`. Deleting a student silently orphans their entire incident
-history; deleting a violation type orphans every incident citing it. Deletes are hard deletes with no audit row.
+**H2 — ✅ No foreign keys, no cascade behaviour.**
+Seven constraints now applied at boot. `RESTRICT` for records that stand on their own (a student with
+incidents, a violation type incidents cite); `CASCADE` for rows meaningless without their parent (evidence,
+status logs, parent-contact notes). Deleting a student with history returns **409 with a count of what is on
+record**, not a constraint error.
+
+Each constraint is preceded by an orphan check: if existing rows already violate it, the constraint is
+skipped and the count reported rather than crashing the boot. Verified against a database seeded with a
+deliberate orphan — it warned, skipped that one constraint, and started normally.
 
 **H3 — Zero real test coverage.** `client/src/test/`
 The two test files mock the module they're testing (`vi.mock('../lib/api')` then assert `api.post` was called).
@@ -167,9 +173,12 @@ delete the local interface. Until then the grade/section split is a guess at eve
 
 ### 🟡 Medium
 
-- **M1** — No input validation anywhere. No zod/joi; `grade || 9` style coercion only. No length limits, no
-  email/phone format checks, no XSS sanitisation on free-text fields (`observations`, `description`, `notes`)
-  that get rendered back.
+- **M1** — ✅ Validation via zod on the student, incident, MTSS and user-creation endpoints
+  (`server/validation.ts`), with 27 tests. Length caps, email/phone/date formats, grade bounds that accept
+  Pre-K (0) and the `'7A'` import form, and enums restricted to values the app actually reads — a status of
+  `'Closed'` is rejected because the dashboard's open-incident count would silently ignore it. Unknown keys
+  are dropped rather than rejected, so an older mobile build keeps working, and a client cannot set `id` or
+  `created_at`. Errors come back per-field for the UI to place next to the input.
 - **M2** — ✅ Rate limiting added, in two layers. A single per-IP limit was measured locking a valid user out
   when a *different* account was attacked — fatal for a school behind one NAT address — so the tight limit
   (10 / 15 min) is keyed to the account being targeted and the per-IP limit (150 / 15 min) only catches

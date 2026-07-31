@@ -5,6 +5,14 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { canRecordIncidents, canManageStudents, adminOnly } from '../permissions';
 import * as mailer from '../mailer';
+import {
+  validateBody,
+  studentSchema,
+  incidentSchema,
+  incidentUpdateSchema,
+  mtssSchema,
+  userCreateSchema,
+} from '../validation';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
 // Augment Express Request to include our custom user property
@@ -280,7 +288,7 @@ router.get('/api/students/:id', authenticate, async (req: Request, res: Response
   }
 });
 
-router.post('/api/students', authenticate, canManageStudents, async (req: Request, res: Response) => {
+router.post('/api/students', authenticate, canManageStudents, validateBody(studentSchema), async (req: Request, res: Response) => {
   try {
     const {
       student_id, last_name, first_name, grade, section, house_team, counselor, advisory,
@@ -304,7 +312,7 @@ router.post('/api/students', authenticate, canManageStudents, async (req: Reques
   }
 });
 
-router.put('/api/students/:id', authenticate, canManageStudents, async (req: Request, res: Response) => {
+router.put('/api/students/:id', authenticate, canManageStudents, validateBody(studentSchema), async (req: Request, res: Response) => {
   try {
     const {
       student_id, last_name, first_name, grade, section, house_team, counselor, advisory,
@@ -334,11 +342,49 @@ router.put('/api/students/:id', authenticate, canManageStudents, async (req: Req
 });
 
 router.delete('/api/students/:id', authenticate, adminOnly, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id);
+  if (Number.isNaN(id)) {
+    return res.status(400).json({ error: 'Invalid student id' });
+  }
+
   try {
-    await runQuery('DELETE FROM students WHERE id = $1', [parseInt(req.params.id)]);
+    // The database now refuses this delete when disciplinary history exists.
+    // Check first so the refusal comes back as an explanation rather than a
+    // constraint violation, and say how much history is at stake.
+    const counts = await queryOne<{ incidents: number; interventions: number }>(
+      `SELECT
+         (SELECT COUNT(*)::int FROM incidents WHERE student_id = $1) AS incidents,
+         (SELECT COUNT(*)::int FROM mtss_interventions WHERE student_id = $1) AS interventions`,
+      [id]
+    );
+
+    const incidents = counts?.incidents ?? 0;
+    const interventions = counts?.interventions ?? 0;
+
+    if (incidents > 0 || interventions > 0) {
+      const parts = [];
+      if (incidents > 0) parts.push(`${incidents} incident${incidents === 1 ? '' : 's'}`);
+      if (interventions > 0) {
+        parts.push(`${interventions} MTSS intervention${interventions === 1 ? '' : 's'}`);
+      }
+      return res.status(409).json({
+        error:
+          `This student has ${parts.join(' and ')} on record and cannot be deleted. ` +
+          `Disciplinary history must be preserved — remove those records first if the ` +
+          `student was created in error.`,
+        incidents,
+        interventions,
+      });
+    }
+
+    const result = await runQuery('DELETE FROM students WHERE id = $1', [id]);
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
     res.json({ success: true });
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    console.error('Delete student failed:', error.message);
+    res.status(500).json({ error: 'The student could not be deleted.' });
   }
 });
 
@@ -448,7 +494,7 @@ router.get('/api/incidents/:id', authenticate, async (req: Request, res: Respons
   }
 });
 
-router.post('/api/incidents', authenticate, canRecordIncidents, async (req: Request, res: Response) => {
+router.post('/api/incidents', authenticate, canRecordIncidents, validateBody(incidentSchema), async (req: Request, res: Response) => {
   try {
     const { date, time, student_id, violation_id, location, description, witnesses, reported_by, advisor, action_taken, consequence, notes, follow_up_needed, follow_up_date, parent_contacted, contact_date } = req.body;
 
@@ -490,7 +536,7 @@ router.post('/api/incidents', authenticate, canRecordIncidents, async (req: Requ
   }
 });
 
-router.put('/api/incidents/:id', authenticate, canRecordIncidents, async (req: Request, res: Response) => {
+router.put('/api/incidents/:id', authenticate, canRecordIncidents, validateBody(incidentUpdateSchema), async (req: Request, res: Response) => {
   try {
     const { status, parent_contacted, contact_date, location, description, witnesses, reported_by, action_taken, consequence, days_iss, days_oss, detention_hours, notes, follow_up_needed, follow_up_date, resolved_date, advisor, violation_id, points_deducted } = req.body;
     const id = parseInt(req.params.id);
@@ -619,7 +665,7 @@ router.get('/api/mtss', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-router.post('/api/mtss', authenticate, canManageStudents, async (req: Request, res: Response) => {
+router.post('/api/mtss', authenticate, canManageStudents, validateBody(mtssSchema), async (req: Request, res: Response) => {
   try {
     const { student_id, tier, intervention, advisor, start_date, end_date, progress, notes, intervention_goal, progress_monitoring, review_date, exit_criteria, incident_link, tier_history } = req.body;
     const result = await runQuery(
@@ -761,7 +807,7 @@ router.get('/api/users/:id', authenticate, async (req: Request, res: Response) =
   }
 });
 
-router.post('/api/users', authenticate, async (req: Request, res: Response) => {
+router.post('/api/users', authenticate, validateBody(userCreateSchema), async (req: Request, res: Response) => {
   try {
     const currentUser = req.user!;
     if (currentUser.role !== 'admin') {
