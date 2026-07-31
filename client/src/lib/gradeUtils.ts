@@ -30,6 +30,35 @@ export const getInitials = (firstName: string, lastName: string): string => {
   return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`.toUpperCase();
 };
 
+/**
+ * Does a student fall within the selected grade filter?
+ *
+ * `filter` is either 'all', a bare grade ('9'), or a grade + section ('9A').
+ * `grade` is tolerant of string or number because the API types it as a number
+ * while the student form holds it as a string.
+ *
+ * Lives here rather than inline in the filter callback so it can be tested: the
+ * inline version had an operator-precedence bug that hid every student whenever
+ * the filter was 'all'.
+ */
+export const matchesGradeFilter = (
+  student: { grade: string | number; section?: string | null },
+  filter: string
+): boolean => {
+  if (filter === 'all') return true;
+
+  const studentGrade = typeof student.grade === 'string' ? parseInt(student.grade) : student.grade;
+  const filterGrade = parseInt(filter);
+  if (Number.isNaN(filterGrade)) return false;
+  if (studentGrade !== filterGrade) return false;
+
+  const section = filter.slice(-1);
+  if (section === 'A' || section === 'B') {
+    return student.section === section;
+  }
+  return true;
+};
+
 // Grade order for sorting (Pre-K/K first, then 1-12)
 export const GRADE_ORDER = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
