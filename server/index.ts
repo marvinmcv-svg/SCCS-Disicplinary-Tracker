@@ -20,13 +20,22 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
+        // No 'unsafe-inline'. The service worker is therefore registered from
+        // main.tsx rather than an inline <script> in index.html, which CSP
+        // would block.
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
+        // blob: covers the PDF and spreadsheet exports; data: covers the
+        // base64 profile pictures stored on student records.
         imgSrc: ["'self'", 'data:', 'blob:'],
         connectSrc: ["'self'"],
         fontSrc: ["'self'", 'data:'],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
+        // Stated explicitly so PWA installation does not depend on how a given
+        // browser falls back to default-src for these.
+        manifestSrc: ["'self'"],
+        workerSrc: ["'self'"],
       },
     },
     // Set explicitly rather than relying on the default, since this app holds
