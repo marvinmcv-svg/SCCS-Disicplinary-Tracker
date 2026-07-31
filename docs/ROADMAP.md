@@ -1,11 +1,12 @@
 # SCCS Discipline Tracker — Road to Production
 
 **Assessed against commit:** `9099dd3` · Node v22.22.2 · 2026-07-31
-**Verdict: production is back up (C-1 resolved) but is running unpatched `master`.** Merging this branch is
-now the priority — the boot log confirms the hardcoded-admin reset (C4) fires on every deploy, and the
-unauthenticated admin-takeover endpoint (C2) is live. `JWT_SECRET` is set in production (C0 resolved).
+**Verdict: production is up and running the hardened build.** Phases 0, 1 and 3 are complete, and Phase 4's
+backup and email work is done. Items marked ✅ are fixed; ⬜ need you, not code.
 
-**Phase 0: complete.** **Phase 1 (authorization): complete.** Items marked ✅ are fixed; ⬜ need you, not code.
+**Accepted risks, decided by the owner (2026-07-31):** production backups and the free-tier pausing behaviour
+are known and accepted — the data is reconstructable and the project will be kept active. Documented here so
+the decision is on the record rather than an oversight.
 
 ---
 
@@ -137,10 +138,15 @@ took the user id from the URL and wrote `last_activity` / `last_login` for whoev
 authenticated account could mark a colleague as "currently online" or backfill their last-login time. Now
 uses the caller's own id and ignores the parameter.
 
-**H2 — No foreign keys, no cascade behaviour.** `server/db.ts:92-103`
-`incidents.student_id`, `incidents.violation_id`, `mtss_interventions.student_id`, `incident_evidence.incident_id`
-are plain `INTEGER NOT NULL` with no `REFERENCES`. Deleting a student silently orphans their entire incident
-history; deleting a violation type orphans every incident citing it. Deletes are hard deletes with no audit row.
+**H2 — ✅ No foreign keys, no cascade behaviour.**
+Seven constraints now applied at boot. `RESTRICT` for records that stand on their own (a student with
+incidents, a violation type incidents cite); `CASCADE` for rows meaningless without their parent (evidence,
+status logs, parent-contact notes). Deleting a student with history returns **409 with a count of what is on
+record**, not a constraint error.
+
+Each constraint is preceded by an orphan check: if existing rows already violate it, the constraint is
+skipped and the count reported rather than crashing the boot. Verified against a database seeded with a
+deliberate orphan — it warned, skipped that one constraint, and started normally.
 
 **H3 — Zero real test coverage.** `client/src/test/`
 The two test files mock the module they're testing (`vi.mock('../lib/api')` then assert `api.post` was called).
@@ -167,22 +173,30 @@ delete the local interface. Until then the grade/section split is a guess at eve
 
 ### 🟡 Medium
 
-- **M1** — No input validation anywhere. No zod/joi; `grade || 9` style coercion only. No length limits, no
-  email/phone format checks, no XSS sanitisation on free-text fields (`observations`, `description`, `notes`)
-  that get rendered back.
-- **M2** — No rate limiting on `/api/auth/login`, `/forgot-password`, or `/reset-password`.
-- **M3** — `app.use(cors())` allows every origin; no helmet, no CSP, no HSTS, no `X-Frame-Options`.
-- **M4** — No database indexes beyond primary keys. Dashboard aggregations scan `incidents` fully; fine at
-  333 students, degrades over a school year.
+- **M1** — ✅ Validation via zod on the student, incident, MTSS and user-creation endpoints
+  (`server/validation.ts`), with 27 tests. Length caps, email/phone/date formats, grade bounds that accept
+  Pre-K (0) and the `'7A'` import form, and enums restricted to values the app actually reads — a status of
+  `'Closed'` is rejected because the dashboard's open-incident count would silently ignore it. Unknown keys
+  are dropped rather than rejected, so an older mobile build keeps working, and a client cannot set `id` or
+  `created_at`. Errors come back per-field for the UI to place next to the input.
+- **M2** — ✅ Rate limiting added, in two layers. A single per-IP limit was measured locking a valid user out
+  when a *different* account was attacked — fatal for a school behind one NAT address — so the tight limit
+  (10 / 15 min) is keyed to the account being targeted and the per-IP limit (150 / 15 min) only catches
+  username spraying. Successful logins never count.
+- **M3** — ✅ helmet with CSP, HSTS, `frame-ancestors 'none'`, `nosniff` and `Referrer-Policy`; CORS narrowed
+  to `ALLOWED_ORIGINS` instead of reflecting any origin. `trust proxy` set so the limiter sees real client IPs.
+- **M4** — ✅ 11 indexes created at boot, covering incident lookups by student/date/status/violation, roster
+  filtering by grade and section, and the per-incident child tables.
 - **M5** — ✅ *(mostly)* 11 prod-dependency CVEs (3 high) cleared by removing Firebase, plus `multer`,
   `axios`, `form-data`, `@babel/core` and `react-router` updated within their existing semver ranges.
   Server is now clean; one unfixable high remains client-side in `xlsx` (SheetJS has no patched npm
   release — needs either the vendor tarball or a different spreadsheet library, a Phase 3 decision).
 - **M6** — 1.67 MB main JS bundle (499 KB gzipped) from `xlsx` + `jspdf` + `html2canvas` + `recharts` loaded
   eagerly. Slow on the school-network phones this is meant for.
-- **M7** — ✅ *(partly)* `/api/backup` and `/api/restore` were unauthenticated stubs that returned a
-  "data is safe" message and did nothing; removed, since a misleading reassurance is worse than none.
-  A real backup story is still outstanding (Phase 4).
+- **M7** — ✅ Backups: `scripts/backup.sh` produces a verified compressed dump, and `docs/BACKUP.md` documents
+  restore, a test-restore drill, and the retention tradeoffs. The full backup → restore → run-the-app cycle
+  was exercised against a real PostgreSQL 16 instance. ⬜ **You still need to run it against production and
+  keep the output somewhere safe** — an untested backup of the real database is not yet a backup.
 - **M8** — JWT falls back to a hardcoded secret if `JWT_SECRET` is unset. Logout is client-side only; tokens
   stay valid for 24h after "logging out". No refresh/expiry UX.
 - **M9** — 26 `console.log` calls in server code, several logging usernames and login outcomes.
@@ -274,7 +288,7 @@ This is where the QA sweep document earns its keep, but it can't run meaningfull
 
 **Exit criteria:** CI blocks a deploy when tests fail; the QA sweep produces a bug list, not a crash list.
 
-### Phase 3 — Harden for a school network
+### Phase 3 — Harden for a school network — **complete**
 1. helmet + CSP + HSTS; lock CORS to your actual domain (M3).
 2. Rate limiting on all auth endpoints (M2).
 3. Server-side session invalidation on logout; shorter token life + refresh (M8).

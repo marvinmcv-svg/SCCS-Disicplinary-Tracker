@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import path from 'path';
 import { initializeDatabase, testConnection } from './db';
 import routes from './routes';
@@ -7,7 +8,71 @@ import routes from './routes';
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
 
-app.use(cors());
+// Railway terminates TLS upstream, so the client IP arrives in X-Forwarded-For.
+// Without this the rate limiter sees every request as coming from the proxy and
+// would throttle all users as one.
+app.set('trust proxy', 1);
+
+app.use(
+  helmet({
+    // The SPA is served from this same origin; default-src 'self' with inline
+    // styles is what the Vite build actually needs.
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        // No 'unsafe-inline'. The service worker is therefore registered from
+        // main.tsx rather than an inline <script> in index.html, which CSP
+        // would block.
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        // blob: covers the PDF and spreadsheet exports; data: covers the
+        // base64 profile pictures stored on student records.
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'", 'data:'],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        // Stated explicitly so PWA installation does not depend on how a given
+        // browser falls back to default-src for these.
+        manifestSrc: ["'self'"],
+        workerSrc: ["'self'"],
+      },
+    },
+    // Set explicitly rather than relying on the default, since this app holds
+    // student records and should never be framed or sniffed.
+    hsts: { maxAge: 31536000, includeSubDomains: true },
+    referrerPolicy: { policy: 'same-origin' },
+  })
+);
+
+/**
+ * Allowed browser origins.
+ *
+ * The web app is served from the same origin as the API, so it needs no CORS
+ * grant at all. This list exists for the Capacitor Android build, whose webview
+ * has its own origin. Configure ALLOWED_ORIGINS as a comma-separated list.
+ *
+ * Previously this was a bare `cors()`, which reflects any origin — so any
+ * website a signed-in staff member visited could call this API with their
+ * session.
+ */
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Same-origin and non-browser clients (curl, the mobile shell) send no Origin.
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(null, false);
+    },
+    credentials: true,
+  })
+);
+
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
