@@ -47,8 +47,32 @@ Two things made it invisible:
 2. Railway reports the deployment as **SUCCESS**, because the process is running and holding the port.
 
 So the dashboard is green, the logs say complete, and the app has been non-functional for days. This is the
-single strongest argument for Phase 5's monitoring work — but the immediate need is to find out what happened
-to that Supabase project (deleted? paused? migrated?) and whether a backup of the school's data exists.
+single strongest argument for Phase 5's monitoring work.
+
+**What the DNS evidence shows** (checked 2026-07-31):
+
+| Check | Result |
+|---|---|
+| `aws-1-us-east-1.pooler.supabase.com` | Resolves normally — not a Railway or network fault |
+| `db.zkpirgpocklxpmboorhm.supabase.co` | **NXDOMAIN** |
+| `zkpirgpocklxpmboorhm.supabase.co` | **NXDOMAIN** |
+| Pooler response | `Tenant or user not found` |
+
+Supabase creates per-project DNS records, so both records being absent points to the project having been
+**deleted** rather than merely paused — a paused project normally keeps its DNS and can be restored from the
+dashboard. That is an inference, not a certainty: the Supabase dashboard is the definitive check, and the
+Supabase API was not reachable from the environment this assessment ran in.
+
+**Recovery inventory** — what exists if that data is gone:
+
+- `students_import.csv` (repo root): 23 real grade-11 students with names, house teams, and counselors.
+- `data/discipline.db` in git history: 9 students, 7 incidents, 1 user — from the earlier SQLite era.
+- A standalone Railway Postgres in project `hearty-rebirth`, running with a volume since 2026-07-24.
+  Its contents are unknown — its credentials are not readable through the API integration.
+- No incident, MTSS, or parent-contact data is recoverable from anything in this repository.
+
+**Note for C6:** `students_import.csv` also carries real student names and is still tracked. Add it to the
+history purge.
 
 **C0 — ✅ `JWT_SECRET` was not set in the Railway production service.**
 *(Found by inspecting the deployed service's variable list — names only, never values. Set 2026-07-31;
