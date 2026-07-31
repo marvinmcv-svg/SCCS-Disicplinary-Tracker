@@ -3,6 +3,7 @@ import { queryAll, queryOne, runQuery } from '../db';
 import { UserRow } from '../db';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { canRecordIncidents, canManageStudents, adminOnly } from '../permissions';
 
 // Augment Express Request to include our custom user property
 declare global {
@@ -199,7 +200,7 @@ router.get('/api/students/:id', authenticate, async (req: Request, res: Response
   }
 });
 
-router.post('/api/students', authenticate, async (req: Request, res: Response) => {
+router.post('/api/students', authenticate, canManageStudents, async (req: Request, res: Response) => {
   try {
     const {
       student_id, last_name, first_name, grade, section, house_team, counselor, advisory,
@@ -223,7 +224,7 @@ router.post('/api/students', authenticate, async (req: Request, res: Response) =
   }
 });
 
-router.put('/api/students/:id', authenticate, async (req: Request, res: Response) => {
+router.put('/api/students/:id', authenticate, canManageStudents, async (req: Request, res: Response) => {
   try {
     const {
       student_id, last_name, first_name, grade, section, house_team, counselor, advisory,
@@ -252,7 +253,7 @@ router.put('/api/students/:id', authenticate, async (req: Request, res: Response
   }
 });
 
-router.delete('/api/students/:id', authenticate, async (req: Request, res: Response) => {
+router.delete('/api/students/:id', authenticate, adminOnly, async (req: Request, res: Response) => {
   try {
     await runQuery('DELETE FROM students WHERE id = $1', [parseInt(req.params.id)]);
     res.json({ success: true });
@@ -261,7 +262,7 @@ router.delete('/api/students/:id', authenticate, async (req: Request, res: Respo
   }
 });
 
-router.post('/api/students/bulk', authenticate, async (req: Request, res: Response) => {
+router.post('/api/students/bulk', authenticate, canManageStudents, async (req: Request, res: Response) => {
   try {
     const { student_id, last_name, first_name, grade, counselor, advisory } = req.body;
     await runQuery(
@@ -367,7 +368,7 @@ router.get('/api/incidents/:id', authenticate, async (req: Request, res: Respons
   }
 });
 
-router.post('/api/incidents', authenticate, async (req: Request, res: Response) => {
+router.post('/api/incidents', authenticate, canRecordIncidents, async (req: Request, res: Response) => {
   try {
     const { date, time, student_id, violation_id, location, description, witnesses, reported_by, advisor, action_taken, consequence, notes, follow_up_needed, follow_up_date, parent_contacted, contact_date } = req.body;
 
@@ -409,7 +410,7 @@ router.post('/api/incidents', authenticate, async (req: Request, res: Response) 
   }
 });
 
-router.put('/api/incidents/:id', authenticate, async (req: Request, res: Response) => {
+router.put('/api/incidents/:id', authenticate, canRecordIncidents, async (req: Request, res: Response) => {
   try {
     const { status, parent_contacted, contact_date, location, description, witnesses, reported_by, action_taken, consequence, days_iss, days_oss, detention_hours, notes, follow_up_needed, follow_up_date, resolved_date, advisor, violation_id, points_deducted } = req.body;
     const id = parseInt(req.params.id);
@@ -459,7 +460,7 @@ router.put('/api/incidents/:id', authenticate, async (req: Request, res: Respons
   }
 });
 
-router.delete('/api/incidents/:id', authenticate, async (req: Request, res: Response) => {
+router.delete('/api/incidents/:id', authenticate, adminOnly, async (req: Request, res: Response) => {
   try {
     await runQuery('DELETE FROM incidents WHERE id = $1', [parseInt(req.params.id)]);
     res.json({ success: true });
@@ -538,7 +539,7 @@ router.get('/api/mtss', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-router.post('/api/mtss', authenticate, async (req: Request, res: Response) => {
+router.post('/api/mtss', authenticate, canManageStudents, async (req: Request, res: Response) => {
   try {
     const { student_id, tier, intervention, advisor, start_date, end_date, progress, notes, intervention_goal, progress_monitoring, review_date, exit_criteria, incident_link, tier_history } = req.body;
     const result = await runQuery(
@@ -552,7 +553,7 @@ router.post('/api/mtss', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-router.put('/api/mtss/:id', authenticate, async (req: Request, res: Response) => {
+router.put('/api/mtss/:id', authenticate, canManageStudents, async (req: Request, res: Response) => {
   try {
     const { student_id, tier, intervention, advisor, start_date, end_date, progress, notes, intervention_goal, progress_monitoring, review_date, exit_criteria, incident_link, tier_history } = req.body;
     const id = parseInt(req.params.id);
@@ -571,7 +572,7 @@ router.put('/api/mtss/:id', authenticate, async (req: Request, res: Response) =>
   }
 });
 
-router.delete('/api/mtss/:id', authenticate, async (req: Request, res: Response) => {
+router.delete('/api/mtss/:id', authenticate, adminOnly, async (req: Request, res: Response) => {
   try {
     await runQuery('DELETE FROM mtss_interventions WHERE id = $1', [parseInt(req.params.id)]);
     res.json({ success: true });
@@ -591,7 +592,7 @@ router.get('/api/settings', authenticate, async (req: Request, res: Response) =>
   }
 });
 
-router.put('/api/settings', authenticate, async (req: Request, res: Response) => {
+router.put('/api/settings', authenticate, adminOnly, async (req: Request, res: Response) => {
   try {
     const { key, value } = req.body;
     await runQuery('INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2', [key, value]);
@@ -610,7 +611,7 @@ router.get('/api/alerts', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-router.put('/api/alerts/:id', authenticate, async (req: Request, res: Response) => {
+router.put('/api/alerts/:id', authenticate, adminOnly, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { threshold, enabled } = req.body;
@@ -845,8 +846,11 @@ router.put('/api/users/:id/password', authenticate, async (req: Request, res: Re
 // Heartbeat - update last_activity for "Currently Online" indicator
 router.put('/api/users/:id/heartbeat', authenticate, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    await runQuery('UPDATE users SET last_activity = CURRENT_TIMESTAMP, last_login = COALESCE(last_login, CURRENT_TIMESTAMP) WHERE id = $1', [id]);
+    // Deliberately ignores the :id in the path and uses the caller's own id.
+    // Trusting the parameter let any authenticated user mark a colleague as
+    // "currently online" and backfill their last_login timestamp.
+    const callerId = req.user!.userId;
+    await runQuery('UPDATE users SET last_activity = CURRENT_TIMESTAMP, last_login = COALESCE(last_login, CURRENT_TIMESTAMP) WHERE id = $1', [callerId]);
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -1133,7 +1137,7 @@ router.get('/api/incidents/:id/evidence', authenticate, async (req: Request, res
   }
 });
 
-router.post('/api/incidents/:id/evidence', authenticate, async (req: Request, res: Response) => {
+router.post('/api/incidents/:id/evidence', authenticate, canRecordIncidents, async (req: Request, res: Response) => {
   try {
     // Handle multipart form data - extract file info from body
     const { file_name, file_url, file_type } = req.body;
@@ -1149,7 +1153,7 @@ router.post('/api/incidents/:id/evidence', authenticate, async (req: Request, re
   }
 });
 
-router.delete('/api/incidents/:id/evidence/:evidenceId', authenticate, async (req: Request, res: Response) => {
+router.delete('/api/incidents/:id/evidence/:evidenceId', authenticate, adminOnly, async (req: Request, res: Response) => {
   try {
     await runQuery('DELETE FROM incident_evidence WHERE id = $1 AND incident_id = $2',
       [parseInt(req.params.evidenceId), parseInt(req.params.id)]);
@@ -1160,7 +1164,7 @@ router.delete('/api/incidents/:id/evidence/:evidenceId', authenticate, async (re
 });
 
 // ===== Escalate to Principal =====
-router.put('/api/incidents/:id/escalate', authenticate, async (req: Request, res: Response) => {
+router.put('/api/incidents/:id/escalate', authenticate, canRecordIncidents, async (req: Request, res: Response) => {
   try {
     const { escalated } = req.body;
     await runQuery(
@@ -1174,7 +1178,7 @@ router.put('/api/incidents/:id/escalate', authenticate, async (req: Request, res
 });
 
 // ===== Send Notification =====
-router.post('/api/notifications/send', authenticate, async (req: Request, res: Response) => {
+router.post('/api/notifications/send', authenticate, canRecordIncidents, async (req: Request, res: Response) => {
   try {
     const { incident_id, notification_type, recipient_email, message } = req.body;
     // This would integrate with email/WhatsApp in production

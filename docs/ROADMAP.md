@@ -1,11 +1,11 @@
 # SCCS Discipline Tracker — Road to Production
 
 **Assessed against commit:** `9099dd3` · Node v22.22.2 · 2026-07-31
-**Verdict: NO-GO for real student data until `JWT_SECRET` is set in Railway** (see C0 — this is a
-five-minute config change, and nothing else matters until it's done).
+**Verdict: the production app is currently down** — its database is unreachable and has been since at least
+2026-07-26 (see C-1). That outranks everything else here: there is no point hardening an app that cannot
+serve a request. `JWT_SECRET` has now been set in production (C0 resolved).
 
-**Phase 0 status: code changes complete**, pending the two operator actions below. Items marked ✅ are fixed
-in the branch; ⬜ items need you, not code.
+**Phase 0: complete.** **Phase 1 (authorization): complete.** Items marked ✅ are fixed; ⬜ need you, not code.
 
 ---
 
@@ -33,15 +33,32 @@ Everything below was verified by reading or running the code — not inferred.
 
 ### 🔴 Critical
 
-**C0 — ⬜ `JWT_SECRET` is not set in the Railway production service.** *(Found by inspecting the deployed
-service's variable list; only names were read, never values.)*
+**C-1 — ⬜ The production database does not exist. The app is down.**
+*(Found in the Railway deploy logs, 2026-07-31.)*
+`DATABASE_URL` points at Supabase project `zkpirgpocklxpmboorhm`, and every query against it fails with
+`ENOTFOUND — tenant/user postgres.zkpirgpocklxpmboorhm not found`. Every table creation, every migration and
+the seed step all fail on boot; any API call that touches data returns a 500. Nobody can log in.
+
+**This predates any change in this branch** — the identical error appears in the 2026-07-26 deployment.
+
+Two things made it invisible:
+1. `startServer()` catches the initialization error and calls `app.listen()` anyway, then logs
+   *"Database initialization complete"* — the same line it logs on success. `server/index.ts:57-66`.
+2. Railway reports the deployment as **SUCCESS**, because the process is running and holding the port.
+
+So the dashboard is green, the logs say complete, and the app has been non-functional for days. This is the
+single strongest argument for Phase 5's monitoring work — but the immediate need is to find out what happened
+to that Supabase project (deleted? paused? migrated?) and whether a backup of the school's data exists.
+
+**C0 — ✅ `JWT_SECRET` was not set in the Railway production service.**
+*(Found by inspecting the deployed service's variable list — names only, never values. Set 2026-07-31;
+the service redeployed successfully.)*
 The code fell back to a secret literal committed to this repository, so every production token was signed
 with a value anyone reading the repo could obtain — meaning anyone could forge a token for any account,
 including an admin, without ever touching the login endpoint. This is worse than C2 because it leaves no
 trace in the logs.
-*Code side is fixed* — the server now refuses to start without `JWT_SECRET` rather than falling back.
-**You must set it in Railway before the next deploy, or the service will not boot.** Setting it also
-invalidates every existing token, which is the desired outcome here.
+The server now refuses to start without `JWT_SECRET` rather than falling back, so this cannot silently
+regress. Setting it invalidated every token issued to date, which was the point.
 
 **C1 — ✅ Students page shows zero students on load.** `client/src/pages/Students.tsx:309-312`
 Operator precedence bug. `||` binds tighter than `?:`, so the ternary condition evaluates as
@@ -81,10 +98,15 @@ coordinate-with-everyone operation I have deliberately not performed.
 
 ### 🟠 High
 
-**H1 — No role checks on student, incident, MTSS, or settings mutations.**
-Only 11 of 57 endpoints check `role`. Any authenticated teacher can `DELETE /api/students/:id`,
-`DELETE /api/incidents/:id`, or `PUT /api/settings`. For a discipline system this is both a data-loss risk
-and a records-integrity problem.
+**H1 — ✅ No role checks on student, incident, MTSS, or settings mutations.**
+Only 11 of 57 endpoints checked `role`. Any authenticated teacher could `DELETE /api/students/:id`,
+`DELETE /api/incidents/:id`, or `PUT /api/settings`. Fixed in Phase 1: every mutating endpoint now carries a
+guard, backed by 16 tests. See `server/permissions.ts` for the matrix.
+
+**H8 — ✅ Any user could forge another user's activity timestamps.** `PUT /api/users/:id/heartbeat`
+took the user id from the URL and wrote `last_activity` / `last_login` for whoever it named, so any
+authenticated account could mark a colleague as "currently online" or backfill their last-login time. Now
+uses the caller's own id and ignores the parameter.
 
 **H2 — No foreign keys, no cascade behaviour.** `server/db.ts:92-103`
 `incidents.student_id`, `incidents.violation_id`, `mtss_interventions.student_id`, `incident_evidence.incident_id`
@@ -182,10 +204,19 @@ Then, when you're ready to deal with it (needs coordination, rewrites history):
 **Exit criteria:** ✅ no unauthenticated endpoint except `/login`, `/forgot-password`, `/reset-password`,
 `/api/health`; ✅ no credential in source; ✅ Students page lists students; ⬜ `JWT_SECRET` set in Railway.
 
-### Phase 1 — Make the foundation trustworthy
-1. **Authorization layer.** A `requireRole('admin')` middleware, applied deliberately to all 57 endpoints.
-   Decide the real permission model first: what should a *teacher* be able to do vs. a *counselor* vs. an
-   *admin*? Right now there are effectively two roles and one of them can do everything. (H1)
+### Phase 1 — Make the foundation trustworthy — **authorization done, schema work outstanding**
+1. ✅ **Authorization layer.** `server/permissions.ts` defines the matrix and three guards; every mutating
+   endpoint carries one. 16 tests pin the boundary, including that unknown/legacy roles fail closed. (H1, H8)
+
+   | | admin | counselor | teacher | user |
+   |---|:---:|:---:|:---:|:---:|
+   | View students, incidents, reports | ✅ | ✅ | ✅ | ✅ |
+   | Log & update incidents, evidence, escalate | ✅ | ✅ | ✅ | — |
+   | Create/edit students, manage MTSS | ✅ | ✅ | — | — |
+   | Delete anything, change settings, manage users | ✅ | — | — | — |
+
+   ⚠️ **Fails closed.** Any staff account holding a role outside these four — or the legacy `user` role —
+   becomes read-only. Audit the Users page after deploying.
 2. **Schema integrity.** Add foreign keys with explicit `ON DELETE` behaviour — almost certainly `RESTRICT`
    for students (you should not be able to delete a student who has incidents) and soft-delete via an
    `archived_at` column instead. Add an audit table for who deleted/changed what. (H2)
