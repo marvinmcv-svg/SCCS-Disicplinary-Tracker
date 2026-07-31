@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Plus, Search, X, User, Check, Loader, Upload, FileSpreadsheet, Camera } from 'lucide-react';
 import api from '../lib/api';
 import * as XLSX from 'xlsx';
-import { getGradeColor, getInitials } from '../lib/gradeUtils';
+import { getGradeColor, getInitials, matchesGradeFilter } from '../lib/gradeUtils';
 
 interface Student {
   id: number;
@@ -306,11 +306,7 @@ export default function Students() {
       s.last_name.toLowerCase().includes(search.toLowerCase()) ||
       s.first_name.toLowerCase().includes(search.toLowerCase()) ||
       s.student_id.toLowerCase().includes(search.toLowerCase());
-    const matchesGrade = filterGrade === 'all' ||
-      (filterGrade.endsWith('A') || filterGrade.endsWith('B'))
-        ? s.grade === parseInt(filterGrade) && s.section === filterGrade.slice(-1)
-        : s.grade === parseInt(filterGrade);
-    return matchesSearch && matchesGrade;
+    return matchesSearch && matchesGradeFilter(s, filterGrade);
   });
 
   return (

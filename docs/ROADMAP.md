@@ -1,9 +1,11 @@
 # SCCS Discipline Tracker — Road to Production
 
 **Assessed against commit:** `9099dd3` · Node v22.22.2 · 2026-07-31
-**Verdict today: NO-GO for real student data.** Not because the app is bad — the feature surface is genuinely
-substantial — but because there are four unauthenticated paths into the system and the Students page is
-currently broken on load. Both are fixable in a focused pass.
+**Verdict: NO-GO for real student data until `JWT_SECRET` is set in Railway** (see C0 — this is a
+five-minute config change, and nothing else matters until it's done).
+
+**Phase 0 status: code changes complete**, pending the two operator actions below. Items marked ✅ are fixed
+in the branch; ⬜ items need you, not code.
 
 ---
 
@@ -31,37 +33,51 @@ Everything below was verified by reading or running the code — not inferred.
 
 ### 🔴 Critical
 
-**C1 — Students page shows zero students on load.** `client/src/pages/Students.tsx:309-312`
+**C0 — ⬜ `JWT_SECRET` is not set in the Railway production service.** *(Found by inspecting the deployed
+service's variable list; only names were read, never values.)*
+The code fell back to a secret literal committed to this repository, so every production token was signed
+with a value anyone reading the repo could obtain — meaning anyone could forge a token for any account,
+including an admin, without ever touching the login endpoint. This is worse than C2 because it leaves no
+trace in the logs.
+*Code side is fixed* — the server now refuses to start without `JWT_SECRET` rather than falling back.
+**You must set it in Railway before the next deploy, or the service will not boot.** Setting it also
+invalidates every existing token, which is the desired outcome here.
+
+**C1 — ✅ Students page shows zero students on load.** `client/src/pages/Students.tsx:309-312`
 Operator precedence bug. `||` binds tighter than `?:`, so the ternary condition evaluates as
 `(filterGrade === 'all' || endsWith('A') || endsWith('B'))`. With the default filter `'all'`, that's `true`,
 so it takes the *grade-match* branch and compares `s.grade === parseInt('all')` → `NaN` → false for every
 student. The roster renders empty until you pick a specific grade. This is live on `master`.
 
-**C2 — Unauthenticated admin-takeover endpoint.** `server/routes/index.ts:85`
+**C2 — ✅ Unauthenticated admin-takeover endpoint.** `server/routes/index.ts:85`
 `POST /api/auth/fix-admin` takes a single hardcoded password from source, resets the `admin` account's
 password to a known value, and returns a valid admin JWT. No auth, no rate limit. Anyone who reads this
 public repo has full admin access to production.
 
-**C3 — Password reset returns the reset token in the HTTP response.** `server/routes/index.ts:181-217`
+**C3 — ✅ Password reset returns the reset token in the HTTP response.** `server/routes/index.ts:181-217`
 `POST /api/auth/forgot-password` responds with `resetToken` in the JSON body. Anyone who knows a username
 can take over that account in two unauthenticated requests. The "don't reveal if the user exists" comment
 directly above it is undone by the token being returned.
 
-**C4 — Hardcoded admin credentials, re-applied on every boot.** `server/db.ts:220-247`
+**C4 — ✅ Hardcoded admin credentials, re-applied on every boot.** `server/db.ts:220-247`
 `ensureAdminUser()` runs at startup and *overwrites* a named admin account's password with a literal from
 source on every deploy. Changing that password in the UI is silently reverted by the next restart. The same
 literal is the C2 backdoor password.
 
-**C5 — Open self-registration to a role that reads everything.** `server/routes/index.ts:269`
+**C5 — ✅ Open self-registration to a role that reads everything.** `server/routes/index.ts:269`
 `POST /api/auth/firebase-register` is unauthenticated and grants role `user`. `authenticate` doesn't
 distinguish roles, so any `user` can read the full student roster, every incident, and every MTSS record.
-No email-domain allowlist, no admin approval step. (Live only if Firebase env vars are set in Railway —
-**verify this before anything else.**)
+No email-domain allowlist, no admin approval step. **Verified: Firebase env vars are not set in Railway**,
+so these endpoints would have thrown at runtime — the hole was latent, not live. Nothing in the client
+imported Firebase either, so the whole integration was dead code and has been removed (which also cleared
+all 11 dependency CVEs).
 
-**C6 — Student discipline records committed to the repository.**
+**C6 — ⬜ Student discipline records committed to the repository.**
 `data/discipline.db` and `data/railway-backup.db` are tracked and contain 9 students with real-looking
 names, 7 incidents, and a user row. `WORKING-CONFIG.env` is tracked and contains a JWT secret and demo
-passwords. Git history rewrite + credential rotation required, not just `git rm`.
+passwords. All three are now untracked and gitignored, **but they remain in git history** — a history
+rewrite (`git filter-repo`) plus credential rotation is still required, and that is a destructive,
+coordinate-with-everyone operation I have deliberately not performed.
 
 ### 🟠 High
 
@@ -91,6 +107,13 @@ blocks a deploy.
 **H6 — Raw database errors returned to the client.** ~20 handlers do `res.status(400).json({ error: error.message })`,
 leaking column names, constraint names, and SQL structure.
 
+**H7 — `grade` has three conflicting types.** *(Found while fixing C1.)*
+The DB column is `INTEGER`, `lib/api.ts` types it `number`, and `Students.tsx:12` declares a **local**
+`interface Student` claiming `grade: string`. The student form holds it as a string, and the bulk-import
+path builds values like `'7A'` — a grade and a section concatenated — before posting them at an integer
+column. Pick one representation (`grade: number` + `section: string`), convert at the API boundary, and
+delete the local interface. Until then the grade/section split is a guess at every call site.
+
 ### 🟡 Medium
 
 - **M1** — No input validation anywhere. No zod/joi; `grade || 9` style coercion only. No length limits, no
@@ -100,11 +123,15 @@ leaking column names, constraint names, and SQL structure.
 - **M3** — `app.use(cors())` allows every origin; no helmet, no CSP, no HSTS, no `X-Frame-Options`.
 - **M4** — No database indexes beyond primary keys. Dashboard aggregations scan `incidents` fully; fine at
   333 students, degrades over a school year.
-- **M5** — 11 npm vulnerabilities in prod deps (3 high), all via `firebase-admin` → `@google-cloud/storage`.
+- **M5** — ✅ *(mostly)* 11 prod-dependency CVEs (3 high) cleared by removing Firebase, plus `multer`,
+  `axios`, `form-data`, `@babel/core` and `react-router` updated within their existing semver ranges.
+  Server is now clean; one unfixable high remains client-side in `xlsx` (SheetJS has no patched npm
+  release — needs either the vendor tarball or a different spreadsheet library, a Phase 3 decision).
 - **M6** — 1.67 MB main JS bundle (499 KB gzipped) from `xlsx` + `jspdf` + `html2canvas` + `recharts` loaded
   eagerly. Slow on the school-network phones this is meant for.
-- **M7** — `/api/backup` and `/api/restore` are unauthenticated stubs that return a "data is safe" message and
-  do nothing. There is no actual backup story.
+- **M7** — ✅ *(partly)* `/api/backup` and `/api/restore` were unauthenticated stubs that returned a
+  "data is safe" message and did nothing; removed, since a misleading reassurance is worse than none.
+  A real backup story is still outstanding (Phase 4).
 - **M8** — JWT falls back to a hardcoded secret if `JWT_SECRET` is unset. Logout is client-side only; tokens
   stay valid for 24h after "logging out". No refresh/expiry UX.
 - **M9** — 26 `console.log` calls in server code, several logging usernames and login outcomes.
@@ -124,23 +151,36 @@ leaking column names, constraint names, and SQL structure.
 Six phases. Each gates the next — there is no point hardening auth on top of a schema that orphans records,
 and no point running an E2E suite before the app has a working Students page.
 
-### Phase 0 — Stop the bleeding *(do this first, before anything else)*
-Nothing here needs design decisions. It's containment.
+### Phase 0 — Stop the bleeding — **code complete, 2 operator actions outstanding**
 
-1. Confirm whether Firebase env vars are set in Railway. If yes, **C5 is live** — disable
-   `/api/auth/firebase-register` immediately.
-2. Delete `/api/auth/fix-admin`, `/api/debug/users`, `/api/migrate-users` (C2). They are dev shortcuts with
-   production consequences.
-3. Stop returning `resetToken` in the forgot-password response (C3).
-4. Remove `ensureAdminUser()`'s hardcoded credential; seed the first admin from an env var instead, once (C4).
-5. Rotate: the JWT secret, that admin password, and any Firebase key. Assume all three are compromised —
-   they're in a repo's history.
-6. `git rm --cached` the two `.db` files and `WORKING-CONFIG.env`, add to `.gitignore`, then purge from
-   history with `git filter-repo` (C6).
-7. Fix the Students page ternary (C1) — a two-line change that restores the roster.
+Done in code:
 
-**Exit criteria:** no unauthenticated endpoint except `/login`, `/forgot-password`, `/reset-password`,
-`/api/health`; no credential in source; Students page lists students.
+- ✅ Server refuses to boot without `JWT_SECRET` instead of falling back to a committed literal (C0).
+- ✅ Removed `/api/auth/fix-admin`, `/api/debug/users`, `/api/migrate-users` (C2).
+- ✅ Removed the no-op `/api/backup` and `/api/restore` stubs (M7). Unauthenticated endpoints: 10 → 3.
+- ✅ `forgot-password` no longer returns the reset token (C3).
+- ✅ First admin seeded once from `INITIAL_ADMIN_*` env vars, create-only, no hardcoded credential (C4).
+- ✅ Removed the entire dead Firebase integration — both endpoints, the unused client module, and both
+  packages (C5). Cleared 11 dependency CVEs as a side effect.
+- ✅ Fixed the Students roster filter, extracted it to a testable function, and pinned it with 10 real
+  regression tests (C1).
+
+**⬜ Two things only you can do:**
+
+1. **Set `JWT_SECRET` in the Railway service before the next deploy.** `openssl rand -hex 32`. The service
+   will not start without it now. This also logs everyone out, which is intended — every token issued to
+   date was signed with a publicly-known value.
+2. **Set `INITIAL_ADMIN_USERNAME` / `INITIAL_ADMIN_PASSWORD`** if the database has no admin yet. If your
+   existing admin account still works after the deploy, skip this — the account is already there and these
+   vars are ignored.
+
+Then, when you're ready to deal with it (needs coordination, rewrites history):
+
+3. **Purge `data/*.db` and `WORKING-CONFIG.env` from git history** with `git filter-repo`, and rotate the
+   old admin password (C6). They're untracked now, but still recoverable from any clone.
+
+**Exit criteria:** ✅ no unauthenticated endpoint except `/login`, `/forgot-password`, `/reset-password`,
+`/api/health`; ✅ no credential in source; ✅ Students page lists students; ⬜ `JWT_SECRET` set in Railway.
 
 ### Phase 1 — Make the foundation trustworthy
 1. **Authorization layer.** A `requireRole('admin')` middleware, applied deliberately to all 57 endpoints.
@@ -220,5 +260,10 @@ SCCS is a policy decision, not a technical one.
   exercise the running app in a browser, and I did **not** touch the production database — no staging
   environment exists to test against safely. Runtime bugs, broken buttons, and CSS issues are therefore
   **untested**; the QA sweep in Phase 2 is what finds those.
-- C5's live status depends on Railway env vars I haven't inspected.
+- **The live app was not reachable** from the environment this assessment ran in (the outbound proxy returns
+  403 for the Railway domain), so no endpoint was verified against production. The Phase 0 fixes are verified
+  by typecheck, build, and unit tests only — **watch the deploy logs on the next push**, since a missing
+  `JWT_SECRET` now stops the server rather than silently falling back.
+- Railway config was read via the API for **variable names only** — no values were retrieved or recorded.
 - No accessibility, performance, or cross-browser testing was performed.
+- The `INITIAL_ADMIN_*` seeding path has not been exercised against a real empty database.

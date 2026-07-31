@@ -3,8 +3,6 @@ import { queryAll, queryOne, runQuery } from '../db';
 import { UserRow } from '../db';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
 
 // Augment Express Request to include our custom user property
 declare global {
@@ -16,7 +14,16 @@ declare global {
 }
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'discipline-tracker-secret-key';
+
+// JWT_SECRET must come from the environment. A committed fallback secret means
+// anyone who can read this repository can forge a token for any account.
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error(
+    'JWT_SECRET environment variable is required. Set it to a long random value ' +
+    '(e.g. `openssl rand -hex 32`) before starting the server.'
+  );
+}
 
 const authenticate = async (req: Request, res: Response, next: NextFunction) => {
   const token = req.headers.authorization?.split(' ')[1];
@@ -82,101 +89,6 @@ router.post('/api/auth/login', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/api/auth/fix-admin', async (req: Request, res: Response) => {
-  try {
-    const { password } = req.body;
-    const FIX_ADMIN_PASSWORD = 'gmc190494';
-
-    if (password !== FIX_ADMIN_PASSWORD) {
-      return res.status(401).json({ error: 'Invalid admin password' });
-    }
-
-    const bcrypt = await import('bcryptjs');
-    const hashedPassword = bcrypt.hashSync('admin123', 10);
-
-    const existingAdmin = await queryOne("SELECT * FROM users WHERE username = 'admin'");
-    let user;
-    if (existingAdmin) {
-      await runQuery(
-        "UPDATE users SET role = 'admin', password = $1 WHERE username = 'admin'",
-        [hashedPassword]
-      );
-      user = await queryOne("SELECT * FROM users WHERE username = 'admin'");
-    } else {
-      await runQuery(
-        "INSERT INTO users (username, password, role, first_name, last_name) VALUES ($1, $2, $3, $4, $5)",
-        ['admin', hashedPassword, 'admin', 'System', 'Admin']
-      );
-      user = await queryOne("SELECT * FROM users WHERE username = 'admin'");
-    }
-
-    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
-    res.json({
-      success: true,
-      message: 'Admin fixed',
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        firstName: user.first_name,
-        lastName: user.last_name
-      }
-    });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.post('/api/auth/firebase-login', async (req: Request, res: Response) => {
-  try {
-    const { idToken } = req.body;
-
-    if (!idToken) {
-      return res.status(400).json({ error: 'ID token required' });
-    }
-    if (!getApps().length) {
-      initializeApp({
-        credential: cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-        }),
-      });
-    }
-
-    const decoded = await getAuth().verifyIdToken(idToken);
-    const email = decoded.email;
-
-    let user = await queryOne('SELECT * FROM users WHERE email = $1', [email]);
-
-    if (!user) {
-      const hashedPassword = bcrypt.hashSync(decoded.uid, 10);
-      const result = await runQuery(
-        'INSERT INTO users (username, password, email, role, first_name, last_name) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-        [email?.split('@')[0] || 'user', hashedPassword, email, 'user', decoded.name?.split(' ')[0] || '', decoded.name?.split(' ')[1] || '']
-      );
-      user = await queryOne('SELECT * FROM users WHERE id = $1', [result.lastInsertRowid]);
-    }
-
-    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        email: user.email
-      }
-    });
-  } catch (error: any) {
-    console.error('Firebase login error:', error.message);
-    res.status(401).json({ error: 'Firebase authentication failed' });
-  }
-});
-
 // Password Reset Routes
 router.post('/api/auth/forgot-password', async (req: Request, res: Response) => {
   try {
@@ -206,14 +118,17 @@ router.post('/api/auth/forgot-password', async (req: Request, res: Response) => 
       [user.id, token, expiresAt]
     );
 
-    // In production, send email with reset link
-    // For now, return the token directly (development only)
-    console.log(`Password reset token for ${username}: ${token}`);
-    res.json({ 
-      message: 'If an account exists with that username, a password reset link will be sent.',
-      // Include token for development/testing
-      resetToken: token,
-      expiresIn: '1 hour'
+    // The token must never travel back in this response — returning it here would
+    // let anyone who knows a username take over that account.
+    //
+    // INTERIM: with no email delivery yet, the token goes to the server log so an
+    // administrator can pass it to the user out of band. That still puts a live
+    // credential in the logs; replace this with email delivery (roadmap Phase 4)
+    // and drop the token from this line.
+    console.log(`Password reset token for user id ${user.id} (expires ${expiresAt.toISOString()}): ${token}`);
+
+    res.json({
+      message: 'If an account exists with that username, a password reset link will be sent.'
     });
   } catch (error: any) {
     console.error('Forgot password error:', error.message);
@@ -263,57 +178,6 @@ router.post('/api/auth/reset-password', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Reset password error:', error.message);
     res.status(500).json({ error: 'Password reset failed' });
-  }
-});
-
-router.post('/api/auth/firebase-register', async (req: Request, res: Response) => {
-  try {
-    const { idToken, email } = req.body;
-
-    if (!idToken || !email) {
-      return res.status(400).json({ error: 'ID token and email required' });
-    }
-    if (!getApps().length) {
-      initializeApp({
-        credential: cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-        }),
-      });
-    }
-
-    const decoded = await getAuth().verifyIdToken(idToken);
-
-    let user = await queryOne('SELECT * FROM users WHERE email = $1', [email]);
-
-    if (user) {
-      return res.status(400).json({ error: 'User already exists' });
-    }
-
-    const hashedPassword = bcrypt.hashSync(decoded.uid, 10);
-    const result = await runQuery(
-      'INSERT INTO users (username, password, email, role, first_name, last_name) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [email.split('@')[0], hashedPassword, email, 'user', decoded.name?.split(' ')[0] || '', decoded.name?.split(' ')[1] || '']
-    );
-
-    user = await queryOne('SELECT * FROM users WHERE id = $1', [result.lastInsertRowid]);
-
-    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        email: user.email
-      }
-    });
-  } catch (error: any) {
-    console.error('Firebase register error:', error.message);
-    res.status(401).json({ error: 'Firebase registration failed' });
   }
 });
 
@@ -757,14 +621,6 @@ router.put('/api/alerts/:id', authenticate, async (req: Request, res: Response) 
   }
 });
 
-router.get('/api/backup', (req, res) => {
-  res.json({ message: 'Database is now cloud-based with Supabase PostgreSQL. Data persists automatically!' });
-});
-
-router.post('/api/restore', (req, res) => {
-  res.json({ message: 'Using cloud database - no restore needed. Data is automatically backed up!' });
-});
-
 router.get('/api/users', authenticate, async (req: Request, res: Response) => {
   try {
     const user = req.user!;
@@ -1098,39 +954,6 @@ router.put('/api/users/:id/reactivate', authenticate, async (req: Request, res: 
 });
 
 export default router;
-
-router.post('/api/migrate-users', async (req: Request, res: Response) => {
-  try {
-    const migrations = [
-      'ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT',
-      'ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT',
-      'ALTER TABLE users ADD COLUMN IF NOT EXISTS classroom TEXT',
-      'ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture TEXT',
-    ];
-
-    for (const sql of migrations) {
-      try {
-        await runQuery(sql, []);
-      } catch (e) {
-        console.log('Migration note:', (e as Error).message);
-      }
-    }
-
-    const users = await queryAll('SELECT id, username, email, phone, classroom FROM users');
-    res.json({ success: true, message: 'Migration complete', users });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.get('/api/debug/users', async (req: Request, res: Response) => {
-  try {
-    const users = await queryAll('SELECT id, username, role, email, first_name, last_name FROM users ORDER BY id');
-    res.json({ users });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // Enhanced dashboard stats with date range, grade, and category filters
 router.get('/api/dashboard/stats/filtered', authenticate, async (req: Request, res: Response) => {

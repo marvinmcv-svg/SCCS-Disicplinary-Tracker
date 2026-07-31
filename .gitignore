@@ -5,3 +5,7 @@ dist/
 *.log
 .env
 test-db.js
+# Local SQLite snapshots — the app runs on Postgres; these held real student records
+data/*.db
+# Local working config; contains secrets
+WORKING-CONFIG.env
