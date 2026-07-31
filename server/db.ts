@@ -115,6 +115,7 @@ export async function initializeDatabase() {
   await migrateUsersTable();
   await migrateIncidentsTable();
   await migrateStudentsTable();
+  await createIndexes();
 
   try {
     await seedViolations();
@@ -206,6 +207,49 @@ async function seedDefaultSettings() {
   for (const s of settings) {
     await pool.query(`INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`, s);
   }
+}
+
+/**
+ * Indexes for the columns the app actually filters and joins on.
+ *
+ * Every table had only its primary key, so the dashboard's aggregations and the
+ * per-student incident history did sequential scans. That is unnoticeable on a
+ * fresh database and steadily worse across a school year as incidents pile up.
+ *
+ * CONCURRENTLY is deliberately not used: it cannot run inside the implicit
+ * transaction here, and these tables are small enough that the brief lock at
+ * startup is not worth the added complexity.
+ */
+async function createIndexes() {
+  const indexes = [
+    // Incident lookups: by student (profile view), by date (dashboard ranges),
+    // by status (open-incident counts), by violation (category breakdowns).
+    'CREATE INDEX IF NOT EXISTS idx_incidents_student_id ON incidents(student_id)',
+    'CREATE INDEX IF NOT EXISTS idx_incidents_date ON incidents(date)',
+    'CREATE INDEX IF NOT EXISTS idx_incidents_status ON incidents(status)',
+    'CREATE INDEX IF NOT EXISTS idx_incidents_violation_id ON incidents(violation_id)',
+    // Roster filtering by grade and section.
+    'CREATE INDEX IF NOT EXISTS idx_students_grade_section ON students(grade, section)',
+    // MTSS and evidence are always fetched for one student or one incident.
+    'CREATE INDEX IF NOT EXISTS idx_mtss_student_id ON mtss_interventions(student_id)',
+    'CREATE INDEX IF NOT EXISTS idx_incident_evidence_incident_id ON incident_evidence(incident_id)',
+    'CREATE INDEX IF NOT EXISTS idx_incident_status_logs_incident_id ON incident_status_logs(incident_id)',
+    'CREATE INDEX IF NOT EXISTS idx_parent_contacts_incident_id ON parent_contacts(incident_id)',
+    // Activity log is read per user and ordered by recency.
+    'CREATE INDEX IF NOT EXISTS idx_user_activity_log_user_id ON user_activity_log(user_id, created_at DESC)',
+    // Password reset looks tokens up directly; the column is already UNIQUE, so
+    // this only covers the expiry sweep.
+    'CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires ON password_reset_tokens(expires_at)',
+  ];
+
+  for (const sql of indexes) {
+    try {
+      await pool.query(sql);
+    } catch (error: any) {
+      console.error('Index error:', error.message);
+    }
+  }
+  console.log(`✓ ${indexes.length} indexes ready`);
 }
 
 /**

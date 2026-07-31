@@ -4,6 +4,8 @@ import { UserRow } from '../db';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { canRecordIncidents, canManageStudents, adminOnly } from '../permissions';
+import * as mailer from '../mailer';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
 // Augment Express Request to include our custom user property
 declare global {
@@ -26,6 +28,65 @@ if (!JWT_SECRET) {
   );
 }
 
+/**
+ * Login throttling, in two layers.
+ *
+ * Nothing previously slowed repeated login attempts, so a weak staff password
+ * could be brute-forced at full speed.
+ *
+ * Throttling purely by IP would be wrong here: an entire school sits behind one
+ * public address, so one teacher fumbling their password would lock out every
+ * colleague. (Measured — a per-IP limit of 20 blocked a valid login from a
+ * different account.) So the tight limit is keyed to the *account* being
+ * targeted, and the per-IP limit is set high enough to only catch someone
+ * spraying many usernames from one host.
+ *
+ * Both ignore successful logins, so a normal Monday morning never trips them.
+ */
+const normalizeUsername = (req: Request): string =>
+  typeof req.body?.username === 'string' ? req.body.username.trim().toLowerCase() : '';
+
+/** Tight, per-account: stops a targeted attack on one staff member. */
+const perAccountLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  keyGenerator: (req, res) => {
+    const username = normalizeUsername(req);
+    // No username supplied — fall back to IP so the request is still counted.
+    // ipKeyGenerator normalizes IPv6 addresses to their /64 prefix.
+    return username ? `user:${username}` : `ip:${ipKeyGenerator(req.ip ?? '')}`;
+  },
+  message: {
+    error: 'Too many failed attempts for this account. Please wait a few minutes and try again.',
+  },
+});
+
+/** Loose, per-IP: catches username spraying without locking out a school. */
+const perIpLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 150,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: { error: 'Too many attempts from this network. Please wait a few minutes and try again.' },
+});
+
+/** Password reset requests generate email and database writes; keep them scarce. */
+const passwordResetLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: (req, res) => {
+    const username = normalizeUsername(req);
+    return username ? `reset:${username}` : `ip:${ipKeyGenerator(req.ip ?? '')}`;
+  },
+  message: { error: 'Too many password reset requests. Please wait an hour and try again.' },
+});
+
 const authenticate = async (req: Request, res: Response, next: NextFunction) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) {
@@ -40,7 +101,7 @@ const authenticate = async (req: Request, res: Response, next: NextFunction) => 
   }
 };
 
-router.post('/api/auth/login', async (req: Request, res: Response) => {
+router.post('/api/auth/login', perIpLoginLimiter, perAccountLoginLimiter, async (req: Request, res: Response) => {
   try {
     const { username, password } = req.body;
 
@@ -91,7 +152,7 @@ router.post('/api/auth/login', async (req: Request, res: Response) => {
 });
 
 // Password Reset Routes
-router.post('/api/auth/forgot-password', async (req: Request, res: Response) => {
+router.post('/api/auth/forgot-password', passwordResetLimiter, async (req: Request, res: Response) => {
   try {
     const { username } = req.body;
 
@@ -121,12 +182,31 @@ router.post('/api/auth/forgot-password', async (req: Request, res: Response) => 
 
     // The token must never travel back in this response — returning it here would
     // let anyone who knows a username take over that account.
-    //
-    // INTERIM: with no email delivery yet, the token goes to the server log so an
-    // administrator can pass it to the user out of band. That still puts a live
-    // credential in the logs; replace this with email delivery (roadmap Phase 4)
-    // and drop the token from this line.
-    console.log(`Password reset token for user id ${user.id} (expires ${expiresAt.toISOString()}): ${token}`);
+    if (mailer.isConfigured() && user.email) {
+      try {
+        await mailer.sendMail({
+          to: user.email,
+          subject: 'SCCS Discipline Tracker — password reset',
+          text:
+            `A password reset was requested for your account (${user.username}).\n\n` +
+            `Reset code: ${token}\n\n` +
+            `This code expires in one hour. If you did not request it, you can ignore ` +
+            `this message — your password has not changed.`,
+        });
+      } catch (mailError: any) {
+        // Deliberately swallowed: surfacing a delivery failure here would reveal
+        // which usernames exist. The log below still gives an administrator a way
+        // to complete the reset by hand.
+        console.error(`Password reset email failed for user id ${user.id}:`, mailError.message);
+      }
+    } else {
+      // No email configured, or no address on file. The token goes to the log so
+      // an administrator can pass it on out of band. This puts a live credential
+      // in the logs — configure SMTP and this path stops being used.
+      console.log(
+        `Password reset token for user id ${user.id} (expires ${expiresAt.toISOString()}): ${token}`
+      );
+    }
 
     res.json({
       message: 'If an account exists with that username, a password reset link will be sent.'
@@ -137,7 +217,7 @@ router.post('/api/auth/forgot-password', async (req: Request, res: Response) => 
   }
 });
 
-router.post('/api/auth/reset-password', async (req: Request, res: Response) => {
+router.post('/api/auth/reset-password', passwordResetLimiter, async (req: Request, res: Response) => {
   try {
     const { token, newPassword } = req.body;
 
@@ -1179,14 +1259,56 @@ router.put('/api/incidents/:id/escalate', authenticate, canRecordIncidents, asyn
 
 // ===== Send Notification =====
 router.post('/api/notifications/send', authenticate, canRecordIncidents, async (req: Request, res: Response) => {
+  const { incident_id, notification_type, recipient_email, message } = req.body;
+
+  if (!recipient_email || !message) {
+    return res.status(400).json({ error: 'Recipient email and message are required' });
+  }
+
+  // Report the truth. This endpoint used to log a line and return success, so
+  // staff saw "parent contacted" when nothing had been sent. If email is not
+  // configured, say so and let the user pick up the phone instead.
+  if (!mailer.isConfigured()) {
+    return res.status(503).json({
+      error:
+        'Email is not configured on this server, so no message was sent. ' +
+        'Contact the parent directly and record it on the incident.',
+      sent: false,
+    });
+  }
+
   try {
-    const { incident_id, notification_type, recipient_email, message } = req.body;
-    // This would integrate with email/WhatsApp in production
-    // For now, just log and return success
-    console.log(`Notification sent for incident ${incident_id}: ${notification_type} to ${recipient_email}`);
-    res.json({ success: true, message: 'Notification logged (email integration pending)' });
+    const result = await mailer.sendMail({
+      to: recipient_email,
+      subject: notification_type
+        ? `SCCS — ${notification_type}`
+        : 'SCCS — Student Conduct Notification',
+      text: message,
+    });
+
+    if (result.accepted.length === 0) {
+      return res.status(502).json({
+        error: 'The mail server did not accept the message. Nothing was sent.',
+        sent: false,
+      });
+    }
+
+    await runQuery(
+      `INSERT INTO user_activity_log (user_id, action, details) VALUES ($1, $2, $3)`,
+      [
+        req.user!.userId,
+        'SEND_NOTIFICATION',
+        `Incident ${incident_id ?? 'n/a'} — ${notification_type || 'notification'} to ${recipient_email}`,
+      ]
+    );
+
+    res.json({ success: true, sent: true, messageId: result.messageId });
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    console.error('Notification send failed:', error.message);
+    res.status(502).json({
+      error: 'The message could not be sent. Contact the parent directly and record it on the incident.',
+      sent: false,
+    });
   }
 });
 

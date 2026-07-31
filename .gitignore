@@ -9,3 +9,6 @@ test-db.js
 data/*.db
 # Local working config; contains secrets
 WORKING-CONFIG.env
+# Database dumps — contain student records
+backups/
+*.dump
