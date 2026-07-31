@@ -1,9 +1,9 @@
 # SCCS Discipline Tracker — Road to Production
 
 **Assessed against commit:** `9099dd3` · Node v22.22.2 · 2026-07-31
-**Verdict: the production app is currently down** — its database is unreachable and has been since at least
-2026-07-26 (see C-1). That outranks everything else here: there is no point hardening an app that cannot
-serve a request. `JWT_SECRET` has now been set in production (C0 resolved).
+**Verdict: production is back up (C-1 resolved) but is running unpatched `master`.** Merging this branch is
+now the priority — the boot log confirms the hardcoded-admin reset (C4) fires on every deploy, and the
+unauthenticated admin-takeover endpoint (C2) is live. `JWT_SECRET` is set in production (C0 resolved).
 
 **Phase 0: complete.** **Phase 1 (authorization): complete.** Items marked ✅ are fixed; ⬜ need you, not code.
 
@@ -33,7 +33,7 @@ Everything below was verified by reading or running the code — not inferred.
 
 ### 🔴 Critical
 
-**C-1 — ⬜ The production database does not exist. The app is down.**
+**C-1 — ✅ RESOLVED. The production database was paused; the app was down.**
 *(Found in the Railway deploy logs, 2026-07-31.)*
 `DATABASE_URL` points at Supabase project `zkpirgpocklxpmboorhm`, and every query against it fails with
 `ENOTFOUND — tenant/user postgres.zkpirgpocklxpmboorhm not found`. Every table creation, every migration and
@@ -58,10 +58,15 @@ single strongest argument for Phase 5's monitoring work.
 | `zkpirgpocklxpmboorhm.supabase.co` | **NXDOMAIN** |
 | Pooler response | `Tenant or user not found` |
 
-Supabase creates per-project DNS records, so both records being absent points to the project having been
-**deleted** rather than merely paused — a paused project normally keeps its DNS and can be restored from the
-dashboard. That is an inference, not a certainty: the Supabase dashboard is the definitive check, and the
-Supabase API was not reachable from the environment this assessment ran in.
+Both records being absent was read as the project having been **deleted**. **That inference was wrong.** The
+project was paused, and Supabase drops the per-project DNS records while a project is paused — not only when
+one is deleted. Restoring the project on 2026-07-31 brought back both records and the pooler tenant; the next
+deploy created every table, applied every migration, and seeded cleanly. No data was lost.
+
+The lasting lesson is not about DNS: **a paused free-tier Supabase project takes the app down silently**, and
+nothing in the stack reported it. Free-tier projects pause after a week of inactivity. Either keep the project
+active, move to a paid tier, or move to a database that does not pause — and add the uptime check in Phase 5
+either way.
 
 **Recovery inventory** — what exists if that data is gone:
 
