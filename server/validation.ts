@@ -15,12 +15,20 @@ import { z, ZodType } from 'zod';
  * working) and strict about *content*.
  */
 
-/** Trims, and turns '' into undefined so optional text fields stay empty. */
+/**
+ * Trims, and turns '' into undefined so optional text fields stay empty.
+ *
+ * NULL-tolerance: the SPA sends `null` for every optional field the user
+ * cleared (`notes: formData.notes || null`), and the PUT handlers write null
+ * straight through (SET column = NULL). Before this, zod rejected those
+ * payloads with "expected string, received null", so EDITING any record with
+ * an empty optional field failed with 400 — the client showed
+ * "Request failed with status code 400". Null now passes validation and keeps
+ * its "clear this column" meaning; only *absent* keys mean "leave unchanged".
+ */
 const optionalText = (max: number) =>
   z
-    .string()
-    .trim()
-    .max(max, `Must be ${max} characters or fewer`)
+    .union([z.string().trim().max(max, `Must be ${max} characters or fewer`), z.null()])
     .optional()
     .transform(v => (v === '' ? undefined : v));
 
@@ -47,15 +55,15 @@ const sectionValue = z
 
 /** An email that may be blank — many student records have no parent address. */
 const optionalEmail = z
-  .union([z.literal(''), z.email('Must be a valid email address').max(255)])
+  .union([z.literal(''), z.null(), z.email('Must be a valid email address').max(255)])
   .optional()
   .transform(v => (v === '' ? undefined : v));
 
 const optionalPhone = z
-  .string()
-  .trim()
-  .max(40)
-  .regex(/^[0-9+()\-.\s]*$/, 'Phone number contains invalid characters')
+  .union([
+    z.string().trim().max(40).regex(/^[0-9+()\-.\s]*$/, 'Phone number contains invalid characters'),
+    z.null(),
+  ])
   .optional()
   .transform(v => (v === '' ? undefined : v));
 
@@ -66,7 +74,7 @@ const dateString = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format');
 
 const optionalDate = z
-  .union([z.literal(''), dateString])
+  .union([z.literal(''), z.null(), dateString])
   .optional()
   .transform(v => (v === '' ? undefined : v));
 
@@ -75,12 +83,16 @@ const optionalDate = z
  * this keeps a single image well under that and rejects a non-image payload.
  */
 const optionalImage = z
-  .string()
-  .max(3_000_000, 'Image is too large — please use one under about 2MB')
-  .refine(
-    v => v === '' || v.startsWith('data:image/') || v.startsWith('http'),
-    'Must be an image'
-  )
+  .union([
+    z
+      .string()
+      .max(3_000_000, 'Image is too large — please use one under about 2MB')
+      .refine(
+        v => v === '' || v.startsWith('data:image/') || v.startsWith('http'),
+        'Must be an image'
+      ),
+    z.null(),
+  ])
   .optional()
   .transform(v => (v === '' ? undefined : v));
 
@@ -116,13 +128,19 @@ export const incidentSchema = z.object({
   student_id: z.coerce.number().int().positive('A student must be selected'),
   violation_id: z.coerce.number().int().positive('A violation type must be selected'),
   location: optionalText(150),
-  description: optionalText(5000),
+  // Master prompt 2.2: description is a REQUIRED field for every discipline
+  // entry, capped at 2000 characters.
+  description: requiredText(2000, 'Description'),
   witnesses: optionalText(1000),
   advisor: optionalText(120),
   action_taken: optionalText(2000),
   consequence: optionalText(2000),
   notes: optionalText(5000),
-  reported_by: optionalText(120),
+  // Master prompt 2.2: the reporting staff member is required.
+  reported_by: requiredText(120, 'Reported by'),
+  // Master prompt 2.3: set to true after the duplicate warning is shown, to
+  // confirm a deliberately-repeated entry.
+  confirm_duplicate: z.boolean().optional(),
 });
 
 export const incidentUpdateSchema = z.object({
@@ -145,6 +163,14 @@ export const incidentUpdateSchema = z.object({
   follow_up_date: optionalDate,
   resolved_date: optionalDate,
   advisor: optionalText(120),
+  // The PUT handler has always had update branches for these three, but the
+  // schema stripped them as unknown keys, so the edit form's Reported By /
+  // Violation / Points inputs silently never saved. All optional: omitting a
+  // key leaves the column untouched (keeps the 137 legacy rows without
+  // reported_by editable), and null clears it.
+  reported_by: optionalText(120),
+  violation_id: z.coerce.number('A violation type must be selected').int().positive('A violation type must be selected').optional(),
+  points_deducted: z.coerce.number('Points must be a number').int().min(-200, 'Points cannot be below -200').max(0, 'Points deducted cannot be positive').optional(),
 });
 
 export const mtssSchema = z.object({
@@ -164,15 +190,17 @@ export const mtssSchema = z.object({
 
 /**
  * Passwords must survive a school year of shoulder-surfing and shared
- * workstations. Matches the rules the reset endpoint already enforced, so a
- * password set one way cannot be rejected by the other.
+ * workstations. Master prompt 4.3: minimum 12 characters with uppercase,
+ * lowercase, number and symbol.
  */
 export const passwordSchema = z
   .string()
-  .min(8, 'Password must be at least 8 characters')
+  .min(12, 'Password must be at least 12 characters')
   .max(200)
+  .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+  .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
   .regex(/\d/, 'Password must contain at least one number')
-  .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain at least one special character');
+  .regex(/[!@#$%^&*(),.?":{}|<>`~/\\[\]=;/-]/, 'Password must contain at least one symbol');
 
 export const userCreateSchema = z.object({
   username: z
@@ -182,7 +210,11 @@ export const userCreateSchema = z.object({
     .max(60)
     .regex(/^[A-Za-z0-9._-]+$/, 'Username may contain only letters, numbers, dot, underscore and hyphen'),
   password: passwordSchema,
-  role: z.enum(['admin', 'counselor', 'teacher', 'user'], 'Role must be admin, counselor, teacher or user').optional(),
+  // Master prompt 1.1 role set. 'user' is the legacy read-only role.
+  role: z
+    .enum(['admin', 'principal', 'counselor', 'teacher', 'staff', 'parent', 'student', 'user'],
+      'Role must be admin, principal, counselor, teacher, staff, parent, student or user')
+    .optional(),
   first_name: optionalText(100),
   last_name: optionalText(100),
   email: optionalEmail,

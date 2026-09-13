@@ -108,7 +108,14 @@ describe('studentSchema', () => {
 });
 
 describe('incidentSchema', () => {
-  const valid = { date: '2026-07-20', student_id: 1, violation_id: 2 };
+  // Master prompt 2.2: description and the reporting staff member are required.
+  const valid = {
+    date: '2026-07-20',
+    student_id: 1,
+    violation_id: 2,
+    description: 'Talking during the exam',
+    reported_by: 'Ms Tello',
+  };
 
   it('accepts a minimal incident', () => {
     expect(run(incidentSchema, valid).passed).toBe(true);
@@ -117,6 +124,18 @@ describe('incidentSchema', () => {
   it('requires a student and a violation', () => {
     expect(run(incidentSchema, { ...valid, student_id: undefined }).passed).toBe(false);
     expect(run(incidentSchema, { ...valid, violation_id: 0 }).passed).toBe(false);
+  });
+
+  it('requires a description and the reporting staff member', () => {
+    expect(run(incidentSchema, { ...valid, description: undefined }).passed).toBe(false);
+    expect(run(incidentSchema, { ...valid, description: '   ' }).passed).toBe(false);
+    expect(run(incidentSchema, { ...valid, reported_by: undefined }).passed).toBe(false);
+    expect(run(incidentSchema, { ...valid, reported_by: '   ' }).passed).toBe(false);
+  });
+
+  it('accepts null for optional fields the edit form clears', () => {
+    const r = run(incidentSchema, { ...valid, location: null, notes: null, witnesses: null });
+    expect(r.passed).toBe(true);
   });
 
   it('coerces numeric ids arriving as strings from a form', () => {
@@ -174,7 +193,8 @@ describe('mtssSchema', () => {
 });
 
 describe('userCreateSchema', () => {
-  const valid = { username: 'jsmith', password: 'GoodPass1!' };
+  // Master prompt 4.3: 12+ characters with upper, lower, number and symbol.
+  const valid = { username: 'jsmith', password: 'Teacher!2026' };
 
   it('accepts a valid staff account', () => {
     expect(run(userCreateSchema, valid).passed).toBe(true);
@@ -184,6 +204,11 @@ describe('userCreateSchema', () => {
     expect(run(userCreateSchema, { ...valid, password: 'short1!' }).passed).toBe(false);
     expect(run(userCreateSchema, { ...valid, password: 'nodigits!!' }).passed).toBe(false);
     expect(run(userCreateSchema, { ...valid, password: 'nospecial1' }).passed).toBe(false);
+    // 12 characters but missing a character class each:
+    expect(run(userCreateSchema, { ...valid, password: 'nouppercase1!' }).passed).toBe(false);
+    expect(run(userCreateSchema, { ...valid, password: 'NOLOWERCASE1!' }).passed).toBe(false);
+    // 11 characters, otherwise compliant — pins the minimum length:
+    expect(run(userCreateSchema, { ...valid, password: 'Teacher!202' }).passed).toBe(false);
   });
 
   it('rejects a username with characters that complicate lookups', () => {
@@ -192,9 +217,11 @@ describe('userCreateSchema', () => {
     expect(run(userCreateSchema, { ...valid, username: 'j.smith-2_x' }).passed).toBe(true);
   });
 
-  it('only allows the four real roles, so an unknown role cannot be stored', () => {
-    expect(run(userCreateSchema, { ...valid, role: 'admin' }).passed).toBe(true);
+  it('only allows the real roles, so an unknown role cannot be stored', () => {
+    for (const role of ['admin', 'principal', 'counselor', 'teacher', 'staff', 'parent', 'student']) {
+      expect(run(userCreateSchema, { ...valid, role }).passed, role).toBe(true);
+    }
     expect(run(userCreateSchema, { ...valid, role: 'superadmin' }).passed).toBe(false);
-    expect(run(userCreateSchema, { ...valid, role: 'principal' }).passed).toBe(false);
+    expect(run(userCreateSchema, { ...valid, role: 'administrator' }).passed).toBe(false);
   });
 });

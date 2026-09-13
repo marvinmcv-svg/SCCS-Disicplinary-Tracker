@@ -1,4 +1,7 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+// HashRouter instead of BrowserRouter: the app is served from a single page
+// (the sandbox exposes one route), and hash URLs survive full page reloads
+// everywhere, including static file hosting.
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useState, useEffect, createContext, useContext, useCallback, useRef } from 'react';
 import { Clock, LogOut } from 'lucide-react';
 import Login from './pages/Login';
@@ -15,6 +18,7 @@ import UserProfile from './pages/UserProfile';
 import Reports from './pages/Reports';
 import Layout from './components/Layout';
 import api from './lib/api';
+import { I18nProvider, useI18n } from './i18n';
 
 interface AuthContextType {
   user: any;
@@ -32,7 +36,8 @@ export const useAuth = () => {
 };
 
 // App version - update this whenever you release new features
-const CURRENT_VERSION = import.meta.env.VITE_APP_VERSION || '1.0.0';
+// (guarded: import.meta.env only exists under Vite)
+const CURRENT_VERSION = (import.meta as any).env?.VITE_APP_VERSION || '1.0.0';
 
 // Session timeout constants (in milliseconds)
 const WARNING_TIME = 25 * 60 * 1000; // 25 minutes (show warning)
@@ -41,6 +46,7 @@ const WARNING_DURATION = 5 * 60 * 1000; // 5 minutes to respond before logout
 function UpdateBanner() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const { t } = useI18n();
 
   useEffect(() => {
     const checkVersion = async () => {
@@ -61,12 +67,12 @@ function UpdateBanner() {
 
   return (
     <div className="fixed top-0 left-0 right-0 bg-yellow-500 text-black px-4 py-2 text-center text-sm z-50 flex items-center justify-center gap-2">
-      <span>A new version ({CURRENT_VERSION}) is available!</span>
+      <span>{t('A new version ({version}) is available!', { version: CURRENT_VERSION })}</span>
       <button
         onClick={() => setDismissed(true)}
         className="ml-2 px-2 py-1 bg-yellow-600 text-white rounded text-xs"
       >
-        Dismiss
+        {t('Dismiss')}
       </button>
     </div>
   );
@@ -83,6 +89,7 @@ function SessionTimeoutWarning({
 }) {
   const minutes = Math.floor(remainingTime / 60000);
   const seconds = Math.floor((remainingTime % 60000) / 1000);
+  const { t } = useI18n();
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
@@ -92,14 +99,16 @@ function SessionTimeoutWarning({
             <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
               <Clock className="w-5 h-5 text-orange-600" />
             </div>
-            <h2 className="text-lg font-semibold text-gray-900">Session Expiring Soon</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t('Session Expiring Soon')}</h2>
           </div>
         </div>
         <p className="text-gray-600 mb-4">
-          Your session will expire in <strong>{minutes}:{seconds.toString().padStart(2, '0')}</strong> due to inactivity.
+          {t('Your session will expire in {time} due to inactivity.', {
+            time: `${minutes}:${seconds.toString().padStart(2, '0')}`,
+          })}
         </p>
         <p className="text-gray-500 text-sm mb-6">
-          Click "Stay Logged In" to continue your session, or "Log Out" to end it now.
+          {t('Click "Stay Logged In" to continue your session, or "Log Out" to end it now.')}
         </p>
         <div className="flex gap-3">
           <button
@@ -107,13 +116,13 @@ function SessionTimeoutWarning({
             className="btn btn-secondary flex-1 flex items-center justify-center gap-2"
           >
             <LogOut className="w-4 h-4" />
-            Log Out
+            {t('Log Out')}
           </button>
           <button
             onClick={onStayLoggedIn}
             className="btn btn-primary flex-1"
           >
-            Stay Logged In
+            {t('Stay Logged In')}
           </button>
         </div>
       </div>
@@ -262,32 +271,34 @@ function App() {
 
   return (
     <AuthContext.Provider value={{ user, token, login, logout: handleLogout }}>
-      <UpdateBanner />
-      {showSessionWarning && (
-        <SessionTimeoutWarning
-          remainingTime={warningCountdown}
-          onStayLoggedIn={handleStayLoggedIn}
-          onLogout={handleLogout}
-        />
-      )}
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={token ? <Navigate to="/" /> : <Login />} />
-          <Route path="/" element={token ? <Layout /> : <Navigate to="/login" />}>
-            <Route index element={<Dashboard />} />
-            <Route path="students" element={<Students />} />
-            <Route path="students/:id" element={<StudentProfile />} />
-            <Route path="incidents" element={<Incidents />} />
-            <Route path="incidents/:id" element={<IncidentDetail />} />
-            <Route path="violations" element={<Violations />} />
-            <Route path="reports" element={<Reports />} />
-            <Route path="mtss" element={<MTSS />} />
-            <Route path="users" element={<Users />} />
-            <Route path="users/:id" element={<UserProfile />} />
-            <Route path="settings" element={<Settings />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <I18nProvider>
+        <UpdateBanner />
+        {showSessionWarning && (
+          <SessionTimeoutWarning
+            remainingTime={warningCountdown}
+            onStayLoggedIn={handleStayLoggedIn}
+            onLogout={handleLogout}
+          />
+        )}
+        <HashRouter>
+          <Routes>
+            <Route path="/login" element={token ? <Navigate to="/" /> : <Login />} />
+            <Route path="/" element={token ? <Layout /> : <Navigate to="/login" />}>
+              <Route index element={<Dashboard />} />
+              <Route path="students" element={<Students />} />
+              <Route path="students/:id" element={<StudentProfile />} />
+              <Route path="incidents" element={<Incidents />} />
+              <Route path="incidents/:id" element={<IncidentDetail />} />
+              <Route path="violations" element={<Violations />} />
+              <Route path="reports" element={<Reports />} />
+              <Route path="mtss" element={<MTSS />} />
+              <Route path="users" element={<Users />} />
+              <Route path="users/:id" element={<UserProfile />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
+          </Routes>
+        </HashRouter>
+      </I18nProvider>
     </AuthContext.Provider>
   );
 }

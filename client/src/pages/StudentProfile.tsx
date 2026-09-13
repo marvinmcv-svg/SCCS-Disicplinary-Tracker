@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, User, Calendar, Phone, Mail, MapPin, Clock, AlertTriangle, CheckCircle, Printer, ChevronRight, GraduationCap } from 'lucide-react';
 import api from '../lib/api';
 import { Incident } from '../lib/api';
+import { useI18n } from '../i18n';
 
 interface Student {
   id: number;
@@ -45,6 +46,7 @@ interface StudentIncident extends Incident {
 }
 
 export default function StudentProfile() {
+  const { t } = useI18n();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [student, setStudent] = useState<Student | null>(null);
@@ -119,8 +121,8 @@ export default function StudentProfile() {
   };
 
   const getMtssTierLabel = (tier: number | undefined): string => {
-    if (!tier) return 'Not Enrolled';
-    return `Tier ${tier}`;
+    if (!tier) return t('Not Enrolled');
+    return t('Tier {tier}', { tier });
   };
 
   const getMtssTierColor = (tier: number | undefined): string => {
@@ -149,7 +151,7 @@ export default function StudentProfile() {
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center min-h-[50vh]">
-        <div className="text-gray-400">Loading profile...</div>
+        <div className="text-gray-400">{t('Loading profile...')}</div>
       </div>
     );
   }
@@ -158,9 +160,9 @@ export default function StudentProfile() {
     return (
       <div className="p-6 flex flex-col items-center justify-center min-h-[50vh]">
         <AlertTriangle className="w-12 h-12 text-gray-400 mb-4" />
-        <p className="text-gray-500 mb-4">Student not found</p>
+        <p className="text-gray-500 mb-4">{t('Student not found')}</p>
         <button onClick={() => navigate('/students')} className="btn btn-primary">
-          Back to Students
+          {t('Back to Students')}
         </button>
       </div>
     );
@@ -176,14 +178,14 @@ export default function StudentProfile() {
         className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
       >
         <ArrowLeft className="w-5 h-5" />
-        Back to Students
+        {t('Back to Students')}
       </button>
 
       {/* Print Button - only show when printing */}
       <div className="hidden print:flex justify-end mb-4">
         <button onClick={handlePrint} className="btn btn-secondary flex items-center gap-2">
           <Printer className="w-5 h-5" />
-          Print Report
+          {t('Print Report')}
         </button>
       </div>
 
@@ -208,7 +210,7 @@ export default function StudentProfile() {
               <div className="flex flex-wrap items-center gap-3 mt-2 text-blue-100">
                 <span className="flex items-center gap-1">
                   <GraduationCap className="w-4 h-4" />
-                  Grade {student.grade}{student.section ? `-${student.section}` : ''}
+                  {t('Grade')} {student.grade}{student.section ? `-${student.section}` : ''}
                 </span>
                 {student.house_team && (
                   <span className="flex items-center gap-1">
@@ -218,11 +220,11 @@ export default function StudentProfile() {
                 )}
                 <span className="flex items-center gap-1">
                   <MapPin className="w-4 h-4" />
-                  {student.advisory || 'No Advisory'}
+                  {student.advisory || t('No Advisory')}
                 </span>
                 <span className="flex items-center gap-1">
                   <User className="w-4 h-4" />
-                  ID: {student.student_id}
+                  {t('ID')}: {student.student_id}
                 </span>
               </div>
               <div className="flex items-center gap-2 mt-3">
@@ -232,7 +234,7 @@ export default function StudentProfile() {
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
-                    MTSS Not Enrolled
+                    MTSS {t('Not Enrolled')}
                   </span>
                 )}
                 <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
@@ -240,7 +242,7 @@ export default function StudentProfile() {
                   student.conduct_status === 'Warning' ? 'bg-yellow-200 text-yellow-800' :
                   student.conduct_status === 'Probation' ? 'bg-red-200 text-red-800' : 'bg-blue-200 text-blue-800'
                 }`}>
-                  {student.conduct_status || 'Unknown'}
+                  {t(student.conduct_status || 'Unknown')}
                 </span>
               </div>
             </div>
@@ -252,56 +254,56 @@ export default function StudentProfile() {
           <div className="flex items-center gap-3 p-4">
             <User className="w-5 h-5 text-gray-400" />
             <div>
-              <p className="text-xs text-gray-500">Counselor</p>
+              <p className="text-xs text-gray-500">{t('Counselor')}</p>
               <p className="text-sm font-medium text-gray-900">{student.counselor || '-'}</p>
             </div>
           </div>
           <div className="flex items-center gap-3 p-4">
             <Phone className="w-5 h-5 text-gray-400" />
             <div>
-              <p className="text-xs text-gray-500">Parent Phone</p>
+              <p className="text-xs text-gray-500">{t('Parent Phone')}</p>
               <p className="text-sm font-medium text-gray-900">{student.parent_phone || '-'}</p>
             </div>
           </div>
           <div className="flex items-center gap-3 p-4">
             <Mail className="w-5 h-5 text-gray-400" />
             <div>
-              <p className="text-xs text-gray-500">Parent Email</p>
+              <p className="text-xs text-gray-500">{t('Parent Email')}</p>
               <p className="text-sm font-medium text-gray-900 truncate">{student.parent_email || '-'}</p>
             </div>
           </div>
           <div className="flex items-center gap-3 p-4">
             <Calendar className="w-5 h-5 text-gray-400" />
             <div>
-              <p className="text-xs text-gray-500">Date of Birth</p>
+              <p className="text-xs text-gray-500">{t('Date of Birth')}</p>
               <p className="text-sm font-medium text-gray-900">{formatDate(student.date_of_birth)}</p>
             </div>
           </div>
           <div className="flex items-center gap-3 p-4">
             <User className="w-5 h-5 text-gray-400" />
             <div>
-              <p className="text-xs text-gray-500">Parent/Guardian</p>
+              <p className="text-xs text-gray-500">{t('Parent/Guardian')}</p>
               <p className="text-sm font-medium text-gray-900 truncate">{student.parent_name || '-'}</p>
             </div>
           </div>
           <div className="flex items-center gap-3 p-4">
             <GraduationCap className="w-5 h-5 text-gray-400" />
             <div>
-              <p className="text-xs text-gray-500">House Team</p>
+              <p className="text-xs text-gray-500">{t('House Team')}</p>
               <p className="text-sm font-medium text-gray-900">{student.house_team || '-'}</p>
             </div>
           </div>
           <div className="flex items-center gap-3 p-4">
             <User className="w-5 h-5 text-gray-400" />
             <div>
-              <p className="text-xs text-gray-500">Gender</p>
+              <p className="text-xs text-gray-500">{t('Gender')}</p>
               <p className="text-sm font-medium text-gray-900">{student.gender || '-'}</p>
             </div>
           </div>
           <div className="flex items-center gap-3 p-4">
             <MapPin className="w-5 h-5 text-gray-400" />
             <div>
-              <p className="text-xs text-gray-500">Section</p>
+              <p className="text-xs text-gray-500">{t('Section')}</p>
               <p className="text-sm font-medium text-gray-900">{student.section || '-'}</p>
             </div>
           </div>
@@ -312,15 +314,15 @@ export default function StudentProfile() {
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-xl shadow-sm p-4 text-center">
           <p className="text-3xl font-bold text-gray-900">{incidents.length}</p>
-          <p className="text-xs text-gray-500 mt-1">Total Incidents</p>
+          <p className="text-xs text-gray-500 mt-1">{t('Total Incidents')}</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm p-4 text-center">
           <p className="text-3xl font-bold text-yellow-600">{activeIncidents.length}</p>
-          <p className="text-xs text-gray-500 mt-1">Active Incidents</p>
+          <p className="text-xs text-gray-500 mt-1">{t('Active Incidents')}</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm p-4 text-center">
           <p className="text-3xl font-bold text-green-600">{resolvedIncidents.length}</p>
-          <p className="text-xs text-gray-500 mt-1">Resolved</p>
+          <p className="text-xs text-gray-500 mt-1">{t('Resolved')}</p>
         </div>
       </div>
 
@@ -328,13 +330,13 @@ export default function StudentProfile() {
       <div className="bg-white rounded-2xl shadow-sm p-6 mb-6 print:page-break-inside-avoid">
         <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
           <Clock className="w-5 h-5" />
-          Incident Timeline
+          {t('Incident Timeline')}
         </h2>
 
         {incidents.length === 0 ? (
           <div className="text-center py-8 text-gray-400">
             <AlertTriangle className="w-12 h-12 mx-auto mb-2" />
-            <p>No incidents on record</p>
+            <p>{t('No incidents on record')}</p>
           </div>
         ) : (
           <div className="relative">
@@ -363,31 +365,31 @@ export default function StudentProfile() {
                   <div className="flex-1 bg-gray-50 rounded-xl p-4 print:bg-white print:border">
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div>
-                        <p className="font-semibold text-gray-900">{incident.violation_type}</p>
-                        <p className="text-xs text-gray-500">{incident.category}</p>
+                        <p className="font-semibold text-gray-900">{t(incident.violation_type)}</p>
+                        <p className="text-xs text-gray-500">{t(incident.category)}</p>
                       </div>
                       <span className={`badge ${getStatusColor(incident.status)}`}>
-                        {incident.status}
+                        {t(incident.status)}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
-                        <span className="text-gray-500">Date: </span>
+                        <span className="text-gray-500">{t('Date')}: </span>
                         <span className="text-gray-700">{formatDate(incident.date)}</span>
                       </div>
                       <div>
-                        <span className="text-gray-500">Location: </span>
+                        <span className="text-gray-500">{t('Location')}: </span>
                         <span className="text-gray-700">{incident.location || '-'}</span>
                       </div>
                       {incident.consequence && (
                         <div className="col-span-2">
-                          <span className="text-gray-500">Consequence: </span>
-                          <span className="text-gray-700">{incident.consequence}</span>
+                          <span className="text-gray-500">{t('Consequence')}: </span>
+                          <span className="text-gray-700">{t(incident.consequence)}</span>
                         </div>
                       )}
                       {incident.points_deducted !== undefined && incident.points_deducted !== 0 && (
                         <div>
-                          <span className="text-gray-500">Points: </span>
+                          <span className="text-gray-500">{t('Points')}: </span>
                           <span className={`font-medium ${incident.points_deducted < 0 ? 'text-red-600' : 'text-green-600'}`}>
                             {incident.points_deducted}
                           </span>
@@ -401,7 +403,7 @@ export default function StudentProfile() {
                     )}
                     {incident.notes && (
                       <p className="text-sm text-gray-500 mt-1 italic">
-                        Note: {incident.notes}
+                        {t('Note')}: {incident.notes}
                       </p>
                     )}
                   </div>
@@ -417,38 +419,38 @@ export default function StudentProfile() {
         <div className="bg-white rounded-2xl shadow-sm p-6 mb-6 print:page-break-inside-avoid">
           <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
             <GraduationCap className="w-5 h-5" />
-            MTSS Intervention
+            {t('MTSS Intervention')}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <p className="text-sm text-gray-500">Tier</p>
+              <p className="text-sm text-gray-500">{t('Tier')}</p>
               <p className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium mt-1 ${getMtssTierColor(mtss.tier)}`}>
                 {getMtssTierLabel(mtss.tier)}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Intervention</p>
-              <p className="font-medium text-gray-900">{mtss.intervention}</p>
+              <p className="text-sm text-gray-500">{t('Intervention')}</p>
+              <p className="font-medium text-gray-900">{t(mtss.intervention)}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Start Date</p>
+              <p className="text-sm text-gray-500">{t('Start Date')}</p>
               <p className="font-medium text-gray-900">{formatDate(mtss.start_date)}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">End Date</p>
-              <p className="font-medium text-gray-900">{mtss.end_date ? formatDate(mtss.end_date) : 'Ongoing'}</p>
+              <p className="text-sm text-gray-500">{t('End Date')}</p>
+              <p className="font-medium text-gray-900">{mtss.end_date ? formatDate(mtss.end_date) : t('Ongoing')}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Progress</p>
-              <p className="font-medium text-gray-900">{mtss.progress}</p>
+              <p className="text-sm text-gray-500">{t('Progress')}</p>
+              <p className="font-medium text-gray-900">{t(mtss.progress)}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Advisor</p>
+              <p className="text-sm text-gray-500">{t('Advisor')}</p>
               <p className="font-medium text-gray-900">{mtss.advisor}</p>
             </div>
             {mtss.notes && (
               <div className="md:col-span-2">
-                <p className="text-sm text-gray-500">Notes</p>
+                <p className="text-sm text-gray-500">{t('Notes')}</p>
                 <p className="font-medium text-gray-900">{mtss.notes}</p>
               </div>
             )}
@@ -461,7 +463,7 @@ export default function StudentProfile() {
         <div className="bg-white rounded-2xl shadow-sm p-6 mb-6 print:page-break-inside-avoid">
           <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
             <User className="w-5 h-5" />
-            Observations / Notes
+            {t('Observations / Notes')}
           </h2>
           <p className="text-gray-700">{student.observations}</p>
         </div>
@@ -469,8 +471,8 @@ export default function StudentProfile() {
 
       {/* Print-only footer */}
       <div className="hidden print:mt-8 pt-4 border-t text-center text-xs text-gray-500">
-        <p>SCCS Disciplinary Tracker - Student Report</p>
-        <p>Generated on {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+        <p>{t('SCCS Disciplinary Tracker - Student Report')}</p>
+        <p>{t('Generated on')} {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
       </div>
     </div>
   );

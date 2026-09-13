@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Plus, Search, X, AlertCircle, CheckCircle, Clock, Loader, Check, Trash2, ChevronLeft, ChevronRight, Download, FileText, Calendar } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../lib/api';
+import { useI18n } from '../i18n';
 import * as XLSX from 'xlsx';
 
 interface Student {
@@ -79,6 +80,7 @@ const CONSEQUENCE_OPTIONS = ['Warning', 'Parent Call', 'Detention', 'Saturday Sc
 export default function Incidents() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useI18n();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [violations, setViolations] = useState<Violation[]>([]);
@@ -277,7 +279,7 @@ export default function Incidents() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Error creating incident');
+      alert(error.response?.data?.error || t('Error creating incident'));
     } finally {
       setSaving(false);
     }
@@ -343,27 +345,27 @@ export default function Incidents() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-900">Incidents</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{t('Incidents')}</h1>
             {openIncidentsCount > 0 && (
               <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
                 <AlertCircle className="w-4 h-4" />
-                {openIncidentsCount} Open
+                {t('{count} Open', { count: openIncidentsCount })}
               </span>
             )}
           </div>
-          <p className="text-gray-500">Record and manage discipline incidents</p>
+          <p className="text-gray-500">{t('Record and manage discipline incidents')}</p>
         </div>
         <div className="flex gap-2">
           {saved && (
             <span className="flex items-center gap-2 text-green-600 bg-green-50 px-4 py-2 rounded-xl">
-              <Check className="w-5 h-5" /><span className="font-medium">Saved!</span>
+              <Check className="w-5 h-5" /><span className="font-medium">{t('Saved!')}</span>
             </span>
           )}
           <button onClick={handleExportExcel} className="btn btn-secondary">
-            <Download className="w-5 h-5" />Export
+            <Download className="w-5 h-5" />{t('Export')}
           </button>
           <button onClick={openModal} className="btn btn-primary">
-            <Plus className="w-5 h-5" />New Incident
+            <Plus className="w-5 h-5" />{t('New Incident')}
           </button>
         </div>
       </div>
@@ -374,18 +376,18 @@ export default function Incidents() {
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input type="text" placeholder="Search incidents..." value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }} className="input pl-12" />
+              <input type="text" placeholder={t('Search incidents...')} value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }} className="input pl-12" />
             </div>
             <div className="flex gap-2 flex-wrap">
               {DATE_PRESETS.map(preset => (
                 <button key={preset.label} onClick={() => { setDatePreset(preset.label); setCurrentPage(1); }}
                   className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${datePreset === preset.label ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                  {preset.label}
+                  {t(preset.label)}
                 </button>
               ))}
               <button onClick={() => setDatePreset('Custom')}
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${datePreset === 'Custom' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                Custom
+                {t('Custom')}
               </button>
             </div>
           </div>
@@ -395,28 +397,28 @@ export default function Incidents() {
                 <Calendar className="w-4 h-4 text-gray-400" />
                 <input type="date" value={customDateStart} onChange={(e) => { setCustomDateStart(e.target.value); setCurrentPage(1); }} className="input w-40" />
               </div>
-              <span className="text-gray-400">to</span>
+              <span className="text-gray-400">{t('to')}</span>
               <input type="date" value={customDateEnd} onChange={(e) => { setCustomDateEnd(e.target.value); setCurrentPage(1); }} className="input w-40" />
             </div>
           )}
           <div className="flex gap-2 flex-wrap">
             <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }} className="select w-40">
-              <option value="">All Status</option>
-              <option value="Open">Open</option>
-              <option value="Pending">Pending</option>
-              <option value="Resolved">Resolved</option>
+              <option value="">{t('All Status')}</option>
+              <option value="Open">{t('Open')}</option>
+              <option value="Pending">{t('Pending')}</option>
+              <option value="Resolved">{t('Resolved')}</option>
             </select>
             <select value={filterCategory} onChange={(e) => { setFilterCategory(e.target.value); setCurrentPage(1); }} className="select w-48">
-              <option value="">All Categories</option>
-              {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              <option value="">{t('All Categories')}</option>
+              {categories.map(cat => <option key={cat} value={cat}>{t(cat)}</option>)}
             </select>
             <select value={filterGrade} onChange={(e) => { setFilterGrade(e.target.value); setCurrentPage(1); }} className="select w-32">
-              <option value="">All Grades</option>
-              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(g => <option key={g} value={`${g}`}>{g === 0 ? 'Pre-K/K' : 'Grade ' + g}</option>)}
+              <option value="">{t('All Grades')}</option>
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(g => <option key={g} value={`${g}`}>{g === 0 ? t('Pre-K/K') : t('Grade {grade}', { grade: g })}</option>)}
             </select>
             {(search || filterStatus || filterCategory || filterGrade || datePreset !== 'All Time') && (
               <button onClick={() => { setSearch(''); setFilterStatus(''); setFilterCategory(''); setFilterGrade(''); setDatePreset('All Time'); setCurrentPage(1); }} className="btn btn-secondary">
-                Clear Filters
+                {t('Clear Filters')}
               </button>
             )}
           </div>
@@ -426,27 +428,27 @@ export default function Incidents() {
       {/* Pagination Info */}
       <div className="flex items-center justify-between px-2">
         <p className="text-sm text-gray-500">
-          Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, processedIncidents.length)} of {processedIncidents.length} incidents
+          {t('Showing {from}–{to} of {total} incidents', { from: (currentPage - 1) * pageSize + 1, to: Math.min(currentPage * pageSize, processedIncidents.length), total: processedIncidents.length })}
         </p>
       </div>
 
       {/* Incidents Table */}
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
         {loading ? (
-          <div className="text-center py-12 text-gray-400">Loading...</div>
+          <div className="text-center py-12 text-gray-400">{t('Loading...')}</div>
         ) : paginatedIncidents.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:bg-gray-100" onClick={() => handleSort('incident_id')}>ID {getSortIcon('incident_id')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:bg-gray-100" onClick={() => handleSort('date')}>Date {getSortIcon('date')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:bg-gray-100 hide-mobile" onClick={() => handleSort('last_name')}>Student {getSortIcon('last_name')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:bg-gray-100 hide-mobile" onClick={() => handleSort('category')}>Category {getSortIcon('category')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">Location</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:bg-gray-100" onClick={() => handleSort('status')}>Status {getSortIcon('status')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:bg-gray-100 hide-mobile" onClick={() => handleSort('advisor')}>Assigned To {getSortIcon('advisor')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Action</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:bg-gray-100" onClick={() => handleSort('incident_id')}>{t('ID')} {getSortIcon('incident_id')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:bg-gray-100" onClick={() => handleSort('date')}>{t('Date')} {getSortIcon('date')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:bg-gray-100 hide-mobile" onClick={() => handleSort('last_name')}>{t('Student')} {getSortIcon('last_name')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:bg-gray-100 hide-mobile" onClick={() => handleSort('category')}>{t('Category')} {getSortIcon('category')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">{t('Location')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:bg-gray-100" onClick={() => handleSort('status')}>{t('Status')} {getSortIcon('status')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:bg-gray-100 hide-mobile" onClick={() => handleSort('advisor')}>{t('Assigned To')} {getSortIcon('advisor')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('Action')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -458,14 +460,14 @@ export default function Incidents() {
                       <div><p className="font-medium">{incident.last_name}, {incident.first_name}</p></div>
                     </td>
                     <td className="px-4 py-3 hide-mobile">
-                      <span className="text-sm">{incident.violation_type}</span>
-                      <span className="text-xs text-gray-400 ml-1">({incident.category})</span>
+                      <span className="text-sm">{t(incident.violation_type)}</span>
+                      <span className="text-xs text-gray-400 ml-1">({t(incident.category)})</span>
                     </td>
                     <td className="px-4 py-3 hide-mobile text-sm">{incident.location || '-'}</td>
-                    <td className="px-4 py-3"><span className={`badge ${getStatusColor(incident.status)}`}>{incident.status}</span></td>
+                    <td className="px-4 py-3"><span className={`badge ${getStatusColor(incident.status)}`}>{t(incident.status)}</span></td>
                     <td className="px-4 py-3 hide-mobile text-sm">{incident.advisor || '-'}</td>
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <button onClick={() => openIncidentDetail(incident)} className="text-blue-600 hover:text-blue-700 text-sm font-medium">View</button>
+                      <button onClick={() => openIncidentDetail(incident)} className="text-blue-600 hover:text-blue-700 text-sm font-medium">{t('View')}</button>
                     </td>
                   </tr>
                 ))}
@@ -475,8 +477,8 @@ export default function Incidents() {
         ) : (
           <div className="text-center py-12 text-gray-400">
             <AlertCircle className="w-12 h-12 mx-auto mb-2" />
-            <p>No incidents found</p>
-            <button onClick={openModal} className="btn btn-primary mt-4"><Plus className="w-5 h-5" />Record First Incident</button>
+            <p>{t('No incidents found')}</p>
+            <button onClick={openModal} className="btn btn-primary mt-4"><Plus className="w-5 h-5" />{t('Record First Incident')}</button>
           </div>
         )}
       </div>
@@ -484,8 +486,8 @@ export default function Incidents() {
       {/* Pagination Controls */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 pb-4">
-          <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="btn btn-secondary py-2 px-3 disabled:opacity-50">First</button>
-          <button onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1} className="btn btn-secondary py-2 px-3 disabled:opacity-50"><ChevronLeft className="w-4 h-4 mr-1" />Prev</button>
+          <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="btn btn-secondary py-2 px-3 disabled:opacity-50">{t('First')}</button>
+          <button onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1} className="btn btn-secondary py-2 px-3 disabled:opacity-50"><ChevronLeft className="w-4 h-4 mr-1" />{t('Prev')}</button>
           <div className="flex items-center gap-1">
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
               let pageNum = totalPages <= 5 ? i + 1 : currentPage <= 3 ? i + 1 : currentPage >= totalPages - 2 ? totalPages - 4 + i : currentPage - 2 + i;
@@ -497,8 +499,8 @@ export default function Incidents() {
               );
             })}
           </div>
-          <button onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage >= totalPages} className="btn btn-secondary py-2 px-3 disabled:opacity-50">Next<ChevronRight className="w-4 h-4 ml-1" /></button>
-          <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage >= totalPages} className="btn btn-secondary py-2 px-3 disabled:opacity-50">Last</button>
+          <button onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage >= totalPages} className="btn btn-secondary py-2 px-3 disabled:opacity-50">{t('Next')}<ChevronRight className="w-4 h-4 ml-1" /></button>
+          <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage >= totalPages} className="btn btn-secondary py-2 px-3 disabled:opacity-50">{t('Last')}</button>
         </div>
       )}
 
@@ -507,33 +509,33 @@ export default function Incidents() {
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal max-w-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">New Discipline Incident</h2>
+              <h2 className="text-lg font-semibold">{t('New Discipline Incident')}</h2>
               <button onClick={closeModal} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="form-label">Date *</label>
+                  <label className="form-label">{t('Date *')}</label>
                   <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="input" required />
                 </div>
                 <div>
-                  <label className="form-label">Time</label>
+                  <label className="form-label">{t('Time')}</label>
                   <input type="time" value={formData.time} onChange={(e) => setFormData({ ...formData, time: e.target.value })} className="input" />
                 </div>
                 <div>
-                  <label className="form-label">Location</label>
+                  <label className="form-label">{t('Location')}</label>
                   <select value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} className="select">
-                    <option value="">Select</option>
-                    {LOCATION_OPTIONS.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+                    <option value="">{t('Select')}</option>
+                    {LOCATION_OPTIONS.map(loc => <option key={loc} value={loc}>{t(loc)}</option>)}
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div ref={studentRef} className="relative">
-                  <label className="form-label">Student *</label>
+                  <label className="form-label">{t('Student *')}</label>
                   <div className="relative">
-                    <input type="text" value={studentSearch} onChange={(e) => { setStudentSearch(e.target.value); setShowStudentDropdown(true); }} onFocus={() => setShowStudentDropdown(true)} placeholder="Search student..." className="input pr-8" required />
+                    <input type="text" value={studentSearch} onChange={(e) => { setStudentSearch(e.target.value); setShowStudentDropdown(true); }} onFocus={() => setShowStudentDropdown(true)} placeholder={t('Search student...')} className="input pr-8" required />
                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   </div>
                   {showStudentDropdown && filteredStudentsForSelect.length > 0 && (
@@ -547,9 +549,9 @@ export default function Incidents() {
                   )}
                 </div>
                 <div ref={violationRef} className="relative">
-                  <label className="form-label">Violation Type *</label>
+                  <label className="form-label">{t('Violation Type *')}</label>
                   <div className="relative">
-                    <input type="text" value={violationSearch} onChange={(e) => { setViolationSearch(e.target.value); setShowViolationDropdown(true); }} onFocus={() => setShowViolationDropdown(true)} placeholder="Search violation..." className="input pr-10" required />
+                    <input type="text" value={violationSearch} onChange={(e) => { setViolationSearch(e.target.value); setShowViolationDropdown(true); }} onFocus={() => setShowViolationDropdown(true)} placeholder={t('Search violation...')} className="input pr-10" required />
                     <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   </div>
                   {showViolationDropdown && filteredViolationsForSelect.length > 0 && (
@@ -559,9 +561,9 @@ export default function Incidents() {
                         if (catViolations.length === 0) return null;
                         return (
                           <div key={cat}>
-                            <div className="px-3 py-1 text-xs font-semibold text-gray-500 bg-gray-50">{cat}</div>
+                            <div className="px-3 py-1 text-xs font-semibold text-gray-500 bg-gray-50">{t(cat)}</div>
                             {catViolations.map(v => (
-                              <button key={v.id} type="button" onClick={() => { setFormData({ ...formData, violation_id: v.id }); setViolationSearch(v.violation_type); setShowViolationDropdown(false); }} className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm">{v.violation_type}</button>
+                              <button key={v.id} type="button" onClick={() => { setFormData({ ...formData, violation_id: v.id }); setViolationSearch(v.violation_type); setShowViolationDropdown(false); }} className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm">{t(v.violation_type)}</button>
                             ))}
                           </div>
                         );
@@ -573,35 +575,35 @@ export default function Incidents() {
 
               {filteredViolations.length > 0 && (
                 <div className="p-3 bg-gray-50 rounded-lg text-sm">
-                  <p><strong>Default Consequence:</strong> {filteredViolations[0].default_consequence}</p>
-                  <p><strong>Max OSS:</strong> {filteredViolations[0].max_oss_days} days</p>
+                  <p><strong>{t('Default Consequence:')}</strong> {t(filteredViolations[0].default_consequence)}</p>
+                  <p><strong>{t('Max OSS:')}</strong> {filteredViolations[0].max_oss_days} {t('days')}</p>
                 </div>
               )}
 
               <div>
-                <label className="form-label">Description</label>
-                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="input min-h-[80px]" placeholder="Describe what happened..." />
+                <label className="form-label">{t('Description *')}</label>
+                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="input min-h-[80px]" placeholder={t('Describe what happened...')} required />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="form-label">Reported By</label>
-                  <select value={formData.reported_by} onChange={(e) => setFormData({ ...formData, reported_by: e.target.value })} className="select">
-                    <option value="">Select staff...</option>
+                  <label className="form-label">{t('Reported By *')}</label>
+                  <select value={formData.reported_by} onChange={(e) => setFormData({ ...formData, reported_by: e.target.value })} className="select" required>
+                    <option value="">{t('Select staff...')}</option>
                     {users.map(u => <option key={u.id} value={`${u.first_name} ${u.last_name}`}>{u.first_name} {u.last_name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="form-label">Witness(es)</label>
-                  <input type="text" value={formData.witnesses} onChange={(e) => setFormData({ ...formData, witnesses: e.target.value })} className="input" placeholder="Names of witnesses..." />
+                  <label className="form-label">{t('Witness(es)')}</label>
+                  <input type="text" value={formData.witnesses} onChange={(e) => setFormData({ ...formData, witnesses: e.target.value })} className="input" placeholder={t('Names of witnesses...')} />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div ref={advisorRef} className="relative">
-                  <label className="form-label">Assigned To (Advisor)</label>
+                  <label className="form-label">{t('Assigned To (Advisor)')}</label>
                   <div className="relative">
-                    <input type="text" value={advisorSearch} onChange={(e) => { setAdvisorSearch(e.target.value); setShowAdvisorDropdown(true); }} onFocus={() => setShowAdvisorDropdown(true)} placeholder="Search advisor..." className="input pr-8" />
+                    <input type="text" value={advisorSearch} onChange={(e) => { setAdvisorSearch(e.target.value); setShowAdvisorDropdown(true); }} onFocus={() => setShowAdvisorDropdown(true)} placeholder={t('Search advisor...')} className="input pr-8" />
                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   </div>
                   {showAdvisorDropdown && (
@@ -617,10 +619,10 @@ export default function Incidents() {
                   )}
                 </div>
                 <div>
-                  <label className="form-label">Action Taken</label>
+                  <label className="form-label">{t('Action Taken')}</label>
                   <select value={formData.action_taken} onChange={(e) => setFormData({ ...formData, action_taken: e.target.value })} className="select">
-                    <option value="">Select Action</option>
-                    {CONSEQUENCE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    <option value="">{t('Select Action')}</option>
+                    {CONSEQUENCE_OPTIONS.map(opt => <option key={opt} value={opt}>{t(opt)}</option>)}
                   </select>
                 </div>
               </div>
@@ -628,7 +630,7 @@ export default function Incidents() {
               <div className="p-3 bg-yellow-50 rounded-lg">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={formData.follow_up_needed === 'Yes'} onChange={(e) => setFormData({ ...formData, follow_up_needed: e.target.checked ? 'Yes' : 'No' })} className="w-4 h-4 rounded" />
-                  <span className="text-sm font-medium">Follow-up Required</span>
+                  <span className="text-sm font-medium">{t('Follow-up Required')}</span>
                 </label>
                 {formData.follow_up_needed === 'Yes' && (
                   <div className="mt-2">
@@ -640,7 +642,7 @@ export default function Incidents() {
               <div className="p-3 bg-blue-50 rounded-lg">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={formData.parent_contacted === 'Yes'} onChange={(e) => setFormData({ ...formData, parent_contacted: e.target.checked ? 'Yes' : 'No' })} className="w-4 h-4 rounded" />
-                  <span className="text-sm font-medium">Parent Notified?</span>
+                  <span className="text-sm font-medium">{t('Parent Notified?')}</span>
                 </label>
                 {formData.parent_contacted === 'Yes' && (
                   <div className="mt-2">
@@ -650,14 +652,14 @@ export default function Incidents() {
               </div>
 
               <div>
-                <label className="form-label">Notes</label>
-                <textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="input min-h-[60px]" placeholder="Additional notes..." />
+                <label className="form-label">{t('Notes')}</label>
+                <textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="input min-h-[60px]" placeholder={t('Additional notes...')} />
               </div>
 
               <div className="flex justify-end gap-6 pt-4">
-                <button type="button" onClick={closeModal} className="btn btn-danger">Cancel</button>
+                <button type="button" onClick={closeModal} className="btn btn-danger">{t('Cancel')}</button>
                 <button type="submit" disabled={saving} className="btn btn-primary">
-                  {saving ? <span className="flex items-center gap-2"><Loader className="w-5 h-5 animate-spin" />Saving...</span> : 'Record Incident'}
+                  {saving ? <span className="flex items-center gap-2"><Loader className="w-5 h-5 animate-spin" />{t('Saving...')}</span> : t('Record Incident')}
                 </button>
               </div>
             </form>

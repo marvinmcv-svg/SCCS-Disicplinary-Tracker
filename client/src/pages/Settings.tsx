@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Save, Settings as SettingsIcon, Bell, Shield } from 'lucide-react';
 import api from '../lib/api';
+import { useI18n } from '../i18n';
 
 interface Alert {
   id: number;
@@ -21,6 +22,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const { t } = useI18n();
 
   useEffect(() => {
     loadSettings();
@@ -46,7 +48,7 @@ export default function Settings() {
     setSaving(true);
     try {
       await api.put('/settings', settings);
-      setMessage('Settings saved!');
+      setMessage(t('Settings saved!'));
       setTimeout(() => setMessage(''), 3000);
     } catch (error) {
       console.error(error);
@@ -70,15 +72,15 @@ export default function Settings() {
   };
 
   if (loading) {
-    return <div className="text-center py-8 text-gray-400">Loading...</div>;
+    return <div className="text-center py-8 text-gray-400">{t('Loading...')}</div>;
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-          <p className="text-gray-500">Configure system preferences and alerts</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('Settings')}</h1>
+          <p className="text-gray-500">{t('Configure system preferences and alerts')}</p>
         </div>
       </div>
 
@@ -86,13 +88,13 @@ export default function Settings() {
       <div className="card">
         <div className="flex items-center gap-2 mb-4">
           <SettingsIcon className="w-5 h-5 text-gray-500" />
-          <h2 className="text-lg font-semibold">General Settings</h2>
+          <h2 className="text-lg font-semibold">{t('General Settings')}</h2>
         </div>
 
         <form onSubmit={handleSaveSettings} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="form-label">School Name</label>
+              <label className="form-label">{t('School Name')}</label>
               <input
                 type="text"
                 value={settings.school_name}
@@ -101,7 +103,7 @@ export default function Settings() {
               />
             </div>
             <div>
-              <label className="form-label">Academic Year</label>
+              <label className="form-label">{t('Academic Year')}</label>
               <input
                 type="text"
                 value={settings.academic_year}
@@ -114,7 +116,7 @@ export default function Settings() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="form-label">Max Points</label>
+              <label className="form-label">{t('Max Points')}</label>
               <input
                 type="number"
                 value={settings.max_points}
@@ -123,7 +125,7 @@ export default function Settings() {
               />
             </div>
             <div>
-              <label className="form-label">Passing Threshold</label>
+              <label className="form-label">{t('Passing Threshold')}</label>
               <input
                 type="number"
                 value={settings.passing_threshold}
@@ -136,7 +138,7 @@ export default function Settings() {
           <div className="flex items-center gap-4">
             <button type="submit" disabled={saving} className="btn btn-primary">
               <Save className="w-4 h-4" />
-              {saving ? 'Saving...' : 'Save Settings'}
+              {saving ? t('Saving...') : t('Save Settings')}
             </button>
             {message && <span className="text-green-600">{message}</span>}
           </div>
@@ -147,16 +149,16 @@ export default function Settings() {
       <div className="card">
         <div className="flex items-center gap-2 mb-4">
           <Bell className="w-5 h-5 text-gray-500" />
-          <h2 className="text-lg font-semibold">Alert Thresholds</h2>
+          <h2 className="text-lg font-semibold">{t('Alert Thresholds')}</h2>
         </div>
 
         <table className="table">
           <thead>
             <tr>
-              <th>Alert Type</th>
-              <th>Threshold</th>
-              <th>Action</th>
-              <th>Enabled</th>
+              <th>{t('Alert Type')}</th>
+              <th>{t('Threshold')}</th>
+              <th>{t('Action')}</th>
+              <th>{t('Enabled')}</th>
             </tr>
           </thead>
           <tbody>
@@ -179,8 +181,8 @@ export default function Settings() {
                     onChange={(e) => handleAlertChange(alert.id, 'enabled', e.target.value)}
                     className="select w-24"
                   >
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
+                    <option value="Yes">{t('Yes')}</option>
+                    <option value="No">{t('No')}</option>
                   </select>
                 </td>
               </tr>
@@ -193,13 +195,13 @@ export default function Settings() {
       <div className="card">
         <div className="flex items-center gap-2 mb-4">
           <Shield className="w-5 h-5 text-gray-500" />
-          <h2 className="text-lg font-semibold">About</h2>
+          <h2 className="text-lg font-semibold">{t('About')}</h2>
         </div>
         <div className="text-gray-600">
-          <p><strong>Discipline Tracker Pro</strong></p>
-          <p className="text-sm">Version 1.0.0</p>
-          <p className="text-sm mt-2">A comprehensive school discipline management system built with React, Node.js, and SQLite.</p>
-          <p className="text-sm mt-2">Features include incident tracking, student management, MTSS interventions, rewards system, and real-time analytics.</p>
+          <p><strong>{t('Discipline Tracker Pro')}</strong></p>
+          <p className="text-sm">{t('Version')} 1.0.0</p>
+          <p className="text-sm mt-2">{t('A comprehensive school discipline management system built with React, Node.js, and SQLite.')}</p>
+          <p className="text-sm mt-2">{t('Features include incident tracking, student management, MTSS interventions, rewards system, and real-time analytics.')}</p>
         </div>
       </div>
     </div>

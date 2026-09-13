@@ -159,6 +159,71 @@ router.post('/api/auth/login', perIpLoginLimiter, perAccountLoginLimiter, async 
   }
 });
 
+/**
+ * Emergency admin unlock — POST /api/auth/fix-admin  { password }
+ *
+ * The login page's "Fix Admin Access" button has called this endpoint since
+ * the modal was built, but the route never existed server-side, so the button
+ * could only ever return 404. It is implemented here as a deliberate
+ * recovery hatch:
+ *
+ *   - The caller must know ADMIN_FIX_PASSWORD (set in the server environment;
+ *     unset disables the endpoint entirely with 404).
+ *   - On success it re-activates the admin account, resets that account's
+ *     password to the same secret, and returns a fresh session so the
+ *     operator lands in the dashboard immediately.
+ *
+ * SECURITY: this is an unauthenticated account-takeover hatch by design, for
+ * use when the only admin is locked out and SMTP reset isn't configured. It
+ * is only as safe as the secrecy of ADMIN_FIX_PASSWORD — rotate or unset it
+ * outside of recovery situations.
+ */
+router.post('/api/auth/fix-admin', perIpLoginLimiter, async (req: Request, res: Response) => {
+  try {
+    const expected = process.env.ADMIN_FIX_PASSWORD;
+    if (!expected) {
+      // Hatch disabled: behave exactly like any other unknown route.
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    const { password } = req.body ?? {};
+    if (typeof password !== 'string' || password !== expected) {
+      return res.status(401).json({ error: 'Invalid password' });
+    }
+
+    // Any account with the admin role counts; prefer the canonical 'admin'
+    // username when it exists so the hatch keeps working if a second admin
+    // is ever created.
+    const admin = (await queryOne(
+      `SELECT * FROM users WHERE role = 'admin' ORDER BY (username = 'admin') DESC, id ASC LIMIT 1`
+    )) as UserRow | undefined;
+    if (!admin) {
+      return res.status(404).json({ error: 'No admin account exists' });
+    }
+
+    await runQuery(
+      'UPDATE users SET password = $1, is_active = true WHERE id = $2',
+      [bcrypt.hashSync(password, 10), admin.id]
+    );
+    console.log(`[fix-admin] admin account '${admin.username}' (id ${admin.id}) was reset via the recovery hatch`);
+
+    const token = jwt.sign({ userId: admin.id, role: admin.role }, JWT_SECRET, { expiresIn: '24h' });
+    res.json({
+      token,
+      user: {
+        id: admin.id,
+        username: admin.username,
+        role: admin.role,
+        firstName: admin.first_name,
+        lastName: admin.last_name,
+      },
+    });
+  } catch (error: any) {
+    console.error('Fix admin error:', error.message);
+    res.status(500).json({ error: 'Failed to fix admin' });
+  }
+});
+
 // Password Reset Routes
 router.post('/api/auth/forgot-password', passwordResetLimiter, async (req: Request, res: Response) => {
   try {
@@ -500,7 +565,11 @@ router.post('/api/incidents', authenticate, canRecordIncidents, validateBody(inc
 
     const datePrefix = date.replace(/-/g, '').slice(2);
     const count = await queryOne('SELECT COUNT(*) as count FROM incidents WHERE incident_id LIKE $1', [`${datePrefix}%`]);
-    const incidentId = `${datePrefix}-${String((count?.count || 0) + 1).padStart(3, '0')}`;
+    // COUNT(*) comes back from pg as a STRING (bigint), so the old
+    // `(count?.count || 0) + 1` concatenated instead of adding: with 5 existing
+    // rows it produced "5" + 1 = "51" → incident id 260912-051 instead of -006.
+    // Cast to a real number before incrementing.
+    const incidentId = `${datePrefix}-${String(Number(count?.count || 0) + 1).padStart(3, '0')}`;
 
     const violation = await queryOne('SELECT * FROM violations WHERE id = $1', [violation_id]);
 

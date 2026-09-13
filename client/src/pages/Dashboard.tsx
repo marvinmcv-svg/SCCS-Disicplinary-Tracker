@@ -7,7 +7,10 @@ import {
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts';
 import api from '../lib/api';
-import sccsLogo from '../sccs.png';
+import { useI18n } from '../i18n';
+// Public asset (served from /public in both Vite and the sandbox) instead of a
+// bundled import, so the logo works under either build system.
+const sccsLogo = '/sccs.png';
 
 const COLORS = ['#3b82f6', '#ef4444', '#f59e0b', '#22c55e', '#8b5cf6', '#ec4899', '#06b6d4', '#14b8a6', '#f97316'];
 const STATUS_COLORS = { Open: '#ef4444', Pending: '#f59e0b', Resolved: '#22c55e' };
@@ -29,6 +32,7 @@ type ChartView = 'bar' | 'line';
 export default function Dashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { t, lang } = useI18n();
 
   // State
   const [stats, setStats] = useState<Stats>({ total: 0, pending: 0, resolved: 0, byCategory: [], byGrade: [], byStatus: [], recentIncidents: [], weeklyTrend: [] });
@@ -313,7 +317,7 @@ export default function Dashboard() {
       <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl p-4 md:p-6 text-white">
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h1 className="text-xl md:text-2xl font-bold">Welcome Back!</h1>
+            <h1 className="text-xl md:text-2xl font-bold">{t('Welcome Back!')}</h1>
             <p className="text-blue-100 text-sm md:text-base">{academicYear}</p>
           </div>
           <button
@@ -331,10 +335,10 @@ export default function Dashboard() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-4 gap-3">
-          <StatCard title="Total" value={stats.total} icon={AlertTriangle} color="text-white" onClick={() => navigateToIncidents()} clickLabel="View all" />
-          <StatCard title="Pending" value={stats.pending} icon={Clock} color="text-yellow-300" onClick={() => navigateToIncidents('status', 'Open')} clickLabel="View pending" />
-          <StatCard title="Resolved" value={stats.resolved} icon={CheckCircle} color="text-green-300" onClick={() => navigateToIncidents('status', 'Resolved')} clickLabel="View resolved" />
-          <StatCard title="Students" value={studentCount} icon={Users} color="text-white" onClick={() => navigate('/students')} clickLabel="View students" />
+          <StatCard title={t('Total')} value={stats.total} icon={AlertTriangle} color="text-white" onClick={() => navigateToIncidents()} clickLabel={t('View all')} />
+          <StatCard title={t('Pending')} value={stats.pending} icon={Clock} color="text-yellow-300" onClick={() => navigateToIncidents('status', 'Open')} clickLabel={t('View pending')} />
+          <StatCard title={t('Resolved')} value={stats.resolved} icon={CheckCircle} color="text-green-300" onClick={() => navigateToIncidents('status', 'Resolved')} clickLabel={t('View resolved')} />
+          <StatCard title={t('Students')} value={studentCount} icon={Users} color="text-white" onClick={() => navigate('/students')} clickLabel={t('View students')} />
         </div>
 
         {/* Date Range Selector */}
@@ -348,7 +352,7 @@ export default function Dashboard() {
                 dateRange === range ? 'bg-white text-blue-700' : 'bg-white/20 text-white hover:bg-white/30'
               }`}
             >
-              {range === 'all' ? 'All Time' : range === 'today' ? 'Today' : range === 'week' ? 'Week' : range === 'month' ? 'Month' : range === 'quarter' ? 'Quarter' : 'Custom'}
+              {range === 'all' ? t('All Time') : range === 'today' ? t('Today') : range === 'week' ? t('Week') : range === 'month' ? t('Month') : range === 'quarter' ? t('Quarter') : t('Custom')}
             </button>
           ))}
           {dateRange === 'custom' && (
@@ -378,21 +382,21 @@ export default function Dashboard() {
           className="flex-shrink-0 bg-red-500 text-white rounded-2xl px-4 py-3 flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
         >
           <Plus className="w-5 h-5" />
-          <span className="font-semibold">+ New Incident</span>
+          <span className="font-semibold">{t('+ New Incident')}</span>
         </button>
         <button
           onClick={() => navigateToIncidents('status', 'Open')}
           className="flex-shrink-0 bg-yellow-500 text-white rounded-2xl px-4 py-3 flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
         >
           <Clock className="w-5 h-5" />
-          <span className="font-semibold">View Pending</span>
+          <span className="font-semibold">{t('View Pending')}</span>
         </button>
         <button
           onClick={() => navigate('/reports')}
           className="flex-shrink-0 bg-white rounded-2xl px-4 py-3 flex items-center gap-2 shadow-md border border-gray-100 active:scale-95 transition-transform"
         >
           <FileText className="w-5 h-5 text-blue-600" />
-          <span className="font-semibold text-gray-700">Run Report</span>
+          <span className="font-semibold text-gray-700">{t('Run Report')}</span>
         </button>
       </div>
 
@@ -400,13 +404,13 @@ export default function Dashboard() {
       <div className="bg-white rounded-2xl p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold text-gray-900">Incidents by Category</h2>
+            <h2 className="text-base font-semibold text-gray-900">{t('Incidents by Category')}</h2>
             {selectedCategory !== 'all' && (
               <button
                 onClick={clearCategoryFilter}
                 className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs"
               >
-                {selectedCategory} <X className="w-3 h-3" />
+                {t(selectedCategory)} <X className="w-3 h-3" />
               </button>
             )}
           </div>
@@ -417,9 +421,9 @@ export default function Dashboard() {
               onChange={e => setSelectedGrade(e.target.value)}
               className="select text-xs py-1.5"
             >
-              <option value="all">All Grades</option>
+              <option value="all">{t('All Grades')}</option>
               {availableGrades.map(g => (
-                <option key={g} value={g}>Grade {g}</option>
+                <option key={g} value={g}>{t('Grade {g}', { g })}</option>
               ))}
             </select>
 
@@ -445,9 +449,9 @@ export default function Dashboard() {
         {(selectedGrade !== 'all' || selectedCategory !== 'all') && (
           <div className="flex items-center gap-2 mb-3 text-xs text-gray-500">
             <Filter className="w-3 h-3" />
-            <span>Filters:</span>
-            {selectedGrade !== 'all' && <span className="px-2 py-0.5 bg-gray-100 rounded">Grade {selectedGrade}</span>}
-            {selectedCategory !== 'all' && <span className="px-2 py-0.5 bg-gray-100 rounded">{selectedCategory}</span>}
+            <span>{t('Filters:')}</span>
+            {selectedGrade !== 'all' && <span className="px-2 py-0.5 bg-gray-100 rounded">{t('Grade {g}', { g: selectedGrade })}</span>}
+            {selectedCategory !== 'all' && <span className="px-2 py-0.5 bg-gray-100 rounded">{t(selectedCategory)}</span>}
           </div>
         )}
 
@@ -457,9 +461,9 @@ export default function Dashboard() {
               {chartView === 'bar' ? (
                 <BarChart data={stats.byCategory} onClick={handleCategoryClick}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="category" fontSize={10} stroke="#9ca3af" angle={-15} textAnchor="end" height={60} />
+                  <XAxis dataKey="category" fontSize={10} stroke="#9ca3af" angle={-15} textAnchor="end" height={60} tickFormatter={(val: any) => t(String(val))} />
                   <YAxis fontSize={10} stroke="#9ca3af" />
-                  <Tooltip contentStyle={{ background: '#fff', border: '1px solid #f0f0f0', borderRadius: '8px' }} />
+                  <Tooltip contentStyle={{ background: '#fff', border: '1px solid #f0f0f0', borderRadius: '8px' }} labelFormatter={(label: any) => t(String(label))} formatter={(value: any) => [value, t('Incidents')]} />
                   <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} cursor="pointer">
                     {stats.byCategory.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={selectedCategory === entry.category ? '#1d4ed8' : COLORS[index % COLORS.length]} />
@@ -469,9 +473,9 @@ export default function Dashboard() {
               ) : (
                 <LineChart data={stats.weeklyTrend}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="week" fontSize={10} stroke="#9ca3af" tickFormatter={val => new Date(val).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} />
+                  <XAxis dataKey="week" fontSize={10} stroke="#9ca3af" tickFormatter={val => new Date(val).toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { month: 'short', day: 'numeric' })} />
                   <YAxis fontSize={10} stroke="#9ca3af" />
-                  <Tooltip contentStyle={{ background: '#fff', border: '1px solid #f0f0f0', borderRadius: '8px' }} />
+                  <Tooltip contentStyle={{ background: '#fff', border: '1px solid #f0f0f0', borderRadius: '8px' }} labelFormatter={(label: any) => new Date(label).toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { month: 'short', day: 'numeric' })} formatter={(value: any) => [value, t('Incidents')]} />
                   <Line type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} dot={{ fill: '#3b82f6' }} />
                 </LineChart>
               )}
@@ -479,7 +483,7 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="h-[200px] flex items-center justify-center text-gray-400 text-sm">
-            No incident data available for selected filters
+            {t('No incident data available for selected filters')}
           </div>
         )}
       </div>
@@ -487,13 +491,13 @@ export default function Dashboard() {
       {/* Status Donut Chart */}
       <div className="bg-white rounded-2xl p-4 shadow-sm">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-gray-900">Incident Status</h2>
+          <h2 className="text-base font-semibold text-gray-900">{t('Incident Status')}</h2>
           {selectedStatus !== 'all' && (
             <button
               onClick={clearStatusFilter}
               className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs"
             >
-              {selectedStatus} <X className="w-3 h-3" />
+              {t(selectedStatus)} <X className="w-3 h-3" />
             </button>
           )}
         </div>
@@ -517,15 +521,15 @@ export default function Dashboard() {
                     <Cell key={`cell-${index}`} fill={entry.color} stroke={selectedStatus === entry.name ? '#1d4ed8' : 'transparent'} strokeWidth={3} />
                   ))}
                 </Pie>
-                <Tooltip />
-                <Legend />
+                <Tooltip formatter={(value: any, name: any) => [value, t(String(name))]} />
+                <Legend formatter={(value: any) => t(String(value))} />
               </PieChart>
             </ResponsiveContainer>
             {/* Center label */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="text-center">
                 <p className="text-3xl font-bold text-gray-800">{stats.total}</p>
-                <p className="text-xs text-gray-500">Total</p>
+                <p className="text-xs text-gray-500">{t('Total')}</p>
               </div>
             </div>
           </div>
@@ -539,7 +543,7 @@ export default function Dashboard() {
         <div className="flex justify-center gap-4 mt-2">
           {statusData.map(entry => (
             <div key={entry.name} className="text-center">
-              <span className="text-xs text-gray-500">{entry.name}: </span>
+              <span className="text-xs text-gray-500">{t(entry.name)}: </span>
               <span className="text-xs font-medium">{Math.round((entry.value / stats.total) * 100)}%</span>
               <span className="text-xs text-gray-400"> ({entry.value})</span>
             </div>
@@ -550,12 +554,12 @@ export default function Dashboard() {
       {/* Recent Incidents */}
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900">Recent Incidents</h2>
+          <h2 className="text-base font-semibold text-gray-900">{t('Recent Incidents')}</h2>
           <button
             onClick={() => navigateToIncidents()}
             className="text-sm text-blue-600 font-medium flex items-center gap-1"
           >
-            View All <ChevronRight className="w-4 h-4" />
+            {t('View All')} <ChevronRight className="w-4 h-4" />
           </button>
         </div>
 
@@ -585,15 +589,15 @@ export default function Dashboard() {
                       {incident.last_name}, {incident.first_name}
                       <span className="text-xs text-gray-400 ml-2">{incident.date}</span>
                     </p>
-                    <p className="text-xs text-gray-500">{incident.violation_type}</p>
+                    <p className="text-xs text-gray-500">{t(incident.violation_type)}</p>
                     {incident.advisor && (
-                      <p className="text-xs text-gray-400">Advisor: {incident.advisor}</p>
+                      <p className="text-xs text-gray-400">{t('Advisor: {name}', { name: incident.advisor })}</p>
                     )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`badge ${getStatusColor(incident.status)}`}>
-                    {incident.status}
+                    {t(incident.status)}
                   </span>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 </div>
@@ -603,12 +607,12 @@ export default function Dashboard() {
         ) : (
           <div className="text-center py-8 text-gray-400">
             <AlertCircle className="w-10 h-10 mx-auto mb-2" />
-            <p className="text-sm">No incidents recorded yet</p>
+            <p className="text-sm">{t('No incidents recorded yet')}</p>
             <button
               onClick={() => navigate('/incidents')}
               className="mt-3 text-sm text-blue-600 font-medium"
             >
-              Record First Incident
+              {t('Record First Incident')}
             </button>
           </div>
         )}

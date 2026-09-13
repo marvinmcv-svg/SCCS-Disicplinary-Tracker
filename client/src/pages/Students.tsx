@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { Plus, Search, X, User, Check, Loader, Upload, FileSpreadsheet, Camera } from 'lucide-react';
 import api from '../lib/api';
 import * as XLSX from 'xlsx';
 import { getGradeColor, getInitials, matchesGradeFilter } from '../lib/gradeUtils';
+import { useI18n } from '../i18n';
 
 interface Student {
   id: number;
@@ -27,6 +28,7 @@ interface Student {
 }
 
 export default function Students() {
+  const { t } = useI18n();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -86,12 +88,12 @@ export default function Students() {
     if (!file) return;
 
     if (file.size > 10 * 1024 * 1024) {
-      alert('File too large. Maximum size is 10MB.');
+      alert(t('File too large. Maximum size is 10MB.'));
       return;
     }
 
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file.');
+      alert(t('Please select an image file.'));
       return;
     }
 
@@ -102,15 +104,15 @@ export default function Students() {
         if (typeof result === 'string') {
           setFormData({ ...formData, profile_picture: result });
         } else {
-          alert('Failed to read file. Please try a different image.');
+          alert(t('Failed to read file. Please try a different image.'));
         }
       } catch (err) {
         console.error('Error setting profile picture:', err);
-        alert('Failed to process image.');
+        alert(t('Failed to process image.'));
       }
     };
     reader.onerror = () => {
-      alert('Failed to read file. Please try a different image.');
+      alert(t('Failed to read file. Please try a different image.'));
     };
     reader.readAsDataURL(file);
   };
@@ -145,7 +147,7 @@ export default function Students() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Error saving student');
+      alert(error.response?.data?.error || t('Error saving student'));
     } finally {
       setSaving(false);
     }
@@ -236,7 +238,7 @@ export default function Students() {
 
         if (!student_id || !last_name || !first_name) {
           if (student_id || last_name || first_name) {
-            results.errors.push(`Row ${i + 1}: Missing required fields. student_id="${student_id}", last_name="${last_name}", first_name="${first_name}"`);
+            results.errors.push(t('Row {row}: Missing required fields. student_id="{studentId}", last_name="{lastName}", first_name="{firstName}"', { row: i + 1, studentId: student_id, lastName: last_name, firstName: first_name }));
           }
           continue;
         }
@@ -245,7 +247,7 @@ export default function Students() {
           await api.post('/students/bulk', { student_id, last_name, first_name, grade, counselor, advisory });
           results.success++;
         } catch (error: any) {
-          results.errors.push(`Failed to add ${first_name} ${last_name}: ${error.response?.data?.error || 'Unknown error'}`);
+          results.errors.push(t('Failed to add {firstName} {lastName}: {error}', { firstName: first_name, lastName: last_name, error: error.response?.data?.error || t('Unknown error') }));
         }
       }
 
@@ -261,7 +263,7 @@ export default function Students() {
       }
     } catch (error) {
       console.error('Excel parse error:', error);
-      setUploadResults({ success: 0, errors: ['Failed to parse file. Please ensure it\'s a valid .xlsx, .xls, or .csv file.'] });
+      setUploadResults({ success: 0, errors: [t('Failed to parse file. Please ensure it\'s a valid .xlsx, .xls, or .csv file.')] });
     } finally {
       setUploading(false);
     }
@@ -313,14 +315,14 @@ export default function Students() {
     <div className="space-y-4 md:space-y-6 animate-fade-in pb-20 md:pb-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Students</h1>
-          <p className="text-gray-500">Manage student records</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('Students')}</h1>
+          <p className="text-gray-500">{t('Manage student records')}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {saved && (
             <span className="flex items-center gap-2 text-green-600 bg-green-50 px-4 py-2 rounded-xl">
               <Check className="w-5 h-5" />
-              <span className="font-medium">Saved!</span>
+              <span className="font-medium">{t('Saved!')}</span>
             </span>
           )}
           <button
@@ -328,11 +330,11 @@ export default function Students() {
             className="btn bg-green-600 text-white hover:bg-green-700"
           >
             <FileSpreadsheet className="w-5 h-5" />
-            Import Excel
+            {t('Import Excel')}
           </button>
           <button onClick={() => openModal()} className="btn btn-primary">
             <Plus className="w-5 h-5" />
-            Add Student
+            {t('Add Student')}
           </button>
         </div>
       </div>
@@ -344,7 +346,7 @@ export default function Students() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by name or ID..."
+              placeholder={t('Search by name or ID...')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="input pl-12"
@@ -356,12 +358,14 @@ export default function Students() {
               onChange={(e) => setFilterGrade(e.target.value)}
               className="select min-w-[140px]"
             >
-              <option value="all">All Grades</option>
+              <option value="all">{t('All Grades')}</option>
               {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(g => (
-                <>
-                  <option key={`${g}A`} value={`${g}A`}>{g === 0 ? 'Pre-K/K' : 'Grade ' + g}A</option>
-                  <option key={`${g}B`} value={`${g}B`}>{g === 0 ? 'Pre-K/K' : 'Grade ' + g}B</option>
-                </>
+                // Keyed Fragment: the mapped element itself must carry the key,
+                // otherwise React cannot match the two options to their array slot.
+                <Fragment key={g}>
+                  <option value={`${g}A`}>{g === 0 ? t('Pre-K/KA') : t('Grade {g}A', { g })}</option>
+                  <option value={`${g}B`}>{g === 0 ? t('Pre-K/KB') : t('Grade {g}B', { g })}</option>
+                </Fragment>
               ))}
             </select>
             {filterGrade !== 'all' && (
@@ -369,7 +373,7 @@ export default function Students() {
                 onClick={() => setFilterGrade('all')}
                 className="btn btn-secondary whitespace-nowrap"
               >
-                Clear
+                {t('Clear')}
               </button>
             )}
           </div>
@@ -379,18 +383,18 @@ export default function Students() {
       {/* Students Table */}
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
         {loading ? (
-          <div className="text-center py-12 text-gray-400">Loading...</div>
+          <div className="text-center py-12 text-gray-400">{t('Loading...')}</div>
         ) : filteredStudents.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Student</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">ID</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">Grade</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">House</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">Advisor</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">Status</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('Student')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">{t('ID')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">{t('Grade')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">{t('House')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">{t('Advisor')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">{t('Status')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -424,7 +428,7 @@ export default function Students() {
                         student.conduct_status === 'Warning' ? 'badge-warning' :
                         student.conduct_status === 'Probation' ? 'badge-danger' : 'badge-info'
                       }`}>
-                        {student.conduct_status || 'Unknown'}
+                        {t(student.conduct_status || 'Unknown')}
                       </span>
                     </td>
                   </tr>
@@ -435,7 +439,7 @@ export default function Students() {
         ) : (
           <div className="text-center py-12 text-gray-400">
             <User className="w-12 h-12 mx-auto mb-2" />
-            <p>No students found</p>
+            <p>{t('No students found')}</p>
           </div>
         )}
       </div>
@@ -446,7 +450,7 @@ export default function Students() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">
-                {editingStudent ? 'Edit Student' : 'Add New Student'}
+                {editingStudent ? t('Edit Student') : t('Add New Student')}
               </h2>
               <button onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5" />
@@ -478,7 +482,7 @@ export default function Students() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="form-label">Student ID</label>
+                  <label className="form-label">{t('Student ID')}</label>
                   <input
                     type="text"
                     value={formData.student_id}
@@ -488,17 +492,17 @@ export default function Students() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Grade</label>
+                  <label className="form-label">{t('Grade')}</label>
                   <select
                     value={formData.grade}
                     onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
                     className="select"
                   >
                     {[6, 7, 8, 9, 10, 11, 12].map(g => (
-                      <>
-                        <option key={`${g}A`} value={`${g}A`}>{g}A</option>
-                        <option key={`${g}B`} value={`${g}B`}>{g}B</option>
-                      </>
+                      <Fragment key={g}>
+                        <option value={`${g}A`}>{g}A</option>
+                        <option value={`${g}B`}>{g}B</option>
+                      </Fragment>
                     ))}
                   </select>
                 </div>
@@ -506,7 +510,7 @@ export default function Students() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="form-label">Last Name</label>
+                  <label className="form-label">{t('Last Name')}</label>
                   <input
                     type="text"
                     value={formData.last_name}
@@ -516,7 +520,7 @@ export default function Students() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">First Name</label>
+                  <label className="form-label">{t('First Name')}</label>
                   <input
                     type="text"
                     value={formData.first_name}
@@ -529,17 +533,17 @@ export default function Students() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="form-label">Section</label>
+                  <label className="form-label">{t('Section')}</label>
                   <input
                     type="text"
                     value={formData.section}
                     onChange={(e) => setFormData({ ...formData, section: e.target.value })}
                     className="input"
-                    placeholder="e.g., A, B, C"
+                    placeholder={t('e.g., A, B, C')}
                   />
                 </div>
                 <div>
-                  <label className="form-label">House Team</label>
+                  <label className="form-label">{t('House Team')}</label>
                   <input
                     type="text"
                     value={formData.house_team}
@@ -551,7 +555,7 @@ export default function Students() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="form-label">Date of Birth</label>
+                  <label className="form-label">{t('Date of Birth')}</label>
                   <input
                     type="date"
                     value={formData.date_of_birth}
@@ -560,22 +564,22 @@ export default function Students() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Gender</label>
+                  <label className="form-label">{t('Gender')}</label>
                   <select
                     value={formData.gender}
                     onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                     className="select"
                   >
-                    <option value="">Select...</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
+                    <option value="">{t('Select...')}</option>
+                    <option value="Male">{t('Male')}</option>
+                    <option value="Female">{t('Female')}</option>
+                    <option value="Other">{t('Other')}</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="form-label">Counselor</label>
+                <label className="form-label">{t('Counselor')}</label>
                 <input
                   type="text"
                   value={formData.counselor}
@@ -585,7 +589,7 @@ export default function Students() {
               </div>
 
               <div className="relative">
-                <label className="form-label">Advisory</label>
+                <label className="form-label">{t('Advisory')}</label>
                 <input
                   type="text"
                   value={formData.advisory || advisorSearch}
@@ -593,7 +597,7 @@ export default function Students() {
                     setAdvisorSearch(e.target.value);
                     setFormData({ ...formData, advisory: e.target.value });
                   }}
-                  placeholder="Search or select..."
+                  placeholder={t('Search or select...')}
                   className="input pr-10"
                 />
                 <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
@@ -614,14 +618,14 @@ export default function Students() {
                     </button>
                   ))}
                   {filteredAdvisors.length === 0 && (
-                    <div className="px-3 py-2 text-gray-500 text-sm">No matches</div>
+                    <div className="px-3 py-2 text-gray-500 text-sm">{t('No matches')}</div>
                   )}
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="form-label">Parent/Guardian Name</label>
+                  <label className="form-label">{t('Parent/Guardian Name')}</label>
                   <input
                     type="text"
                     value={formData.parent_name}
@@ -630,7 +634,7 @@ export default function Students() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Parent Phone</label>
+                  <label className="form-label">{t('Parent Phone')}</label>
                   <input
                     type="tel"
                     value={formData.parent_phone}
@@ -641,32 +645,32 @@ export default function Students() {
               </div>
 
               <div>
-                <label className="form-label">Parent Email</label>
+                <label className="form-label">{t('Parent Email')}</label>
                 <input
                   type="email"
                   value={formData.parent_email}
                   onChange={(e) => setFormData({ ...formData, parent_email: e.target.value })}
                   className="input"
-                  placeholder="parent@example.com"
+                  placeholder={t('parent@example.com')}
                 />
               </div>
 
               <div>
-                <label className="form-label">Observations / Notes</label>
+                <label className="form-label">{t('Observations / Notes')}</label>
                 <textarea
                   value={formData.observations}
                   onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
                   className="input min-h-[60px]"
-                  placeholder="Add any observations..."
+                  placeholder={t('Add any observations...')}
                 />
               </div>
 
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={closeModal} className="btn btn-danger flex-1">
-                  Cancel
+                  {t('Cancel')}
                 </button>
                 <button type="submit" disabled={saving} className="btn btn-primary flex-1">
-                  {saving ? 'Saving...' : editingStudent ? 'Update' : 'Save'}
+                  {saving ? t('Saving...') : editingStudent ? t('Update') : t('Save')}
                 </button>
               </div>
             </form>
@@ -681,7 +685,7 @@ export default function Students() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold flex items-center gap-2">
                 <FileSpreadsheet className="w-5 h-5 text-green-600" />
-                Import Students from Spreadsheet
+                {t('Import Students from Spreadsheet')}
               </h2>
               <button onClick={() => { setShowUploadModal(false); setSelectedFile(null); setUploadResults(null); }} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5" />
@@ -690,16 +694,16 @@ export default function Students() {
 
             <div className="space-y-4">
               <div className="bg-green-50 rounded-xl p-4 text-sm">
-                <p className="font-semibold text-green-800 mb-2">Supported Formats:</p>
-                <p className="text-green-700">Upload any spreadsheet: <code className="bg-green-100 px-1 rounded">.xlsx</code>, <code className="bg-green-100 px-1 rounded">.xls</code>, or <code className="bg-green-100 px-1 rounded">.csv</code></p>
-                <p className="text-green-700 mt-2">The system will automatically detect columns:</p>
+                <p className="font-semibold text-green-800 mb-2">{t('Supported Formats:')}</p>
+                <p className="text-green-700">{t('Upload any spreadsheet:')} <code className="bg-green-100 px-1 rounded">.xlsx</code>, <code className="bg-green-100 px-1 rounded">.xls</code>, {t('or')} <code className="bg-green-100 px-1 rounded">.csv</code></p>
+                <p className="text-green-700 mt-2">{t('The system will automatically detect columns:')}</p>
                 <ul className="text-green-700 mt-1 ml-4 list-disc">
-                  <li><strong>Student ID</strong> - detected from: student_id, studentid, student, id, student id</li>
-                  <li><strong>Last Name</strong> - detected from: last_name, lastname, surname, last name, last</li>
-                  <li><strong>First Name</strong> - detected from: first_name, firstname, first name, first</li>
-                  <li><strong>Grade</strong> - detected from: grade (e.g., 7A, 7B, 9)</li>
-                  <li><strong>Counselor</strong> - automatically detected</li>
-                  <li><strong>Advisory</strong> - automatically detected</li>
+                  <li><strong>{t('Student ID')}</strong> - {t('detected from:')} student_id, studentid, student, id, student id</li>
+                  <li><strong>{t('Last Name')}</strong> - {t('detected from:')} last_name, lastname, surname, last name, last</li>
+                  <li><strong>{t('First Name')}</strong> - {t('detected from:')} first_name, firstname, first name, first</li>
+                  <li><strong>{t('Grade')}</strong> - {t('detected from:')} grade (e.g., 7A, 7B, 9)</li>
+                  <li><strong>{t('Counselor')}</strong> - {t('automatically detected')}</li>
+                  <li><strong>{t('Advisory')}</strong> - {t('automatically detected')}</li>
                 </ul>
               </div>
 
@@ -720,18 +724,18 @@ export default function Students() {
                       onClick={() => fileInputRef.current?.click()}
                       className="text-blue-600 text-sm mt-2 hover:underline"
                     >
-                      Choose different file
+                      {t('Choose different file')}
                     </button>
                   </div>
                 ) : (
                   <div>
-                    <p className="text-gray-600 mb-2">Click to select a spreadsheet file</p>
+                    <p className="text-gray-600 mb-2">{t('Click to select a spreadsheet file')}</p>
                     <button
                       onClick={() => fileInputRef.current?.click()}
                       className="btn btn-primary"
                     >
                       <FileSpreadsheet className="w-5 h-5" />
-                      Browse Files
+                      {t('Browse Files')}
                     </button>
                   </div>
                 )}
@@ -747,8 +751,8 @@ export default function Students() {
                     )}
                     <span className="font-semibold">
                       {uploadResults.errors.length === 0 
-                        ? `Successfully imported ${uploadResults.success} students!` 
-                        : `Imported ${uploadResults.success} students with ${uploadResults.errors.length} errors`}
+                        ? t('Successfully imported {count} students!', { count: uploadResults.success }) 
+                        : t('Imported {count} students with {errors} errors', { count: uploadResults.success, errors: uploadResults.errors.length })}
                     </span>
                   </div>
                   {uploadResults.errors.length > 0 && (
@@ -757,7 +761,7 @@ export default function Students() {
                         <p key={i} className="mb-1">• {err}</p>
                       ))}
                       {uploadResults.errors.length > 5 && (
-                        <p className="font-semibold mt-1">...and {uploadResults.errors.length - 5} more errors</p>
+                        <p className="font-semibold mt-1">{t('...and {count} more errors', { count: uploadResults.errors.length - 5 })}</p>
                       )}
                     </div>
                   )}
@@ -769,7 +773,7 @@ export default function Students() {
                   onClick={() => { setShowUploadModal(false); setSelectedFile(null); setUploadResults(null); }} 
                   className="btn btn-secondary flex-1"
                 >
-                  Cancel
+                  {t('Cancel')}
                 </button>
                 <button 
                   onClick={handleExcelUpload} 
@@ -779,12 +783,12 @@ export default function Students() {
                   {uploading ? (
                     <span className="flex items-center gap-2">
                       <Loader className="w-5 h-5 animate-spin" />
-                      Importing...
+                      {t('Importing...')}
                     </span>
                   ) : (
                     <>
                       <Upload className="w-5 h-5" />
-                      Import Students
+                      {t('Import Students')}
                     </>
                   )}
                 </button>

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Plus, Search, X, HeartHandshake, ChevronDown, ChevronUp, Calendar, Target, FileText, Download, Link2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
+import { useI18n } from '../i18n';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -66,6 +67,7 @@ const allAdvisors = ['Mr Adachi', 'Mr Cohello', 'MrDiPascuale', 'Mr Kane', 'Mr O
 
 export default function MTSS() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [students, setStudents] = useState<Student[]>([]);
   const [interventions, setInterventions] = useState<Intervention[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -153,14 +155,14 @@ export default function MTSS() {
       loadData();
       closeModal();
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Error saving intervention');
+      alert(error.response?.data?.error || t('Error saving intervention'));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure?')) return;
+    if (!confirm(t('Are you sure?'))) return;
     try {
       await api.put(`/mtss/${id}`, { progress: 'Completed', end_date: new Date().toISOString().split('T')[0] });
       loadData();
@@ -293,21 +295,21 @@ export default function MTSS() {
   const exportToPDF = () => {
     const doc = new jsPDF();
     doc.setFontSize(18);
-    doc.text('MTSS Interventions Report', 14, 22);
+    doc.text(t('MTSS Interventions Report'), 14, 22);
 
     const activeInterventions = filteredInterventions.filter(i => i.progress !== 'Completed');
 
     autoTable(doc, {
       startY: 30,
-      head: [['Student', 'Tier', 'Intervention', 'Advisor', 'Start Date', 'Review Date', 'Progress']],
+      head: [[t('Student'), t('Tier'), t('Intervention'), t('Advisor'), t('Start Date'), t('Review Date'), t('Progress')]],
       body: activeInterventions.map(i => [
         `${i.last_name}, ${i.first_name}`,
-        `Tier ${i.tier}`,
-        i.intervention,
+        t('Tier {tier}', { tier: i.tier }),
+        t(i.intervention),
         i.advisor || '-',
         i.start_date,
         i.review_date || '-',
-        i.progress,
+        t(i.progress),
       ]),
     });
 
@@ -318,24 +320,24 @@ export default function MTSS() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">MTSS Interventions</h1>
-          <p className="text-gray-500">Multi-Tiered System of Supports tracking</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('MTSS Interventions')}</h1>
+          <p className="text-gray-500">{t('Multi-Tiered System of Supports tracking')}</p>
         </div>
         <div className="flex items-center gap-3">
           <button onClick={exportToPDF} className="btn btn-secondary">
             <Download className="w-5 h-5" />
-            Export PDF
+            {t('Export PDF')}
           </button>
           <button onClick={openModal} className="btn btn-success">
             <Plus className="w-5 h-5" />
-            New Intervention
+            {t('New Intervention')}
           </button>
         </div>
       </div>
 
       {/* Tier Distribution Chart */}
       <div className="card">
-        <h3 className="text-sm font-medium text-gray-500 mb-3">Active Interventions by Tier</h3>
+        <h3 className="text-sm font-medium text-gray-500 mb-3">{t('Active Interventions by Tier')}</h3>
         <div className="flex items-end gap-4 h-32">
           {[1, 2, 3].map(tier => {
             const count = tierDistribution[tier] || 0;
@@ -347,8 +349,8 @@ export default function MTSS() {
                 <div className="w-full flex items-end justify-center" style={{ height: '80px' }}>
                   <div className={`${color} rounded-t w-16 transition-all`} style={{ height: `${Math.max(height, 4)}%` }} />
                 </div>
-                <span className="text-sm font-medium mt-2">Tier {tier}</span>
-                <span className="text-xs text-gray-500">{count} students</span>
+                <span className="text-sm font-medium mt-2">{t('Tier {tier}', { tier })}</span>
+                <span className="text-xs text-gray-500">{t('{count} students', { count })}</span>
               </div>
             );
           })}
@@ -361,11 +363,11 @@ export default function MTSS() {
           <div key={tier.tier} className={`card border-l-4 ${tier.color}`}>
             <div className="flex items-center justify-between mb-2">
               <div className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getTierColor(tier.tier)}`}>
-                {tier.name}
+                {t(tier.name)}
               </div>
-              <span className="text-sm font-medium text-gray-500">{tierCounts[tier.tier]} students</span>
+              <span className="text-sm font-medium text-gray-500">{t('{count} students', { count: tierCounts[tier.tier] })}</span>
             </div>
-            <p className="text-sm text-gray-500">{tier.description}</p>
+            <p className="text-sm text-gray-500">{t(tier.description)}</p>
           </div>
         ))}
       </div>
@@ -377,7 +379,7 @@ export default function MTSS() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by student name..."
+              placeholder={t('Search by student name...')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="input pl-10"
@@ -389,7 +391,7 @@ export default function MTSS() {
               onChange={(e) => setFilterAdvisor(e.target.value)}
               className="select w-48"
             >
-              <option value="">All Advisors</option>
+              <option value="">{t('All Advisors')}</option>
               {allAdvisors.map(a => (
                 <option key={a} value={a}>{a}</option>
               ))}
@@ -400,10 +402,10 @@ export default function MTSS() {
             onChange={(e) => setFilterTier(e.target.value)}
             className="select w-40"
           >
-            <option value="">All Tiers</option>
-            <option value="1">Tier 1</option>
-            <option value="2">Tier 2</option>
-            <option value="3">Tier 3</option>
+            <option value="">{t('All Tiers')}</option>
+            <option value="1">{t('Tier 1')}</option>
+            <option value="2">{t('Tier 2')}</option>
+            <option value="3">{t('Tier 3')}</option>
           </select>
           <label className="flex items-center gap-2 text-sm text-gray-600">
             <input
@@ -413,14 +415,14 @@ export default function MTSS() {
               className="w-4 h-4 rounded border-gray-300"
             />
             <Calendar className="w-4 h-4" />
-            30-Day Check-In Due
+            {t('30-Day Check-In Due')}
           </label>
           {(filterAdvisor || filterTier || filterReviewSoon) && (
             <button
               onClick={() => { setFilterAdvisor(''); setFilterTier(''); setFilterReviewSoon(false); }}
               className="btn btn-secondary"
             >
-              Clear
+              {t('Clear')}
             </button>
           )}
         </div>
@@ -435,9 +437,9 @@ export default function MTSS() {
               className="w-full flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg"
             >
               <div className="flex items-center gap-3">
-                <span className={`badge ${getTierColor(tier)}`}>Tier {tier}</span>
+                <span className={`badge ${getTierColor(tier)}`}>{t('Tier {tier}', { tier })}</span>
                 <span className="text-sm text-gray-500">
-                  {interventionsByTier[tier].length} intervention{interventionsByTier[tier].length !== 1 ? 's' : ''}
+                  {t(interventionsByTier[tier].length === 1 ? '{count} intervention' : '{count} interventions', { count: interventionsByTier[tier].length })}
                 </span>
               </div>
               {expandedTiers[tier] ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
@@ -446,18 +448,18 @@ export default function MTSS() {
             {expandedTiers[tier] && (
               <div className="mt-4">
                 {loading ? (
-                  <div className="text-center py-8 text-gray-400">Loading...</div>
+                  <div className="text-center py-8 text-gray-400">{t('Loading...')}</div>
                 ) : interventionsByTier[tier].length > 0 ? (
                   <table className="table">
                     <thead>
                       <tr>
-                        <th>Student</th>
-                        <th>Intervention</th>
-                        <th>Advisor</th>
-                        <th>Start Date</th>
-                        <th>Review Date</th>
-                        <th>Progress</th>
-                        <th>Actions</th>
+                        <th>{t('Student')}</th>
+                        <th>{t('Intervention')}</th>
+                        <th>{t('Advisor')}</th>
+                        <th>{t('Start Date')}</th>
+                        <th>{t('Review Date')}</th>
+                        <th>{t('Progress')}</th>
+                        <th>{t('Actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -468,17 +470,17 @@ export default function MTSS() {
                               <span className="font-medium">{intervention.last_name}, {intervention.first_name}</span>
                               {/* Tier movement indicator */}
                               {intervention.tier_history && intervention.tier_history.length > 0 && (
-                                <span className="ml-2 text-xs text-amber-600" title={`Moved from Tier ${intervention.tier_history[intervention.tier_history.length - 1].from_tier}`}>
-                                  ↱ Moved
+                                <span className="ml-2 text-xs text-amber-600" title={t('Moved from Tier {tier}', { tier: intervention.tier_history[intervention.tier_history.length - 1].from_tier })}>
+                                  ↱ {t('Moved')}
                                 </span>
                               )}
                             </div>
                           </td>
                           <td>
                             <div>
-                              <span>{intervention.intervention}</span>
+                              <span>{t(intervention.intervention)}</span>
                               {intervention.intervention_goal && (
-                                <span className="ml-2 text-xs text-gray-400" title={`Goal: ${intervention.intervention_goal}`}>
+                                <span className="ml-2 text-xs text-gray-400" title={t('Goal: {goal}', { goal: intervention.intervention_goal })}>
                                   <Target className="w-3 h-3 inline" />
                                 </span>
                               )}
@@ -495,7 +497,7 @@ export default function MTSS() {
                           </td>
                           <td>
                             <span className={`badge ${getProgressColor(intervention.progress)}`}>
-                              {intervention.progress}
+                              {t(intervention.progress)}
                             </span>
                           </td>
                           <td>
@@ -509,13 +511,13 @@ export default function MTSS() {
                                 onClick={() => handleDelete(intervention.id)}
                                 className="text-sm text-red-600 hover:text-red-700"
                               >
-                                Complete
+                                {t('Complete')}
                               </button>
                               <button
                                 onClick={() => openEditModal(intervention)}
                                 className="text-sm text-blue-600 hover:text-blue-700"
                               >
-                                Edit
+                                {t('Edit')}
                               </button>
                             </div>
                           </td>
@@ -526,7 +528,7 @@ export default function MTSS() {
                 ) : (
                   <div className="text-center py-8 text-gray-400">
                     <HeartHandshake className="w-8 h-8 mx-auto mb-2" />
-                    <p>No Tier {tier} interventions</p>
+                    <p>{t('No Tier {tier} interventions', { tier })}</p>
                   </div>
                 )}
               </div>
@@ -541,7 +543,7 @@ export default function MTSS() {
           <div className="modal max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">
-                {editingId ? 'Edit Intervention' : 'New MTSS Intervention'}
+                {editingId ? t('Edit Intervention') : t('New MTSS Intervention')}
               </h2>
               <button onClick={closeModal} className="p-1 hover:bg-gray-100 rounded">
                 <X className="w-5 h-5" />
@@ -551,14 +553,14 @@ export default function MTSS() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="form-label">Student *</label>
+                  <label className="form-label">{t('Student *')}</label>
                   <select
                     value={formData.student_id}
                     onChange={(e) => setFormData({ ...formData, student_id: e.target.value })}
                     className="select"
                     required
                   >
-                    <option value="">Select Student</option>
+                    <option value="">{t('Select Student')}</option>
                     {students.map(s => (
                       <option key={s.id} value={s.id}>
                         {s.last_name}, {s.first_name}
@@ -567,42 +569,42 @@ export default function MTSS() {
                   </select>
                 </div>
                 <div>
-                  <label className="form-label">Tier *</label>
+                  <label className="form-label">{t('Tier *')}</label>
                   <select
                     value={formData.tier}
                     onChange={(e) => setFormData({ ...formData, tier: parseInt(e.target.value) })}
                     className="select"
                   >
-                    {tierOptions.map(t => (
-                      <option key={t.tier} value={t.tier}>{t.name}</option>
+                    {tierOptions.map(opt => (
+                      <option key={opt.tier} value={opt.tier}>{t(opt.name)}</option>
                     ))}
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="form-label">Intervention Type *</label>
+                <label className="form-label">{t('Intervention Type *')}</label>
                 <select
                   value={formData.intervention}
                   onChange={(e) => setFormData({ ...formData, intervention: e.target.value })}
                   className="select"
                   required
                 >
-                  <option value="">Select Intervention</option>
+                  <option value="">{t('Select Intervention')}</option>
                   {interventionTypes.map(type => (
-                    <option key={type} value={type}>{type}</option>
+                    <option key={type} value={type}>{t(type)}</option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="form-label">Advisor</label>
+                <label className="form-label">{t('Advisor')}</label>
                 <select
                   value={formData.advisor || ''}
                   onChange={(e) => setFormData({ ...formData, advisor: e.target.value })}
                   className="select"
                 >
-                  <option value="">Select Advisor</option>
+                  <option value="">{t('Select Advisor')}</option>
                   {allAdvisors.map(a => (
                     <option key={a} value={a}>{a}</option>
                   ))}
@@ -612,32 +614,32 @@ export default function MTSS() {
               <div>
                 <label className="form-label">
                   <Target className="w-4 h-4 inline mr-1" />
-                  Intervention Goal
+                  {t('Intervention Goal')}
                 </label>
                 <textarea
                   value={formData.intervention_goal}
                   onChange={(e) => setFormData({ ...formData, intervention_goal: e.target.value })}
                   className="input min-h-[60px]"
-                  placeholder="What is the goal of this intervention?"
+                  placeholder={t('What is the goal of this intervention?')}
                 />
               </div>
 
               <div>
                 <label className="form-label">
                   <FileText className="w-4 h-4 inline mr-1" />
-                  Progress Monitoring
+                  {t('Progress Monitoring')}
                 </label>
                 <textarea
                   value={formData.progress_monitoring}
                   onChange={(e) => setFormData({ ...formData, progress_monitoring: e.target.value })}
                   className="input min-h-[60px]"
-                  placeholder="How will progress be monitored?"
+                  placeholder={t('How will progress be monitored?')}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="form-label">Start Date</label>
+                  <label className="form-label">{t('Start Date')}</label>
                   <input
                     type="date"
                     value={formData.start_date}
@@ -647,22 +649,22 @@ export default function MTSS() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Progress</label>
+                  <label className="form-label">{t('Progress')}</label>
                   <select
                     value={formData.progress}
                     onChange={(e) => setFormData({ ...formData, progress: e.target.value })}
                     className="select"
                   >
-                    <option value="Not Started">Not Started</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Completed">Completed</option>
+                    <option value="Not Started">{t('Not Started')}</option>
+                    <option value="In Progress">{t('In Progress')}</option>
+                    <option value="Completed">{t('Completed')}</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="form-label">End Date (Planned)</label>
+                  <label className="form-label">{t('End Date (Planned)')}</label>
                   <input
                     type="date"
                     value={formData.end_date}
@@ -673,7 +675,7 @@ export default function MTSS() {
                 <div>
                   <label className="form-label">
                     <Calendar className="w-4 h-4 inline mr-1" />
-                    Review Date
+                    {t('Review Date')}
                   </label>
                   <input
                     type="date"
@@ -685,50 +687,50 @@ export default function MTSS() {
               </div>
 
               <div>
-                <label className="form-label">Exit Criteria</label>
+                <label className="form-label">{t('Exit Criteria')}</label>
                 <textarea
                   value={formData.exit_criteria}
                   onChange={(e) => setFormData({ ...formData, exit_criteria: e.target.value })}
                   className="input min-h-[60px]"
-                  placeholder="What criteria must be met to exit this intervention?"
+                  placeholder={t('What criteria must be met to exit this intervention?')}
                 />
               </div>
 
               <div>
                 <label className="form-label">
                   <Link2 className="w-4 h-4 inline mr-1" />
-                  Linked Incident
+                  {t('Linked Incident')}
                 </label>
                 <select
                   value={formData.incident_link}
                   onChange={(e) => setFormData({ ...formData, incident_link: e.target.value })}
                   className="select"
                 >
-                  <option value="">No linked incident</option>
+                  <option value="">{t('No linked incident')}</option>
                   {incidents.map(inc => (
                     <option key={inc.id} value={inc.id}>
-                      {inc.incident_id} - {inc.last_name}, {inc.first_name} ({inc.violation_type})
+                      {inc.incident_id} - {inc.last_name}, {inc.first_name} ({t(inc.violation_type)})
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="form-label">Notes</label>
+                <label className="form-label">{t('Notes')}</label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   className="input min-h-[80px]"
-                  placeholder="Additional notes..."
+                  placeholder={t('Additional notes...')}
                 />
               </div>
 
               <div className="flex justify-end gap-3 pt-4">
                 <button type="button" onClick={closeModal} className="btn btn-danger">
-                  Cancel
+                  {t('Cancel')}
                 </button>
                 <button type="submit" disabled={saving} className="btn btn-primary">
-                  {saving ? 'Saving...' : (editingId ? 'Update Intervention' : 'Create Intervention')}
+                  {saving ? t('Saving...') : (editingId ? t('Update Intervention') : t('Create Intervention'))}
                 </button>
               </div>
             </form>

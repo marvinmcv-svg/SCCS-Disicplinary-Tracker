@@ -3,6 +3,7 @@ import { Search, Edit2, X, Anchor, Phone, ShieldAlert, Gavel } from 'lucide-reac
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { useAuth } from '../App';
+import { useI18n } from '../i18n';
 
 interface Violation {
   id: number;
@@ -37,6 +38,7 @@ interface EditingViolation {
 export default function Violations() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [violations, setViolations] = useState<Violation[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -145,7 +147,7 @@ export default function Violations() {
       setShowEditModal(false);
       loadViolations();
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Error saving violation');
+      alert(error.response?.data?.error || t('Error saving violation'));
     } finally {
       setSaving(false);
     }
@@ -163,8 +165,8 @@ export default function Violations() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Violation Reference</h1>
-          <p className="text-gray-500">View all violation types and consequences</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('Violation Reference')}</h1>
+          <p className="text-gray-500">{t('View all violation types and consequences')}</p>
         </div>
       </div>
 
@@ -176,7 +178,7 @@ export default function Violations() {
             onClick={() => { setSelectedCategory(''); setSearchKeyword(''); }}
             className={`px-3 py-1 text-sm rounded-full transition-colors ${!selectedCategory ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}
           >
-            All
+            {t('All')}
           </button>
           {categories.map(cat => (
             <button
@@ -184,7 +186,7 @@ export default function Violations() {
               onClick={() => scrollToCategory(cat)}
               className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedCategory === cat ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}
             >
-              {cat}
+              {t(cat)}
             </button>
           ))}
         </div>
@@ -197,7 +199,7 @@ export default function Violations() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search violations..."
+              placeholder={t('Search violations...')}
               value={searchKeyword}
               onChange={(e) => setSearchKeyword(e.target.value)}
               className="input pl-10"
@@ -218,25 +220,25 @@ export default function Violations() {
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="select w-48"
           >
-            <option value="">All Categories</option>
+            <option value="">{t('All Categories')}</option>
             {categories.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
+              <option key={cat} value={cat}>{t(cat)}</option>
             ))}
           </select>
 
           <span className="text-sm text-gray-500">
-            {filteredViolations.length} violations
+            {t('{count} violations', { count: filteredViolations.length })}
           </span>
         </div>
 
         {loading ? (
-          <div className="text-center py-8 text-gray-400">Loading...</div>
+          <div className="text-center py-8 text-gray-400">{t('Loading...')}</div>
         ) : (
           <div className="space-y-8">
             {Object.entries(groupedViolations).map(([category, items]) => (
               <div key={category} id={`category-${category.replace(/[^a-zA-Z0-9]/g, '-')}`}>
                 <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                  {category}
+                  {t(category)}
                   <span className="text-sm font-normal text-gray-500">({items.length})</span>
                 </h3>
                 <div className="space-y-3">
@@ -251,18 +253,18 @@ export default function Violations() {
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 flex-wrap mb-2">
-                              <span className="font-medium text-gray-900">{violation.violation_type}</span>
+                              <span className="font-medium text-gray-900">{t(violation.violation_type)}</span>
                               <span className={`px-2 py-0.5 text-xs rounded-full border ${getSeverityColor(violation.severity)}`}>
-                                {violation.severity}
+                                {t(violation.severity)}
                               </span>
                               {violation.mandatory_parent_contact && (
-                                <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 flex items-center gap-1" title="Mandatory Parent Contact">
-                                  <Phone className="w-3 h-3" /> Parent
+                                <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 flex items-center gap-1" title={t('Mandatory Parent Contact')}>
+                                  <Phone className="w-3 h-3" /> {t('Parent')}
                                 </span>
                               )}
                               {violation.mandatory_admin_review && (
-                                <span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-700 flex items-center gap-1" title="Mandatory Admin Review">
-                                  <ShieldAlert className="w-3 h-3" /> Admin
+                                <span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-700 flex items-center gap-1" title={t('Mandatory Admin Review')}>
+                                  <ShieldAlert className="w-3 h-3" /> {t('Admin')}
                                 </span>
                               )}
                             </div>
@@ -271,11 +273,11 @@ export default function Violations() {
                             {/* Progressive Consequences */}
                             {progressive.length > 0 && (
                               <div className="mb-3">
-                                <p className="text-xs font-medium text-gray-500 mb-1">Progressive Consequences:</p>
+                                <p className="text-xs font-medium text-gray-500 mb-1">{t('Progressive Consequences:')}</p>
                                 <div className="flex flex-wrap gap-2">
                                   {progressive.map(([occurrence, consequence], idx) => (
                                     <span key={idx} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
-                                      {occurrence}: {consequence}
+                                      {occurrence}: {t(consequence)}
                                     </span>
                                   ))}
                                 </div>
@@ -285,13 +287,13 @@ export default function Violations() {
                             <div className="flex items-center gap-4 text-sm">
                               <span className="text-gray-500">
                                 <Gavel className="w-4 h-4 inline mr-1" />
-                                {violation.default_consequence}
+                                {t(violation.default_consequence)}
                               </span>
                               <span className="text-gray-500">
-                                {violation.points_deduction} pts
+                                {t('{points} pts', { points: violation.points_deduction })}
                               </span>
                               <span className="text-gray-500">
-                                OSS: {violation.min_oss_days}-{violation.max_oss_days} days
+                                {t('OSS: {min}-{max} days', { min: violation.min_oss_days, max: violation.max_oss_days })}
                               </span>
                             </div>
                           </div>
@@ -301,7 +303,7 @@ export default function Violations() {
                             <button
                               onClick={(e) => openEditModal(violation, e)}
                               className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Edit Violation"
+                              title={t('Edit Violation')}
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
@@ -322,7 +324,7 @@ export default function Violations() {
         <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
           <div className="modal max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Edit Violation</h2>
+              <h2 className="text-lg font-semibold">{t('Edit Violation')}</h2>
               <button onClick={() => setShowEditModal(false)} className="p-1 hover:bg-gray-100 rounded">
                 <X className="w-5 h-5" />
               </button>
@@ -331,7 +333,7 @@ export default function Violations() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="form-label">Category</label>
+                  <label className="form-label">{t('Category')}</label>
                   <input
                     type="text"
                     value={editingViolation.category}
@@ -340,7 +342,7 @@ export default function Violations() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Violation Type</label>
+                  <label className="form-label">{t('Violation Type')}</label>
                   <input
                     type="text"
                     value={editingViolation.violation_type}
@@ -351,7 +353,7 @@ export default function Violations() {
               </div>
 
               <div>
-                <label className="form-label">Description</label>
+                <label className="form-label">{t('Description')}</label>
                 <textarea
                   value={editingViolation.description}
                   onChange={(e) => setEditingViolation({ ...editingViolation, description: e.target.value })}
@@ -361,20 +363,20 @@ export default function Violations() {
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="form-label">Severity</label>
+                  <label className="form-label">{t('Severity')}</label>
                   <select
                     value={editingViolation.severity}
                     onChange={(e) => setEditingViolation({ ...editingViolation, severity: e.target.value })}
                     className="select"
                   >
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                    <option value="Critical">Critical</option>
+                    <option value="Low">{t('Low')}</option>
+                    <option value="Medium">{t('Medium')}</option>
+                    <option value="High">{t('High')}</option>
+                    <option value="Critical">{t('Critical')}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="form-label">Points Deduction</label>
+                  <label className="form-label">{t('Points Deduction')}</label>
                   <input
                     type="number"
                     value={editingViolation.points_deduction}
@@ -383,7 +385,7 @@ export default function Violations() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Default Consequence</label>
+                  <label className="form-label">{t('Default Consequence')}</label>
                   <input
                     type="text"
                     value={editingViolation.default_consequence}
@@ -395,7 +397,7 @@ export default function Violations() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="form-label">Min OSS Days</label>
+                  <label className="form-label">{t('Min OSS Days')}</label>
                   <input
                     type="number"
                     value={editingViolation.min_oss_days}
@@ -404,7 +406,7 @@ export default function Violations() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Max OSS Days</label>
+                  <label className="form-label">{t('Max OSS Days')}</label>
                   <input
                     type="number"
                     value={editingViolation.max_oss_days}
@@ -422,7 +424,7 @@ export default function Violations() {
                     onChange={(e) => setEditingViolation({ ...editingViolation, mandatory_parent_contact: e.target.checked })}
                     className="w-4 h-4 rounded border-gray-300"
                   />
-                  <span className="text-sm">Mandatory Parent Contact</span>
+                  <span className="text-sm">{t('Mandatory Parent Contact')}</span>
                 </label>
                 <label className="flex items-center gap-2">
                   <input
@@ -431,12 +433,12 @@ export default function Violations() {
                     onChange={(e) => setEditingViolation({ ...editingViolation, mandatory_admin_review: e.target.checked })}
                     className="w-4 h-4 rounded border-gray-300"
                   />
-                  <span className="text-sm">Mandatory Admin Review</span>
+                  <span className="text-sm">{t('Mandatory Admin Review')}</span>
                 </label>
               </div>
 
               <div>
-                <label className="form-label">Progressive Consequences</label>
+                <label className="form-label">{t('Progressive Consequences')}</label>
                 <div className="space-y-2">
                   {editingViolation.progressive_consequences.map(([occurrence, consequence], idx) => (
                     <div key={idx} className="flex gap-2">
@@ -449,7 +451,7 @@ export default function Violations() {
                           setEditingViolation({ ...editingViolation, progressive_consequences: updated });
                         }}
                         className="input w-24"
-                        placeholder="1st, 2nd..."
+                        placeholder={t('1st, 2nd...')}
                       />
                       <input
                         type="text"
@@ -460,7 +462,7 @@ export default function Violations() {
                           setEditingViolation({ ...editingViolation, progressive_consequences: updated });
                         }}
                         className="input flex-1"
-                        placeholder="Consequence"
+                        placeholder={t('Consequence')}
                       />
                       <button
                         onClick={() => {
@@ -482,17 +484,17 @@ export default function Violations() {
                     }}
                     className="text-sm text-blue-600 hover:text-blue-700"
                   >
-                    + Add Consequence
+                    {t('+ Add Consequence')}
                   </button>
                 </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-4">
                 <button onClick={() => setShowEditModal(false)} className="btn btn-secondary">
-                  Cancel
+                  {t('Cancel')}
                 </button>
                 <button onClick={handleSaveEdit} disabled={saving} className="btn btn-primary">
-                  {saving ? 'Saving...' : 'Save Changes'}
+                  {saving ? t('Saving...') : t('Save Changes')}
                 </button>
               </div>
             </div>

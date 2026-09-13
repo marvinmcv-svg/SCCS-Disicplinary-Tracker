@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useNavigate } from 'react-router-dom';
+import { useI18n } from '../i18n';
 
 interface Incident {
   id: number;
@@ -43,6 +44,7 @@ interface ReportTemplate {
 
 export default function Reports() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<string | null>(null);
   const [reportData, setReportData] = useState<any>(null);
@@ -295,7 +297,7 @@ export default function Reports() {
       setReportData(data);
     } catch (error) {
       console.error('Failed to generate report:', error);
-      alert('Failed to generate report');
+      alert(t('Failed to generate report'));
     } finally {
       setGenerating(false);
     }
@@ -411,8 +413,8 @@ export default function Reports() {
     <div className="space-y-4 md:space-y-6 animate-fade-in pb-20 md:pb-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-          <p className="text-gray-500">Generate and export disciplinary reports</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('Reports')}</h1>
+          <p className="text-gray-500">{t('Generate and export disciplinary reports')}</p>
         </div>
       </div>
 
@@ -431,8 +433,8 @@ export default function Reports() {
                   {template.icon}
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900">{template.name}</h3>
-                  <p className="text-sm text-gray-500 mt-1">{template.description}</p>
+                  <h3 className="font-semibold text-gray-900">{t(template.name)}</h3>
+                  <p className="text-sm text-gray-500 mt-1">{t(template.description)}</p>
                 </div>
                 <ChevronRight className="w-5 h-5 text-gray-400" />
               </div>
@@ -448,16 +450,16 @@ export default function Reports() {
           <div className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">{reportData.title}</h2>
+                <h2 className="text-xl font-bold text-gray-900">{t(reportData.title)}</h2>
                 <p className="text-sm text-gray-500">
                   {reportData.dateRange ? `${reportData.dateRange} | ` : ''}
-                  Generated: {reportData.generatedAt}
+                  {t('Generated:')} {reportData.generatedAt}
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={handlePrint} className="btn btn-secondary">
                   <Printer className="w-4 h-4" />
-                  Print
+                  {t('Print')}
                 </button>
                 <button onClick={exportToPDF} className="btn btn-secondary">
                   <FileText className="w-4 h-4" />
@@ -472,7 +474,7 @@ export default function Reports() {
                   className="btn btn-danger"
                 >
                   <X className="w-4 h-4" />
-                  Close
+                  {t('Close')}
                 </button>
               </div>
             </div>
@@ -483,7 +485,7 @@ export default function Reports() {
                 {Object.entries(reportData.summary).map(([key, value]) => (
                   <div key={key} className="bg-gray-50 rounded-lg p-4">
                     <p className="text-xs text-gray-500 uppercase">
-                      {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                      {t(key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()))}
                     </p>
                     <p className="text-2xl font-bold text-gray-900 mt-1">{value as string}</p>
                   </div>
@@ -499,7 +501,7 @@ export default function Reports() {
                     <tr>
                       {reportData.headers.map((header: string, i: number) => (
                         <th key={i} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                          {header}
+                          {t(header)}
                         </th>
                       ))}
                     </tr>
@@ -523,7 +525,7 @@ export default function Reports() {
             {reportData.byCategory && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">Incidents by Category</h3>
+                  <h3 className="font-semibold text-gray-900 mb-3">{t('Incidents by Category')}</h3>
                   <div className="space-y-2">
                     {reportData.byCategory.map(([cat, count]: [string, number]) => (
                       <div key={cat} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -543,11 +545,11 @@ export default function Reports() {
                 </div>
 
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">Incidents by Grade</h3>
+                  <h3 className="font-semibold text-gray-900 mb-3">{t('Incidents by Grade')}</h3>
                   <div className="space-y-2">
                     {reportData.byGrade.map(([grade, count]: [string, number]) => (
                       <div key={grade} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <span className="text-sm font-medium">Grade {grade}</span>
+                        <span className="text-sm font-medium">{t('Grade {grade}', { grade })}</span>
                         <div className="flex items-center gap-2">
                           <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
                             <div
@@ -567,16 +569,16 @@ export default function Reports() {
             {/* Recent Incidents Table */}
             {reportData.recentIncidents && (
               <div className="mt-6">
-                <h3 className="font-semibold text-gray-900 mb-3">Recent Incidents</h3>
+                <h3 className="font-semibold text-gray-900 mb-3">{t('Recent Incidents')}</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">ID</th>
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Date</th>
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Student</th>
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Violation</th>
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('ID')}</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('Date')}</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('Student')}</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('Violation')}</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('Status')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -591,7 +593,7 @@ export default function Reports() {
                               inc.status === 'Open' ? 'badge-danger' :
                               inc.status === 'Pending' ? 'badge-warning' : 'badge-success'
                             }`}>
-                              {inc.status}
+                              {t(inc.status)}
                             </span>
                           </td>
                         </tr>
@@ -610,7 +612,7 @@ export default function Reports() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-8 flex flex-col items-center gap-4">
             <Loader className="w-8 h-8 animate-spin text-blue-600" />
-            <p className="text-gray-600">Generating report...</p>
+            <p className="text-gray-600">{t('Generating report...')}</p>
           </div>
         </div>
       )}

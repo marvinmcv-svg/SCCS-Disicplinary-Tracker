@@ -5,8 +5,12 @@ import {
   HeartHandshake, Settings, LogOut, Menu, X, Shield, Bell
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import sccsLogo from '../sccs.png';
+// Public asset (served from /public in both Vite and the sandbox) instead of a
+// bundled import, so the logo works under either build system.
+const sccsLogo = '/sccs.png';
 import api from '../lib/api';
+import { useI18n } from '../i18n';
+import LanguageToggle from './LanguageToggle';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
@@ -18,6 +22,7 @@ const navItems = [
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { t, lang } = useI18n();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
 
@@ -60,22 +65,25 @@ export default function Layout() {
             <img src={sccsLogo} alt="Logo" className="w-10 h-10 rounded-xl object-cover border-2 border-white/20" />
             <div className="text-white">
               <span className="font-bold text-lg">SCCS</span>
-              <span className="block text-xs text-white/70 -mt-1">Home of the Jaguars</span>
+              <span className="block text-xs text-white/70 -mt-1">{t('Home of the Jaguars')}</span>
             </div>
           </button>
 
-          {/* Notification Bell - Mobile */}
-          <button
-            onClick={() => navigate('/incidents')}
-            className="relative p-2 hover:bg-white/10 rounded-lg text-white"
-          >
-            <Bell className="w-6 h-6" />
-            {notificationCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-                {notificationCount > 99 ? '99+' : notificationCount}
-              </span>
-            )}
-          </button>
+          {/* Language toggle + Notification Bell - Mobile */}
+          <div className="flex items-center gap-1">
+            <LanguageToggle />
+            <button
+              onClick={() => navigate('/incidents')}
+              className="relative p-2 hover:bg-white/10 rounded-lg text-white"
+            >
+              <Bell className="w-6 h-6" />
+              {notificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                  {notificationCount > 99 ? '99+' : notificationCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -94,7 +102,7 @@ export default function Layout() {
             <img src={sccsLogo} alt="Logo" className="w-10 h-10 rounded-lg object-cover border-2 border-white/20" />
             <div className="text-left">
               <h1 className="font-bold text-lg">SCCS</h1>
-              <p className="text-xs text-white/70">Home of the Jaguars</p>
+              <p className="text-xs text-white/70">{t('Home of the Jaguars')}</p>
             </div>
           </button>
         </div>
@@ -106,7 +114,7 @@ export default function Layout() {
             className="relative w-full flex items-center gap-3 px-3 py-2 hover:bg-white/10 rounded-lg transition-colors"
           >
             <Bell className="w-5 h-5" />
-            <span className="text-sm font-medium">Notifications</span>
+            <span className="text-sm font-medium">{t('Notifications')}</span>
             {notificationCount > 0 && (
               <span className="ml-auto bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
                 {notificationCount > 99 ? '99+' : notificationCount}
@@ -130,7 +138,7 @@ export default function Layout() {
               }
             >
               <item.icon className="w-5 h-5 flex-shrink-0" />
-              <span className="text-sm font-medium">{item.label}</span>
+              <span className="text-sm font-medium">{t(item.label)}</span>
             </NavLink>
           ))}
           <NavLink
@@ -144,7 +152,7 @@ export default function Layout() {
             }
           >
             <BookOpen className="w-5 h-5 flex-shrink-0" />
-            <span className="text-sm font-medium">Violations</span>
+            <span className="text-sm font-medium">{t('Violations')}</span>
           </NavLink>
           <NavLink
             to="/users"
@@ -157,7 +165,7 @@ export default function Layout() {
             }
           >
             <Shield className="w-5 h-5 flex-shrink-0" />
-            <span className="text-sm font-medium">Users</span>
+            <span className="text-sm font-medium">{t('Users')}</span>
           </NavLink>
           <NavLink
             to="/settings"
@@ -170,21 +178,24 @@ export default function Layout() {
             }
           >
             <Settings className="w-5 h-5 flex-shrink-0" />
-            <span className="text-sm font-medium">Settings</span>
+            <span className="text-sm font-medium">{t('Settings')}</span>
           </NavLink>
         </nav>
 
         <div className="p-4 border-t border-white/10">
-          <div className="mb-3 text-xs text-white/60">
-            <p>Logged in as</p>
-            <p className="font-medium text-white">{user?.lastName}, {user?.firstName}</p>
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-xs text-white/60">
+              <p>{t('Logged in as')}</p>
+              <p className="font-medium text-white">{user?.lastName}, {user?.firstName}</p>
+            </div>
+            <LanguageToggle />
           </div>
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 w-full px-3 py-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
           >
             <LogOut className="w-5 h-5" />
-            <span className="text-sm">Logout</span>
+            <span className="text-sm">{t('Logout')}</span>
           </button>
         </div>
       </aside>
@@ -199,7 +210,7 @@ export default function Layout() {
               <img src={sccsLogo} alt="Logo" className="w-10 h-10 rounded-lg object-cover border-2 border-white/20" />
               <div className="text-left">
                 <h1 className="font-bold text-lg">SCCS</h1>
-                <p className="text-xs text-white/70">Home of the Jaguars</p>
+                <p className="text-xs text-white/70">{t('Home of the Jaguars')}</p>
               </div>
             </button>
             <button
@@ -227,7 +238,7 @@ export default function Layout() {
               }
             >
               <item.icon className="w-6 h-6 flex-shrink-0" />
-              <span className="text-base font-medium">{item.label}</span>
+              <span className="text-base font-medium">{t(item.label)}</span>
             </NavLink>
           ))}
           <NavLink
@@ -242,7 +253,7 @@ export default function Layout() {
             }
           >
             <BookOpen className="w-6 h-6 flex-shrink-0" />
-            <span className="text-base font-medium">Violations</span>
+            <span className="text-base font-medium">{t('Violations')}</span>
           </NavLink>
           <NavLink
             to="/users"
@@ -256,7 +267,7 @@ export default function Layout() {
             }
           >
             <Shield className="w-6 h-6 flex-shrink-0" />
-            <span className="text-base font-medium">Users</span>
+            <span className="text-base font-medium">{t('Users')}</span>
           </NavLink>
           <NavLink
             to="/settings"
@@ -270,21 +281,24 @@ export default function Layout() {
             }
           >
             <Settings className="w-6 h-6 flex-shrink-0" />
-            <span className="text-base font-medium">Settings</span>
+            <span className="text-base font-medium">{t('Settings')}</span>
           </NavLink>
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
-          <div className="mb-4 text-sm text-white/60">
-            <p>Logged in as</p>
-            <p className="font-semibold text-white">{user?.lastName}, {user?.firstName}</p>
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-sm text-white/60">
+              <p>{t('Logged in as')}</p>
+              <p className="font-semibold text-white">{user?.lastName}, {user?.firstName}</p>
+            </div>
+            <LanguageToggle />
           </div>
           <button
             onClick={handleLogout}
             className="flex items-center gap-3 w-full px-4 py-3 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors bg-white/5"
           >
             <LogOut className="w-6 h-6" />
-            <span className="text-base font-medium">Logout</span>
+            <span className="text-base font-medium">{t('Logout')}</span>
           </button>
         </div>
       </aside>
@@ -294,11 +308,12 @@ export default function Layout() {
         <header className="hidden md:flex bg-white border-b border-gray-200 px-6 py-3 items-center justify-between sticky top-0 z-10">
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              {new Date().toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </span>
           </div>
           <div className="flex items-center gap-4">
-            {/* Desktop Notification Bell */}
+            {/* Language + Desktop Notification Bell */}
+            <LanguageToggle className="bg-gray-100" />
             <button
               onClick={() => navigate('/incidents')}
               className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -310,7 +325,7 @@ export default function Layout() {
                 </span>
               )}
             </button>
-            <img src={sccsLogo} alt="SCCS Logo" className="h-12 w-auto object-contain" />
+            <img src={sccsLogo} alt={t('SCCS Logo')} className="h-12 w-auto object-contain" />
           </div>
         </header>
 
@@ -336,7 +351,7 @@ export default function Layout() {
               }
             >
               <item.icon className="w-6 h-6" />
-              <span className="text-[10px] font-medium">{item.label}</span>
+              <span className="text-[10px] font-medium">{t(item.label)}</span>
             </NavLink>
           ))}
         </div>

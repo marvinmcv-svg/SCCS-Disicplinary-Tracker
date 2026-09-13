@@ -101,6 +101,26 @@ export async function initializeDatabase() {
     { name: 'incident_evidence', sql: `CREATE TABLE IF NOT EXISTS incident_evidence (id SERIAL PRIMARY KEY, incident_id INTEGER NOT NULL, file_name TEXT NOT NULL, file_url TEXT, file_type TEXT, uploaded_by INTEGER NOT NULL, uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)` },
     { name: 'user_activity_log', sql: `CREATE TABLE IF NOT EXISTS user_activity_log (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, action TEXT NOT NULL, details TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)` },
     { name: 'password_reset_tokens', sql: `CREATE TABLE IF NOT EXISTS password_reset_tokens (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, token TEXT UNIQUE NOT NULL, expires_at TIMESTAMP NOT NULL, used BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)` },
+    // ---- Master-prompt compliance tables ----
+    // 1.2 sessions: server-side session registry enabling logout revocation
+    // (all tabs), the 30-minute inactivity timeout and absolute expiry.
+    { name: 'sessions', sql: `CREATE TABLE IF NOT EXISTS sessions (jti TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP, expires_at TIMESTAMP NOT NULL, revoked_at TIMESTAMP, revoked_reason TEXT, ip TEXT, user_agent TEXT)` },
+    // 4.3 password_history: rolling last-5 hashes to block reuse.
+    { name: 'password_history', sql: `CREATE TABLE IF NOT EXISTS password_history (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, password_hash TEXT NOT NULL, changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)` },
+    // 2.1 audit_logs: immutable who/what/when/ip trail (UPDATE/DELETE blocked
+    // by trigger below).
+    { name: 'audit_logs', sql: `CREATE TABLE IF NOT EXISTS audit_logs (id SERIAL PRIMARY KEY, user_id INTEGER, username TEXT, role TEXT, action TEXT NOT NULL, entity_type TEXT, entity_id TEXT, entity_label TEXT, changes JSONB DEFAULT '[]'::jsonb, ip TEXT, user_agent TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)` },
+    // 6.2 security_events: suspicious activity monitoring (lockouts, denied
+    // access, rate limiting, NTSS failures).
+    { name: 'security_events', sql: `CREATE TABLE IF NOT EXISTS security_events (id SERIAL PRIMARY KEY, event_type TEXT NOT NULL, severity TEXT DEFAULT 'info', user_id INTEGER, username TEXT, details JSONB DEFAULT '{}'::jsonb, ip TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)` },
+    // 2.4 correction_requests: staff request changes, principal/admin approves.
+    { name: 'correction_requests', sql: `CREATE TABLE IF NOT EXISTS correction_requests (id SERIAL PRIMARY KEY, incident_id INTEGER NOT NULL REFERENCES incidents(id) ON DELETE CASCADE, requested_by INTEGER NOT NULL REFERENCES users(id), requested_changes JSONB NOT NULL, reason TEXT, status TEXT DEFAULT 'Pending', requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, reviewed_by INTEGER, reviewed_at TIMESTAMP, review_notes TEXT, applied_at TIMESTAMP)` },
+    // 3.2 NTSS submission log + per-record outcomes.
+    { name: 'ntss_submissions', sql: `CREATE TABLE IF NOT EXISTS ntss_submissions (id SERIAL PRIMARY KEY, batch_id TEXT UNIQUE NOT NULL, submitted_by INTEGER NOT NULL REFERENCES users(id), record_count INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'Queued', fail_mode TEXT, submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, completed_at TIMESTAMP, response_summary JSONB DEFAULT '{}'::jsonb, retry_count INTEGER DEFAULT 0)` },
+    { name: 'ntss_submission_items', sql: `CREATE TABLE IF NOT EXISTS ntss_submission_items (id SERIAL PRIMARY KEY, submission_id INTEGER NOT NULL REFERENCES ntss_submissions(id) ON DELETE CASCADE, incident_id INTEGER NOT NULL REFERENCES incidents(id), ntss_record JSONB, status TEXT NOT NULL DEFAULT 'Queued', error_message TEXT, submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)` },
+    // 1.3 parent_student_links: verified links decide what a parent (or a
+    // student, for their own record) can see.
+    { name: 'parent_student_links', sql: `CREATE TABLE IF NOT EXISTS parent_student_links (id SERIAL PRIMARY KEY, parent_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE, verified BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE (parent_user_id, student_id))` },
   ];
 
   for (const table of tableQueries) {
@@ -115,6 +135,8 @@ export async function initializeDatabase() {
   await migrateUsersTable();
   await migrateIncidentsTable();
   await migrateStudentsTable();
+  await migrateComplianceColumns();
+  await createAuditImmutabilityTrigger();
   await createIndexes();
   await createForeignKeys();
 
@@ -123,9 +145,300 @@ export async function initializeDatabase() {
     await seedAlerts();
     await seedDefaultSettings();
     await createDefaultAdmin();
+    await seedTestAccounts();
+    await seedAdvisorAccounts();
+    await reconcileParentLinks();
     console.log('Database initialization complete!');
   } catch (error: any) {
     console.error('Seeding error:', error.message);
+  }
+}
+
+/**
+ * Master-prompt compliance migrations: lockout/audit/NTSS columns plus
+ * indexes for the new tables.
+ */
+async function migrateComplianceColumns() {
+  const columns = [
+    // 4.3 account lockout state.
+    { name: 'users.failed_login_attempts', sql: 'ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER DEFAULT 0' },
+    { name: 'users.locked_until', sql: 'ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP' },
+    // 5.1 terms-of-service acknowledgment timestamp.
+    { name: 'users.terms_accepted_at', sql: 'ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMP' },
+    { name: 'users.password_changed_at', sql: 'ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP' },
+    // 3.2 NTSS readiness + submission marker on each incident.
+    { name: 'incidents.ntss_ready', sql: 'ALTER TABLE incidents ADD COLUMN IF NOT EXISTS ntss_ready BOOLEAN DEFAULT FALSE' },
+    { name: 'incidents.ntss_submitted_at', sql: 'ALTER TABLE incidents ADD COLUMN IF NOT EXISTS ntss_submitted_at TIMESTAMP' },
+  ];
+  for (const col of columns) {
+    try {
+      await pool.query(col.sql);
+      console.log(`✓ ${col.name} ready`);
+    } catch (e: any) {
+      if (!e.message.includes('already exists')) console.error(`  ${col.name}:`, e.message);
+    }
+  }
+
+  const indexes = [
+    'CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_sessions_last_activity ON sessions(last_activity)',
+    'CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC)',
+    'CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs(entity_type, entity_id)',
+    'CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_security_events_created_at ON security_events(created_at DESC)',
+    'CREATE INDEX IF NOT EXISTS idx_correction_requests_status ON correction_requests(status)',
+    'CREATE INDEX IF NOT EXISTS idx_ntss_items_submission ON ntss_submission_items(submission_id)',
+    'CREATE INDEX IF NOT EXISTS idx_ntss_items_incident ON ntss_submission_items(incident_id)',
+    'CREATE INDEX IF NOT EXISTS idx_parent_links_parent ON parent_student_links(parent_user_id, verified)',
+    'CREATE INDEX IF NOT EXISTS idx_parent_links_student ON parent_student_links(student_id)',
+    'CREATE INDEX IF NOT EXISTS idx_password_history_user ON password_history(user_id, changed_at DESC)',
+    'CREATE INDEX IF NOT EXISTS idx_incidents_ntss ON incidents(ntss_submitted_at)',
+  ];
+  for (const sql of indexes) {
+    try { await pool.query(sql); } catch (e: any) { console.error('Index error:', e.message); }
+  }
+  console.log('✓ compliance indexes ready');
+}
+
+/**
+ * 2.1: the audit trail is immutable at the DATABASE level — UPDATE and DELETE
+ * raise an exception for every role. Archiving is an offline DBA procedure
+ * (pg_dump the rows, then drop the partition) documented in the admin guide.
+ */
+async function createAuditImmutabilityTrigger() {
+  try {
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION prevent_audit_mutation() RETURNS trigger AS $$
+      BEGIN
+        RAISE EXCEPTION 'audit_logs are immutable: % is not permitted (archive via the documented offline procedure)', TG_OP;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+    await pool.query(`DROP TRIGGER IF EXISTS audit_logs_immutable ON audit_logs`);
+    await pool.query(`
+      CREATE TRIGGER audit_logs_immutable
+      BEFORE UPDATE OR DELETE ON audit_logs
+      FOR EACH ROW EXECUTE FUNCTION prevent_audit_mutation();
+    `);
+    console.log('✓ audit_logs immutability trigger ready');
+  } catch (error: any) {
+    console.error('audit immutability trigger error:', error.message);
+  }
+}
+
+/**
+ * 1.1 test accounts for every role (master prompt: "Create test accounts for
+ * each role"). Idempotent — only creates what is missing. Disable with
+ * SCCS_SEED_TEST_ACCOUNTS=false.
+ *
+ * The counselor/teacher accounts are linked to REAL demo data so scoping is
+ * observable: the counselor's name matches students.counselor on ~dozens of
+ * seeded students, the teacher's advisory matches a homeroom.
+ */
+async function seedTestAccounts() {
+  if (process.env.SCCS_SEED_TEST_ACCOUNTS === 'false') return;
+
+  const bcrypt = await import('bcryptjs');
+  const accounts: Array<{ username: string; password: string; role: string; first: string; last: string; advisory?: string }> = [
+    { username: 'principal', password: 'Principal!2026', role: 'principal', first: 'Patricia', last: 'Principal' },
+    { username: 'staff', password: 'Staff!2026', role: 'staff', first: 'Sam', last: 'Staffer' },
+    { username: 'parent', password: 'Parent!2026', role: 'parent', first: ' Paula', last: 'Parent' },
+    { username: 'parent2', password: 'Parent2!2026', role: 'parent', first: 'Peter', last: 'Parenttwo' },
+    { username: 'pendingparent', password: 'Pending!2026', role: 'parent', first: 'Penny', last: 'Pendingparent' },
+    { username: 'student', password: 'Student!2026', role: 'student', first: 'Stu', last: 'Dent' },
+  ];
+
+  // Counselor account: match the most common counselor value in the roster so
+  // the scoping filter has data to show.
+  try {
+    const top = await pool.query(
+      `SELECT counselor, COUNT(*) AS c FROM students WHERE counselor IS NOT NULL AND counselor != '' GROUP BY counselor ORDER BY c DESC LIMIT 1`
+    );
+    if (top.rows.length > 0) {
+      const value = String(top.rows[0].counselor).trim();
+      const idx = value.lastIndexOf(' ');
+      const first = idx > 0 ? value.slice(0, idx) : value;
+      const last = idx > 0 ? value.slice(idx + 1) : '(counselor)';
+      accounts.unshift({ username: 'counselor', password: 'Counselor!2026', role: 'counselor', first, last });
+    }
+  } catch { /* roster empty — skip the counselor account */ }
+
+  // Teacher account: match a real advisory (homeroom) so classroom scoping has
+  // data to show.
+  try {
+    const top = await pool.query(
+      `SELECT advisory, COUNT(*) AS c FROM students WHERE advisory IS NOT NULL AND advisory != '' GROUP BY advisory ORDER BY c DESC LIMIT 1`
+    );
+    if (top.rows.length > 0) {
+      accounts.unshift({ username: 'teacher', password: 'Teacher!2026', role: 'teacher', first: 'Taylor', last: 'Teacher', advisory: String(top.rows[0].advisory).trim() });
+    }
+  } catch { /* roster empty — skip the teacher account */ }
+
+  for (const a of accounts) {
+    try {
+      const exists = await pool.query('SELECT id FROM users WHERE username = $1', [a.username]);
+      if (exists.rows.length > 0) continue;
+      const hash = bcrypt.hashSync(a.password, 10);
+      const res = await pool.query(
+        `INSERT INTO users (username, password, role, first_name, last_name, advisory, is_active)
+         VALUES ($1, $2, $3, $4, $5, $6, TRUE) RETURNING id`,
+        [a.username, hash, a.role, a.first.trim(), a.last, (a as any).advisory ?? null]
+      );
+      const userId = res.rows[0].id;
+      await pool.query('INSERT INTO password_history (user_id, password_hash) VALUES ($1, $2)', [userId, hash]);
+      console.log(`✓ test account '${a.username}' (${a.role}) ready`);
+    } catch (e: any) {
+      console.error(`test account ${a.username}:`, e.message);
+    }
+  }
+
+  await linkParentTestAccounts();
+  await linkStudentTestAccount();
+}
+
+/**
+ * 1.3: link the parent test accounts to real students.
+ *   parent  → verified link to a student with a parent email on file
+ *   parent2 → verified link to a DIFFERENT student (cross-access testing)
+ *   pendingparent → UNVERIFIED link (must receive no access)
+ */
+async function linkParentTestAccounts() {
+  const bcrypt = await import('bcryptjs');
+  try {
+    const studentsWithEmail = await pool.query(
+      `SELECT id, parent_email FROM students WHERE parent_email IS NOT NULL AND parent_email != '' ORDER BY id ASC LIMIT 2`
+    );
+    if (studentsWithEmail.rows.length < 2) return;
+
+    // Give parent/parent2 the matching emails so reconcileParentLinks()
+    // creates VERIFIED links automatically (email verification model).
+    const assignments = [
+      { username: 'parent', email: studentsWithEmail.rows[0].parent_email },
+      { username: 'parent2', email: studentsWithEmail.rows[1].parent_email },
+    ];
+    for (const a of assignments) {
+      await pool.query('UPDATE users SET email = $1 WHERE username = $2 AND (email IS NULL OR email = \'\')', [a.email, a.username]);
+    }
+
+    // pendingparent: unverified link to a third student — no access until an
+    // admin verifies it (PUT /api/parent/links/:id/verify).
+    const third = await pool.query(
+      `SELECT id FROM students WHERE id NOT IN ($1, $2) ORDER BY id ASC LIMIT 1`,
+      [studentsWithEmail.rows[0].id, studentsWithEmail.rows[1].id]
+    );
+    if (third.rows.length > 0) {
+      const pendingUser = await pool.query(`SELECT id FROM users WHERE username = 'pendingparent'`);
+      if (pendingUser.rows.length > 0) {
+        await pool.query(
+          `INSERT INTO parent_student_links (parent_user_id, student_id, verified) VALUES ($1, $2, FALSE)
+           ON CONFLICT (parent_user_id, student_id) DO NOTHING`,
+          [pendingUser.rows[0].id, third.rows[0].id]
+        );
+      }
+    }
+    void bcrypt;
+  } catch (e: any) {
+    console.error('parent test links:', e.message);
+  }
+}
+
+/**
+ * 1.2 One login account (role: 'teacher') for every advisor on the app's
+ * hardcoded staff list (allAdvisors in client/src/pages/Students.tsx and
+ * MTSS.tsx — 'Mr Adachi', 'Ms Tello', …). Each account is scoped to the
+ * advisor's most-populated homeroom (users.advisory = 'Rm N - <name>') so
+ * teacher role scoping shows their own advisory students. Idempotent —
+ * existing usernames are never touched. Disable with
+ * SCCS_SEED_ADVISOR_ACCOUNTS=false.
+ */
+const ADVISOR_STAFF = [
+  'Mr Adachi', 'Mr Cohello', 'MrDiPascuale', 'Mr Kane', 'Mr Ortiz', 'Ms Aguirre',
+  'Ms Camacho', 'Ms Fernandez', 'Ms Guaristi', 'Ms Hopp', 'Ms Meneses', 'Ms Molina',
+  'Ms Palacios', 'Ms Rios', 'Ms Robinson', 'Ms Skelly', 'Ms Tello', 'Ms Tomelic',
+  'Ms Zuazo', 'Mr Coronado', 'Mr Herbert', 'Mr Kreller', 'Mr Odekerken', 'Mr Soliz',
+] as const;
+
+async function seedAdvisorAccounts(): Promise<void> {
+  if (process.env.SCCS_SEED_ADVISOR_ACCOUNTS === 'false') return;
+
+  const bcrypt = await import('bcryptjs');
+  const password = process.env.ADVISOR_ACCOUNT_PASSWORD || 'Teacher!2026';
+  const hash = bcrypt.hashSync(password, 10);
+
+  for (const name of ADVISOR_STAFF) {
+    try {
+      // 'Ms Tello' → username 'MsTello' ('MrDiPascuale' stays as-is, no space).
+      const username = name.replace(/\s+/g, '');
+      // Split honorific from surname: 'Ms Tello' → first 'Ms', last 'Tello';
+      // 'MrDiPascuale' → first 'Mr', last 'DiPascuale'.
+      const m = /^(Mr|Ms|Mrs|Dr)\s*(.+)$/.exec(name);
+      const first = m ? m[1] : name;
+      const last = m ? m[2] : '';
+
+      const exists = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
+      if (exists.rows.length > 0) continue;
+
+      // Scope the teacher to their most-populated advisory room, if any.
+      let advisory: string | null = null;
+      const room = await pool.query(
+        `SELECT advisory FROM students
+         WHERE advisory IS NOT NULL AND advisory != '' AND advisory LIKE '%' || $1 || '%'
+         GROUP BY advisory ORDER BY COUNT(*) DESC LIMIT 1`,
+        [name]
+      );
+      if (room.rows.length > 0) advisory = String(room.rows[0].advisory).trim();
+
+      const res = await pool.query(
+        `INSERT INTO users (username, password, role, first_name, last_name, advisory, is_active)
+         VALUES ($1, $2, 'teacher', $3, $4, $5, TRUE) RETURNING id`,
+        [username, hash, first, last, advisory]
+      );
+      const userId = res.rows[0].id;
+      await pool.query('INSERT INTO password_history (user_id, password_hash) VALUES ($1, $2)', [userId, hash]);
+      console.log(`✓ advisor account '${username}' (teacher) ready${advisory ? ` — advisory: ${advisory}` : ''}`);
+    } catch (e: any) {
+      console.error(`advisor account ${name}:`, e.message);
+    }
+  }
+}
+
+/** Link the student test account to its own record (verified by definition). */
+async function linkStudentTestAccount() {
+  try {
+    const studentUser = await pool.query(`SELECT id FROM users WHERE username = 'student' AND role = 'student'`);
+    if (studentUser.rows.length === 0) return;
+    const someStudent = await pool.query(`SELECT id FROM students ORDER BY id ASC LIMIT 1`);
+    if (someStudent.rows.length === 0) return;
+    await pool.query(
+      `INSERT INTO parent_student_links (parent_user_id, student_id, verified) VALUES ($1, $2, TRUE)
+       ON CONFLICT (parent_user_id, student_id) DO NOTHING`,
+      [studentUser.rows[0].id, someStudent.rows[0].id]
+    );
+  } catch (e: any) {
+    console.error('student test link:', e.message);
+  }
+}
+
+/**
+ * 1.3: a parent's email must be linked to the student record before access is
+ * granted. Reconcile at boot: any parent-role user whose email matches a
+ * student's parent_email gets a VERIFIED link (idempotent).
+ */
+async function reconcileParentLinks() {
+  try {
+    const res = await pool.query(`
+      INSERT INTO parent_student_links (parent_user_id, student_id, verified)
+      SELECT u.id, s.id, TRUE
+      FROM users u
+      JOIN students s ON LOWER(TRIM(s.parent_email)) = LOWER(TRIM(u.email))
+      WHERE u.role = 'parent' AND u.email IS NOT NULL AND u.email != ''
+      ON CONFLICT (parent_user_id, student_id) DO UPDATE SET verified = TRUE
+    `);
+    if (res.rowCount && res.rowCount > 0) {
+      console.log(`✓ verified ${res.rowCount} parent↔student email link(s)`);
+    }
+  } catch (e: any) {
+    console.error('parent link reconcile:', e.message);
   }
 }
 

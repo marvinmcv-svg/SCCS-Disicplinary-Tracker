@@ -1,7 +1,10 @@
 import axios from 'axios';
 
-// Use environment variable in production, localhost in development
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// Use environment variable in production, relative '/api' otherwise.
+// Vite dev resolves '/api' through its server.proxy → localhost:3001, and the
+// sandbox (Next.js) resolves it through a rewrite to the same Express server.
+// Guarded so it works under either bundler (import.meta.env only exists in Vite).
+const API_URL = (import.meta as any).env?.VITE_API_URL || '/api';
 
 // Shared types
 export interface ApiError { error: string; }
@@ -198,9 +201,10 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      // Only redirect to login if not already on login page
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
+      // Only redirect to login if not already on login page.
+      // Uses the hash because the app routes with HashRouter.
+      if (!window.location.hash.includes('/login')) {
+        window.location.hash = '#/login';
       }
     }
     return Promise.reject(error);

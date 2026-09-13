@@ -86,12 +86,26 @@ describe('adminOnly — deletes and system settings', () => {
 });
 
 describe('failing closed', () => {
-  it('denies an unrecognised legacy role rather than defaulting it open', () => {
+  it('denies an unrecognised role rather than defaulting it open', () => {
     for (const guard of [canRecordIncidents, canManageStudents, adminOnly]) {
-      expectDenied(guard, 'staff');
-      expectDenied(guard, 'principal');
+      expectDenied(guard, 'superadmin');
+      expectDenied(guard, 'legacy');
       expectDenied(guard, '');
     }
+  });
+
+  it('treats the new master-prompt roles correctly', () => {
+    // principal can flag incidents but cannot manage students or act as admin
+    expectAllowed(canRecordIncidents, 'principal');
+    expectDenied(canManageStudents, 'principal');
+    expectDenied(adminOnly, 'principal');
+    // staff is read-only: denied on every write guard
+    expectDenied(canRecordIncidents, 'staff');
+    expectDenied(canManageStudents, 'staff');
+    expectDenied(adminOnly, 'staff');
+    // parent and student never get write access
+    expectDenied(canRecordIncidents, 'parent');
+    expectDenied(canRecordIncidents, 'student');
   });
 
   it('denies a request with no authenticated user attached', () => {
@@ -122,8 +136,10 @@ describe('denial response', () => {
 });
 
 describe('the role list', () => {
-  it('is exactly the four roles the Users page offers', () => {
-    expect([...ROLES]).toEqual(['admin', 'counselor', 'teacher', 'user']);
+  it('is exactly the eight roles the master prompt defines', () => {
+    expect([...ROLES]).toEqual([
+      'admin', 'principal', 'counselor', 'teacher', 'staff', 'parent', 'student', 'user',
+    ]);
   });
 
   it('grants every role at least as much as the tier below it', () => {

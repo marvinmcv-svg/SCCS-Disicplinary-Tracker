@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import api from '../lib/api';
 import { useAuth } from '../App';
+import { useI18n } from '../i18n';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -100,6 +101,7 @@ export default function IncidentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
+  const { t } = useI18n();
   const [incident, setIncident] = useState<Incident | null>(null);
   const [violations, setViolations] = useState<Violation[]>([]);
   const [users, setUsers] = useState<UserType[]>([]);
@@ -221,7 +223,7 @@ export default function IncidentDetail() {
       setTimeout(() => setSaved(false), 3000);
       loadData();
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to save changes');
+      alert(error.response?.data?.error || t('Failed to save changes'));
     } finally {
       setSaving(false);
     }
@@ -237,21 +239,21 @@ export default function IncidentDetail() {
       loadData();
     } catch (error) {
       console.error('Failed to update status:', error);
-      alert('Failed to update status');
+      alert(t('Failed to update status'));
     }
   };
 
   const handleEscalate = async () => {
-    if (!confirm('Are you sure you want to escalate this incident to the principal?')) return;
+    if (!confirm(t('Are you sure you want to escalate this incident to the principal?'))) return;
     try {
       await api.put(`/incidents/${id}/escalate`, {
         escalated: true,
       });
       loadData();
-      alert('Incident escalated to principal. They will be notified.');
+      alert(t('Incident escalated to principal. They will be notified.'));
     } catch (error) {
       console.error('Failed to escalate:', error);
-      alert('Failed to escalate incident');
+      alert(t('Failed to escalate incident'));
     }
   };
 
@@ -269,22 +271,22 @@ export default function IncidentDetail() {
         await api.post(`/incidents/${id}/evidence`, formDataUpload);
       }
       loadData();
-      alert('Evidence uploaded successfully');
+      alert(t('Evidence uploaded successfully'));
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to upload evidence');
+      alert(error.response?.data?.error || t('Failed to upload evidence'));
     } finally {
       setUploadingEvidence(false);
     }
   };
 
   const handleDeleteEvidence = async (evidenceId: number) => {
-    if (!confirm('Delete this evidence?')) return;
+    if (!confirm(t('Delete this evidence?'))) return;
     try {
       await api.delete(`/incidents/${id}/evidence/${evidenceId}`);
       loadData();
     } catch (error) {
       console.error('Failed to delete evidence:', error);
-      alert('Failed to delete evidence');
+      alert(t('Failed to delete evidence'));
     }
   };
 
@@ -479,8 +481,8 @@ SCCS Administration`;
     return (
       <div className="p-6 flex flex-col items-center justify-center min-h-[50vh]">
         <AlertTriangle className="w-12 h-12 text-gray-400 mb-4" />
-        <p className="text-gray-500 mb-4">Incident not found</p>
-        <Link to="/incidents" className="btn btn-primary">Back to Incidents</Link>
+        <p className="text-gray-500 mb-4">{t('Incident not found')}</p>
+        <Link to="/incidents" className="btn btn-primary">{t('Back to Incidents')}</Link>
       </div>
     );
   }
@@ -498,20 +500,20 @@ SCCS Administration`;
           </button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              Incident {incident.incident_id}
+              {t('Incident {id}', { id: incident.incident_id })}
             </h1>
             <p className="text-sm text-gray-500">
-              {incident.date}{incident.time ? ` at ${incident.time}` : ''} — {incident.first_name} {incident.last_name}
+              {incident.date}{incident.time ? ` ${t('at {time}', { time: incident.time })}` : ''} — {incident.first_name} {incident.last_name}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <span className={`badge ${getStatusColor(incident.status)}`}>
-            {incident.status}
+            {t(incident.status)}
           </span>
           {incident.escalated_to_principal && (
             <span className="badge bg-red-100 text-red-700 flex items-center gap-1">
-              <Shield className="w-3 h-3" /> Escalated
+              <Shield className="w-3 h-3" /> {t('Escalated')}
             </span>
           )}
         </div>
@@ -521,28 +523,28 @@ SCCS Administration`;
       <div className="flex flex-wrap gap-2 mb-6">
         <button onClick={handleSave} disabled={saving} className="btn btn-primary">
           {saving ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Save Changes
+          {t('Save Changes')}
         </button>
         <button onClick={() => setShowStatusLog(!showStatusLog)} className="btn btn-secondary">
           <Clock className="w-4 h-4" />
-          Status Log
+          {t('Status Log')}
         </button>
         <button onClick={handleExportPDF} className="btn btn-secondary">
           <FileText className="w-4 h-4" />
-          Export PDF
+          {t('Export PDF')}
         </button>
         <button onClick={handleExportExcel} className="btn btn-secondary">
           <Download className="w-4 h-4" />
-          Export Excel
+          {t('Export Excel')}
         </button>
         <button onClick={handleSendToParent} className="btn bg-green-600 text-white hover:bg-green-700">
           <Mail className="w-4 h-4" />
-          Send to Parent
+          {t('Send to Parent')}
         </button>
         {!incident.escalated_to_principal && (
           <button onClick={handleEscalate} className="btn bg-red-600 text-white hover:bg-red-700">
             <ChevronUp className="w-4 h-4" />
-            Escalate to Principal
+            {t('Escalate to Principal')}
           </button>
         )}
       </div>
@@ -550,7 +552,7 @@ SCCS Administration`;
       {saved && (
         <div className="fixed top-4 right-4 bg-green-500 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 z-50 animate-fade-in">
           <Check className="w-5 h-5" />
-          Changes saved successfully!
+          {t('Changes saved successfully!')}
         </div>
       )}
 
@@ -559,10 +561,10 @@ SCCS Administration`;
         <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
           <h3 className="font-semibold flex items-center gap-2 mb-4">
             <Clock className="w-5 h-5" />
-            Status Change History
+            {t('Status Change History')}
           </h3>
           {statusLogs.length === 0 ? (
-            <p className="text-gray-500 text-sm">No status changes recorded.</p>
+            <p className="text-gray-500 text-sm">{t('No status changes recorded.')}</p>
           ) : (
             <div className="space-y-3">
               {statusLogs.map(log => (
@@ -577,14 +579,14 @@ SCCS Administration`;
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <p className="font-medium">
-                        {log.previous_status} → {log.new_status}
+                        {t(log.previous_status)} → {t(log.new_status)}
                       </p>
                       <p className="text-xs text-gray-500">
                         {new Date(log.changed_at).toLocaleString()}
                       </p>
                     </div>
                     <p className="text-sm text-gray-600">
-                      Changed by: {log.changed_by_name || `User #${log.changed_by}`}
+                      {t('Changed by:')} {log.changed_by_name || t('User #{id}', { id: log.changed_by })}
                     </p>
                     {log.notes && <p className="text-sm text-gray-500 mt-1">{log.notes}</p>}
                   </div>
@@ -600,7 +602,7 @@ SCCS Administration`;
         {/* Date, Time, Location Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="form-label">Date</label>
+            <label className="form-label">{t('Date')}</label>
             <input
               type="date"
               value={formData.date}
@@ -609,7 +611,7 @@ SCCS Administration`;
             />
           </div>
           <div>
-            <label className="form-label">Time</label>
+            <label className="form-label">{t('Time')}</label>
             <input
               type="time"
               value={formData.time}
@@ -618,15 +620,15 @@ SCCS Administration`;
             />
           </div>
           <div>
-            <label className="form-label">Location</label>
+            <label className="form-label">{t('Location')}</label>
             <select
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
               className="select"
             >
-              <option value="">Select location...</option>
+              <option value="">{t('Select location...')}</option>
               {LOCATION_OPTIONS.map(loc => (
-                <option key={loc} value={loc}>{loc}</option>
+                <option key={loc} value={loc}>{t(loc)}</option>
               ))}
             </select>
           </div>
@@ -634,41 +636,41 @@ SCCS Administration`;
 
         {/* Student Info (Read-only) */}
         <div className="p-4 bg-gray-50 rounded-lg">
-          <h3 className="font-semibold mb-2">Student Information</h3>
+          <h3 className="font-semibold mb-2">{t('Student Information')}</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <p className="text-xs text-gray-500">Name</p>
+              <p className="text-xs text-gray-500">{t('Name')}</p>
               <p className="font-medium">{incident.first_name} {incident.last_name}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Student ID</p>
+              <p className="text-xs text-gray-500">{t('Student ID')}</p>
               <p className="font-medium">{incident.student_id_raw || incident.student_id}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Grade</p>
-              <p className="font-medium">{incident.grade || 'N/A'}</p>
+              <p className="text-xs text-gray-500">{t('Grade')}</p>
+              <p className="font-medium">{incident.grade || t('N/A')}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Violation Category</p>
-              <p className="font-medium">{incident.category}</p>
+              <p className="text-xs text-gray-500">{t('Violation Category')}</p>
+              <p className="font-medium">{t(incident.category || '')}</p>
             </div>
           </div>
         </div>
 
         {/* Violation Type */}
         <div>
-          <label className="form-label">Violation Type</label>
+          <label className="form-label">{t('Violation Type')}</label>
           <select
             value={formData.violation_id}
             onChange={(e) => setFormData({ ...formData, violation_id: e.target.value })}
             className="select"
           >
-            <option value="">Select violation...</option>
+            <option value="">{t('Select violation...')}</option>
             {Object.entries(getViolationCategories()).map(([category, viols]) => (
-              <optgroup key={category} label={category}>
+              <optgroup key={category} label={t(category)}>
                 {viols.map(v => (
                   <option key={v.id} value={v.id}>
-                    {v.violation_type} ({v.points_deduction} pts)
+                    {t(v.violation_type)} ({v.points_deduction} {t('pts')})
                   </option>
                 ))}
               </optgroup>
@@ -676,33 +678,33 @@ SCCS Administration`;
           </select>
           {filteredViolations[0] && (
             <div className="mt-2 p-3 bg-blue-50 rounded-lg text-sm">
-              <p><strong>Default Consequence:</strong> {filteredViolations[0].default_consequence}</p>
-              <p><strong>Max OSS:</strong> {filteredViolations[0].max_oss_days} days</p>
+              <p><strong>{t('Default Consequence:')}</strong> {t(filteredViolations[0].default_consequence || '')}</p>
+              <p><strong>{t('Max OSS:')}</strong> {filteredViolations[0].max_oss_days} {t('days')}</p>
             </div>
           )}
         </div>
 
         {/* Description */}
         <div>
-          <label className="form-label">Description</label>
+          <label className="form-label">{t('Description')}</label>
           <textarea
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             className="input min-h-[100px]"
-            placeholder="Describe what happened..."
+            placeholder={t('Describe what happened...')}
           />
         </div>
 
         {/* Witnesses and Reported By */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="form-label">Reported By</label>
+            <label className="form-label">{t('Reported By')}</label>
             <select
               value={formData.reported_by}
               onChange={(e) => setFormData({ ...formData, reported_by: e.target.value })}
               className="select"
             >
-              <option value="">Select staff...</option>
+              <option value="">{t('Select staff...')}</option>
               {users.map(u => (
                 <option key={u.id} value={`${u.first_name} ${u.last_name}`.trim()}>
                   {u.first_name} {u.last_name} ({u.role})
@@ -711,26 +713,26 @@ SCCS Administration`;
             </select>
           </div>
           <div>
-            <label className="form-label">Witness(es)</label>
+            <label className="form-label">{t('Witness(es)')}</label>
             <input
               type="text"
               value={formData.witnesses}
               onChange={(e) => setFormData({ ...formData, witnesses: e.target.value })}
               className="input"
-              placeholder="Names of witnesses..."
+              placeholder={t('Names of witnesses...')}
             />
           </div>
         </div>
 
         {/* Advisor */}
         <div>
-          <label className="form-label">Advisor / Assigned Staff</label>
+          <label className="form-label">{t('Advisor / Assigned Staff')}</label>
           <select
             value={formData.advisor}
             onChange={(e) => setFormData({ ...formData, advisor: e.target.value })}
             className="select"
           >
-            <option value="">Select advisor...</option>
+            <option value="">{t('Select advisor...')}</option>
             {users.map(u => (
               <option key={u.id} value={`${u.first_name} ${u.last_name}`.trim()}>
                 {u.first_name} {u.last_name}
@@ -741,33 +743,33 @@ SCCS Administration`;
 
         {/* Consequences */}
         <div className="p-4 bg-gray-50 rounded-lg">
-          <h3 className="font-semibold mb-4">Consequence & Disciplinary Action</h3>
+          <h3 className="font-semibold mb-4">{t('Consequence & Disciplinary Action')}</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <label className="form-label">Action Taken</label>
+              <label className="form-label">{t('Action Taken')}</label>
               <select
                 value={formData.action_taken}
                 onChange={(e) => setFormData({ ...formData, action_taken: e.target.value })}
                 className="select"
               >
-                <option value="">Select...</option>
+                <option value="">{t('Select...')}</option>
                 {CONSEQUENCE_OPTIONS.map(opt => (
-                  <option key={opt} value={opt}>{opt}</option>
+                  <option key={opt} value={opt}>{t(opt)}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="form-label">Consequence</label>
+              <label className="form-label">{t('Consequence')}</label>
               <input
                 type="text"
                 value={formData.consequence}
                 onChange={(e) => setFormData({ ...formData, consequence: e.target.value })}
                 className="input"
-                placeholder="Specific consequence..."
+                placeholder={t('Specific consequence...')}
               />
             </div>
             <div>
-              <label className="form-label">Points Deducted</label>
+              <label className="form-label">{t('Points Deducted')}</label>
               <input
                 type="number"
                 value={formData.points_deducted}
@@ -776,7 +778,7 @@ SCCS Administration`;
               />
             </div>
             <div>
-              <label className="form-label">Days ISS</label>
+              <label className="form-label">{t('Days ISS')}</label>
               <input
                 type="number"
                 value={formData.days_iss}
@@ -785,7 +787,7 @@ SCCS Administration`;
               />
             </div>
             <div>
-              <label className="form-label">Days OSS</label>
+              <label className="form-label">{t('Days OSS')}</label>
               <input
                 type="number"
                 value={formData.days_oss}
@@ -794,7 +796,7 @@ SCCS Administration`;
               />
             </div>
             <div>
-              <label className="form-label">Detention Hours</label>
+              <label className="form-label">{t('Detention Hours')}</label>
               <input
                 type="number"
                 step="0.5"
@@ -808,7 +810,7 @@ SCCS Administration`;
 
         {/* Follow-up */}
         <div className="p-4 bg-gray-50 rounded-lg">
-          <h3 className="font-semibold mb-4">Follow-up</h3>
+          <h3 className="font-semibold mb-4">{t('Follow-up')}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex items-center gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -818,7 +820,7 @@ SCCS Administration`;
                   onChange={(e) => setFormData({ ...formData, follow_up_needed: e.target.checked ? 'Yes' : 'No' })}
                   className="w-4 h-4 rounded"
                 />
-                <span>Follow-up Required</span>
+                <span>{t('Follow-up Required')}</span>
               </label>
               {formData.follow_up_needed === 'Yes' && (
                 <input
@@ -834,18 +836,18 @@ SCCS Administration`;
 
         {/* Notes */}
         <div>
-          <label className="form-label">Notes</label>
+          <label className="form-label">{t('Notes')}</label>
           <textarea
             value={formData.notes}
             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
             className="input min-h-[80px]"
-            placeholder="Additional notes..."
+            placeholder={t('Additional notes...')}
           />
         </div>
 
         {/* Parent Contact */}
         <div className="p-4 bg-gray-50 rounded-lg">
-          <h3 className="font-semibold mb-4">Parent Contact</h3>
+          <h3 className="font-semibold mb-4">{t('Parent Contact')}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex items-center gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -855,7 +857,7 @@ SCCS Administration`;
                   onChange={(e) => setFormData({ ...formData, parent_contacted: e.target.checked ? 'Yes' : 'No' })}
                   className="w-4 h-4 rounded"
                 />
-                <span>Parent Notified</span>
+                <span>{t('Parent Notified')}</span>
               </label>
               {formData.parent_contacted === 'Yes' && (
                 <input
@@ -873,7 +875,7 @@ SCCS Administration`;
         <div>
           <h3 className="font-semibold mb-4 flex items-center gap-2">
             <Upload className="w-5 h-5" />
-            Evidence Attachments
+            {t('Evidence Attachments')}
           </h3>
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
             <input
@@ -890,12 +892,12 @@ SCCS Administration`;
               ) : (
                 <>
                   <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-600 mb-2">Upload photos, documents, or other evidence</p>
+                  <p className="text-gray-600 mb-2">{t('Upload photos, documents, or other evidence')}</p>
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className="btn btn-primary"
                   >
-                    Choose Files
+                    {t('Choose Files')}
                   </button>
                 </>
               )}
@@ -910,7 +912,7 @@ SCCS Administration`;
                     <div>
                       <p className="font-medium text-sm">{file.file_name}</p>
                       <p className="text-xs text-gray-500">
-                        Uploaded by {file.uploaded_by_name} on {new Date(file.uploaded_at).toLocaleDateString()}
+                        {t('Uploaded by {name} on {date}', { name: file.uploaded_by_name, date: new Date(file.uploaded_at).toLocaleDateString() })}
                       </p>
                     </div>
                   </div>
@@ -938,7 +940,7 @@ SCCS Administration`;
 
         {/* Status Update */}
         <div className="border-t pt-6">
-          <h3 className="font-semibold mb-4">Update Status</h3>
+          <h3 className="font-semibold mb-4">{t('Update Status')}</h3>
           <div className="flex flex-wrap gap-3">
             {incident.status !== 'Open' && (
               <button
@@ -946,7 +948,7 @@ SCCS Administration`;
                 className="btn bg-red-100 text-red-700 hover:bg-red-200"
               >
                 <AlertTriangle className="w-4 h-4" />
-                Open
+                {t('Open')}
               </button>
             )}
             {incident.status !== 'Pending' && (
@@ -955,7 +957,7 @@ SCCS Administration`;
                 className="btn bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
               >
                 <Clock className="w-4 h-4" />
-                Pending
+                {t('Pending')}
               </button>
             )}
             {incident.status !== 'Resolved' && (
@@ -964,7 +966,7 @@ SCCS Administration`;
                 className="btn btn-success"
               >
                 <CheckCircle className="w-4 h-4" />
-                Resolved
+                {t('Resolved')}
               </button>
             )}
           </div>

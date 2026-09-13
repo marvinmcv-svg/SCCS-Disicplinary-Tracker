@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Upload, User, Mail, Phone, MapPin, Shield, Clock, Check, X, Lock, AlertTriangle, Power, Users as UsersIcon, FileText } from 'lucide-react';
 import api from '../lib/api';
 import { useAuth } from '../App';
+import { useI18n } from '../i18n';
 
 interface UserProfile {
   id: number;
@@ -56,6 +57,7 @@ export default function UserProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
+  const { t } = useI18n();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [activityLogs, setActivityLogs] = useState<ActivityLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -196,22 +198,22 @@ export default function UserProfile() {
       // Validate password if being changed
       if (passwordData.newPassword) {
         if (passwordData.newPassword.length < 8) {
-          setPasswordError('Password must be at least 8 characters');
+          setPasswordError(t('Password must be at least 8 characters'));
           setSaving(false);
           return;
         }
         if (!/\d/.test(passwordData.newPassword)) {
-          setPasswordError('Password must contain at least one number');
+          setPasswordError(t('Password must contain at least one number'));
           setSaving(false);
           return;
         }
         if (!/[!@#$%^&*(),.?":{}|<>]/.test(passwordData.newPassword)) {
-          setPasswordError('Password must contain at least one special character');
+          setPasswordError(t('Password must contain at least one special character'));
           setSaving(false);
           return;
         }
         if (passwordData.newPassword !== passwordData.confirmPassword) {
-          setPasswordError('Passwords do not match');
+          setPasswordError(t('Passwords do not match'));
           setSaving(false);
           return;
         }
@@ -236,7 +238,7 @@ export default function UserProfile() {
 
       await api.put(`/users/${id}`, payload);
 
-      setSuccessMessage('Profile updated successfully!');
+      setSuccessMessage(t('Profile updated successfully!'));
       setPasswordData({ newPassword: '', confirmPassword: '' });
       setHasUnsavedChanges(false);
       setPasswordValidation({ minLength: false, hasNumber: false, hasSpecial: false });
@@ -245,7 +247,7 @@ export default function UserProfile() {
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error: any) {
       console.error('Failed to update profile:', error);
-      const errorMsg = error.response?.data?.error || 'Failed to update profile';
+      const errorMsg = error.response?.data?.error || t('Failed to update profile');
       alert(errorMsg);
     } finally {
       setSaving(false);
@@ -278,12 +280,12 @@ export default function UserProfile() {
     if (!file) return;
 
     if (file.size > 10 * 1024 * 1024) {
-      alert('File too large. Maximum size is 10MB.');
+      alert(t('File too large. Maximum size is 10MB.'));
       return;
     }
 
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file.');
+      alert(t('Please select an image file.'));
       return;
     }
 
@@ -295,15 +297,15 @@ export default function UserProfile() {
           setProfilePicture(result);
           setHasUnsavedChanges(true);
         } else {
-          alert('Failed to read file. Please try a different image.');
+          alert(t('Failed to read file. Please try a different image.'));
         }
       } catch (err) {
         console.error('Error setting profile picture:', err);
-        alert('Failed to process image.');
+        alert(t('Failed to process image.'));
       }
     };
     reader.onerror = () => {
-      alert('Failed to read file. Please try a different image.');
+      alert(t('Failed to read file. Please try a different image.'));
     };
     reader.readAsDataURL(file);
   };
@@ -313,10 +315,10 @@ export default function UserProfile() {
       await api.delete(`/users/${id}`);
       setShowDeactivateConfirm(false);
       loadUser();
-      setSuccessMessage('User deactivated successfully');
+      setSuccessMessage(t('User deactivated successfully'));
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to deactivate user');
+      alert(error.response?.data?.error || t('Failed to deactivate user'));
     }
   };
 
@@ -324,17 +326,17 @@ export default function UserProfile() {
     try {
       await api.put(`/users/${id}/reactivate`);
       loadUser();
-      setSuccessMessage('User reactivated successfully');
+      setSuccessMessage(t('User reactivated successfully'));
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to reactivate user');
+      alert(error.response?.data?.error || t('Failed to reactivate user'));
     }
   };
 
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center min-h-[50vh]">
-        <div className="text-gray-400">Loading profile...</div>
+        <div className="text-gray-400">{t('Loading profile...')}</div>
       </div>
     );
   }
@@ -346,7 +348,7 @@ export default function UserProfile() {
         className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
       >
         <ArrowLeft className="w-5 h-5" />
-        Back to Users
+        {t('Back to Users')}
       </button>
 
       {successMessage && (
@@ -364,7 +366,7 @@ export default function UserProfile() {
               {profilePicture && typeof profilePicture === 'string' && profilePicture.trim() ? (
                 <img
                   src={profilePicture}
-                  alt="Profile"
+                  alt={t('Profile')}
                   className="w-24 h-24 md:w-32 md:h-32 rounded-full object-cover border-4 border-white/30"
                 />
               ) : (
@@ -397,7 +399,7 @@ export default function UserProfile() {
                   'bg-gray-200 text-gray-800'
                 }`}>
                   <Shield className="w-4 h-4" />
-                  {user?.role}
+                  {t(user?.role || '')}
                 </span>
                 {user?.classroom && (
                   <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-white/20 text-white">
@@ -408,7 +410,7 @@ export default function UserProfile() {
                 {!user?.is_active && (
                   <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-red-200 text-red-800">
                     <AlertTriangle className="w-4 h-4" />
-                    Deactivated
+                    {t('Deactivated')}
                   </span>
                 )}
               </div>
@@ -422,7 +424,7 @@ export default function UserProfile() {
             <a href={`mailto:${user.email}`} className="flex items-center gap-3 p-4 hover:bg-gray-100 transition-colors">
               <Mail className="w-5 h-5 text-gray-400" />
               <div>
-                <p className="text-xs text-gray-500">Email</p>
+                <p className="text-xs text-gray-500">{t('Email')}</p>
                 <p className="text-sm font-medium text-gray-900 truncate">{user.email}</p>
               </div>
             </a>
@@ -431,7 +433,7 @@ export default function UserProfile() {
             <a href={`tel:${user.phone}`} className="flex items-center gap-3 p-4 hover:bg-gray-100 transition-colors">
               <Phone className="w-5 h-5 text-gray-400" />
               <div>
-                <p className="text-xs text-gray-500">Phone</p>
+                <p className="text-xs text-gray-500">{t('Phone')}</p>
                 <p className="text-sm font-medium text-gray-900">{user.phone}</p>
               </div>
             </a>
@@ -439,16 +441,16 @@ export default function UserProfile() {
           <div className="flex items-center gap-3 p-4">
             <Clock className="w-5 h-5 text-gray-400" />
             <div>
-              <p className="text-xs text-gray-500">Last Login</p>
+              <p className="text-xs text-gray-500">{t('Last Login')}</p>
               <p className="text-sm font-medium text-gray-900">
-                {user?.last_login ? new Date(user.last_login).toLocaleString() : 'Never'}
+                {user?.last_login ? new Date(user.last_login).toLocaleString() : t('Never')}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-3 p-4">
             <UsersIcon className="w-5 h-5 text-gray-400" />
             <div>
-              <p className="text-xs text-gray-500">Assigned Students</p>
+              <p className="text-xs text-gray-500">{t('Assigned Students')}</p>
               <p className="text-sm font-medium text-gray-900">{user?.assigned_students_count || 0}</p>
             </div>
           </div>
@@ -460,12 +462,12 @@ export default function UserProfile() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <User className="w-5 h-5" />
-            Profile Information
+            {t('Profile Information')}
           </h2>
           {canEdit && hasUnsavedChanges && (
             <span className="text-xs text-orange-500 flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              Unsaved changes
+              {t('Unsaved changes')}
             </span>
           )}
         </div>
@@ -473,7 +475,7 @@ export default function UserProfile() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="form-label">Username</label>
+              <label className="form-label">{t('Username')}</label>
               <input
                 type="text"
                 value={formData.username}
@@ -487,7 +489,7 @@ export default function UserProfile() {
               />
             </div>
             <div>
-              <label className="form-label">Role</label>
+              <label className="form-label">{t('Role')}</label>
               <select
                 value={formData.role}
                 onChange={(e) => {
@@ -499,17 +501,17 @@ export default function UserProfile() {
               >
                 {roleOptions.map(opt => (
                   <option key={opt.value} value={opt.value}>
-                    {opt.label}
+                    {t(opt.label)}
                   </option>
                 ))}
               </select>
-              {!isAdmin && <p className="text-xs text-gray-500 mt-1">Only admins can change roles</p>}
+              {!isAdmin && <p className="text-xs text-gray-500 mt-1">{t('Only admins can change roles')}</p>}
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="form-label">First Name</label>
+              <label className="form-label">{t('First Name')}</label>
               <input
                 type="text"
                 value={formData.first_name}
@@ -522,7 +524,7 @@ export default function UserProfile() {
               />
             </div>
             <div>
-              <label className="form-label">Last Name</label>
+              <label className="form-label">{t('Last Name')}</label>
               <input
                 type="text"
                 value={formData.last_name}
@@ -538,7 +540,7 @@ export default function UserProfile() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="form-label">Email</label>
+              <label className="form-label">{t('Email')}</label>
               <input
                 type="email"
                 value={formData.email}
@@ -552,7 +554,7 @@ export default function UserProfile() {
               />
             </div>
             <div>
-              <label className="form-label">Phone</label>
+              <label className="form-label">{t('Phone')}</label>
               <input
                 type="tel"
                 value={formData.phone}
@@ -569,7 +571,7 @@ export default function UserProfile() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="form-label">Classroom</label>
+              <label className="form-label">{t('Classroom')}</label>
               <input
                 type="text"
                 value={formData.classroom}
@@ -579,11 +581,11 @@ export default function UserProfile() {
                 }}
                 className="input max-w-md"
                 disabled={!canEdit}
-                placeholder="Room 101, Building A"
+                placeholder={t('Room 101, Building A')}
               />
             </div>
             <div>
-              <label className="form-label">Department / Subject</label>
+              <label className="form-label">{t('Department / Subject')}</label>
               <select
                 value={formData.department}
                 onChange={(e) => {
@@ -593,9 +595,9 @@ export default function UserProfile() {
                 className="select"
                 disabled={!canEdit}
               >
-                <option value="">Select Department</option>
+                <option value="">{t('Select Department')}</option>
                 {departmentOptions.map(dept => (
-                  <option key={dept} value={dept}>{dept}</option>
+                  <option key={dept} value={dept}>{t(dept)}</option>
                 ))}
               </select>
             </div>
@@ -603,7 +605,7 @@ export default function UserProfile() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="form-label">Advisory / Homeroom</label>
+              <label className="form-label">{t('Advisory / Homeroom')}</label>
               <input
                 type="text"
                 value={formData.advisory}
@@ -613,7 +615,7 @@ export default function UserProfile() {
                 }}
                 className="input"
                 disabled={!canEdit}
-                placeholder="e.g., Lions, Eagles"
+                placeholder={t('e.g., Lions, Eagles')}
                 list="advisories-list"
               />
               <datalist id="advisories-list">
@@ -636,15 +638,15 @@ export default function UserProfile() {
                           two_factor_enabled: e.target.checked,
                         });
                         loadUser();
-                        setSuccessMessage('2FA settings updated');
+                        setSuccessMessage(t('2FA settings updated'));
                         setTimeout(() => setSuccessMessage(''), 3000);
                       } catch (error) {
-                        alert('Failed to update 2FA settings');
+                        alert(t('Failed to update 2FA settings'));
                       }
                     }}
                     className="w-4 h-4 rounded border-gray-300"
                   />
-                  <span className="text-sm">Two-Factor Authentication</span>
+                  <span className="text-sm">{t('Two-Factor Authentication')}</span>
                 </label>
               </div>
             )}
@@ -653,13 +655,13 @@ export default function UserProfile() {
           {/* Profile Picture Upload */}
           {canEdit && (
             <div className="pt-4 border-t">
-              <label className="form-label">Profile Picture</label>
+              <label className="form-label">{t('Profile Picture')}</label>
               <div className="flex items-center gap-4">
                 <div className="relative">
                   {profilePicture && typeof profilePicture === 'string' && profilePicture.trim() ? (
                     <img
                       src={profilePicture}
-                      alt="Profile"
+                      alt={t('Profile')}
                       className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
                     />
                   ) : (
@@ -671,7 +673,7 @@ export default function UserProfile() {
                 <div>
                   <label className="btn btn-secondary cursor-pointer">
                     <Upload className="w-4 h-4 mr-2" />
-                    {profilePicture ? 'Change Photo' : 'Upload Photo'}
+                    {profilePicture ? t('Change Photo') : t('Upload Photo')}
                     <input
                       type="file"
                       accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
@@ -688,10 +690,10 @@ export default function UserProfile() {
                       }}
                       className="ml-2 text-sm text-red-500 hover:underline"
                     >
-                      Remove
+                      {t('Remove')}
                     </button>
                   )}
-                  <p className="text-xs text-gray-500 mt-1">JPG, PNG, GIF, WebP. Max 10MB.</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('JPG, PNG, GIF, WebP. Max 10MB.')}</p>
                 </div>
               </div>
             </div>
@@ -702,34 +704,34 @@ export default function UserProfile() {
             <div className="pt-4 border-t">
               <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
                 <Lock className="w-4 h-4" />
-                Change Password
+                {t('Change Password')}
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="form-label">New Password</label>
+                  <label className="form-label">{t('New Password')}</label>
                   <input
                     type="password"
                     value={passwordData.newPassword}
                     onChange={(e) => handlePasswordChange(e.target.value)}
                     className="input"
-                    placeholder="Min 8 chars, 1 number, 1 special char"
+                    placeholder={t('Min 8 chars, 1 number, 1 special char')}
                   />
                   {passwordData.newPassword && (
                     <div className="mt-2 space-y-1">
                       <p className={`text-xs flex items-center gap-1 ${passwordValidation.minLength ? 'text-green-600' : 'text-red-500'}`}>
-                        {passwordValidation.minLength ? '✓' : '✗'} At least 8 characters
+                        {passwordValidation.minLength ? '✓' : '✗'} {t('At least 8 characters')}
                       </p>
                       <p className={`text-xs flex items-center gap-1 ${passwordValidation.hasNumber ? 'text-green-600' : 'text-red-500'}`}>
-                        {passwordValidation.hasNumber ? '✓' : '✗'} At least one number
+                        {passwordValidation.hasNumber ? '✓' : '✗'} {t('At least one number')}
                       </p>
                       <p className={`text-xs flex items-center gap-1 ${passwordValidation.hasSpecial ? 'text-green-600' : 'text-red-500'}`}>
-                        {passwordValidation.hasSpecial ? '✓' : '✗'} At least one special character
+                        {passwordValidation.hasSpecial ? '✓' : '✗'} {t('At least one special character')}
                       </p>
                     </div>
                   )}
                 </div>
                 <div>
-                  <label className="form-label">Confirm New Password</label>
+                  <label className="form-label">{t('Confirm New Password')}</label>
                   <input
                     type="password"
                     value={passwordData.confirmPassword}
@@ -738,14 +740,14 @@ export default function UserProfile() {
                       setPasswordError('');
                     }}
                     className="input"
-                    placeholder="Re-enter password"
+                    placeholder={t('Re-enter password')}
                   />
                 </div>
               </div>
               {passwordError && (
                 <p className="text-red-500 text-sm mt-2">{passwordError}</p>
               )}
-              <p className="text-gray-500 text-xs mt-2">Leave password fields empty to keep current password</p>
+              <p className="text-gray-500 text-xs mt-2">{t('Leave password fields empty to keep current password')}</p>
             </div>
           )}
 
@@ -754,7 +756,7 @@ export default function UserProfile() {
             <div className="pt-4 border-t">
               <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
                 <Shield className="w-4 h-4" />
-                Admin Actions
+                {t('Admin Actions')}
               </h3>
               <div className="flex items-center gap-4">
                 {user?.is_active ? (
@@ -764,7 +766,7 @@ export default function UserProfile() {
                     className="btn btn-danger"
                   >
                     <Power className="w-4 h-4 mr-2" />
-                    Deactivate Account
+                    {t('Deactivate Account')}
                   </button>
                 ) : (
                   <button
@@ -773,7 +775,7 @@ export default function UserProfile() {
                     className="btn btn-primary"
                   >
                     <Power className="w-4 h-4 mr-2" />
-                    Reactivate Account
+                    {t('Reactivate Account')}
                   </button>
                 )}
                 <button
@@ -782,7 +784,7 @@ export default function UserProfile() {
                   className="btn btn-secondary"
                 >
                   <FileText className="w-4 h-4 mr-2" />
-                  View Activity Log
+                  {t('View Activity Log')}
                 </button>
               </div>
             </div>
@@ -801,7 +803,7 @@ export default function UserProfile() {
                 ) : (
                   <>
                     <Save className="w-5 h-5" />
-                    {hasUnsavedChanges || passwordData.newPassword ? 'Save Changes' : 'No Changes'}
+                    {hasUnsavedChanges || passwordData.newPassword ? t('Save Changes') : t('No Changes')}
                   </>
                 )}
               </button>
@@ -812,7 +814,7 @@ export default function UserProfile() {
                   className="btn btn-secondary flex items-center gap-2"
                 >
                   <X className="w-5 h-5" />
-                  Cancel
+                  {t('Cancel')}
                 </button>
               )}
             </div>
@@ -825,14 +827,14 @@ export default function UserProfile() {
         <div className="bg-white rounded-2xl shadow-sm p-6 mt-4">
           <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
             <FileText className="w-4 h-4" />
-            Recent Activity
+            {t('Recent Activity')}
           </h3>
           <table className="table">
             <thead>
               <tr>
-                <th>Timestamp</th>
-                <th>Action</th>
-                <th>Details</th>
+                <th>{t('Timestamp')}</th>
+                <th>{t('Action')}</th>
+                <th>{t('Details')}</th>
               </tr>
             </thead>
             <tbody>
@@ -846,7 +848,7 @@ export default function UserProfile() {
                       log.action === 'DEACTIVATE_USER' ? 'bg-red-100 text-red-700' :
                       'bg-gray-100 text-gray-700'
                     }`}>
-                      {log.action.replace('_', ' ')}
+                      {t(log.action.replace('_', ' '))}
                     </span>
                   </td>
                   <td className="text-sm text-gray-500">{log.details || '-'}</td>
@@ -864,7 +866,7 @@ export default function UserProfile() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold flex items-center gap-2 text-red-600">
                 <AlertTriangle className="w-5 h-5" />
-                Deactivate User
+                {t('Deactivate User')}
               </h2>
               <button
                 onClick={() => setShowDeactivateConfirm(false)}
@@ -874,24 +876,23 @@ export default function UserProfile() {
               </button>
             </div>
             <p className="text-gray-600 mb-4">
-              Are you sure you want to deactivate <strong>{user?.first_name} {user?.last_name}</strong>?
-              They will not be able to log in until you reactivate them.
+              {t('Are you sure you want to deactivate {name}? They will not be able to log in until you reactivate them.', { name: `${user?.first_name} ${user?.last_name}` })}
             </p>
             <p className="text-gray-600 mb-4">
-              All their data and audit history will be preserved.
+              {t('All their data and audit history will be preserved.')}
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeactivateConfirm(false)}
                 className="btn btn-secondary flex-1"
               >
-                Cancel
+                {t('Cancel')}
               </button>
               <button
                 onClick={handleDeactivate}
                 className="btn btn-danger flex-1"
               >
-                Deactivate
+                {t('Deactivate')}
               </button>
             </div>
           </div>
