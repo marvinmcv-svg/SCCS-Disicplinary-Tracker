@@ -235,9 +235,13 @@ Done in code:
 1. **Set `JWT_SECRET` in the Railway service before the next deploy.** `openssl rand -hex 32`. The service
    will not start without it now. This also logs everyone out, which is intended — every token issued to
    date was signed with a publicly-known value.
-2. **Set `INITIAL_ADMIN_USERNAME` / `INITIAL_ADMIN_PASSWORD`** if the database has no admin yet. If your
-   existing admin account still works after the deploy, skip this — the account is already there and these
-   vars are ignored.
+2. **Set `INITIAL_ADMIN_USERNAME` / `INITIAL_ADMIN_PASSWORD`** to the credentials you want the admin
+   account to have. Since the "online login doesn't match the sandbox" fix these are **declarative**: on
+   every boot the admin account is created if missing, and an existing admin row (even one seeded by an
+   older deploy with the old `admin/admin123` default) is **synced back to this password** and re-activated.
+   Unset both only if you intend to manage the admin password purely through the UI afterwards. The
+   "Fix Admin Access" recovery hatch accepts `ADMIN_FIX_PASSWORD`, falling back to `INITIAL_ADMIN_PASSWORD`
+   when the former is unset.
 
 Then, when you're ready to deal with it (needs coordination, rewrites history):
 

@@ -167,23 +167,34 @@ router.post('/api/auth/login', perIpLoginLimiter, perAccountLoginLimiter, async 
  * could only ever return 404. It is implemented here as a deliberate
  * recovery hatch:
  *
- *   - The caller must know ADMIN_FIX_PASSWORD (set in the server environment;
- *     unset disables the endpoint entirely with 404).
- *   - On success it re-activates the admin account, resets that account's
- *     password to the same secret, and returns a fresh session so the
- *     operator lands in the dashboard immediately.
+ *   - The caller must know ADMIN_FIX_PASSWORD (set in the server environment).
+ *     If only INITIAL_ADMIN_PASSWORD is set — the "agreed credentials" used by
+ *     the boot-time admin sync — it is accepted as the recovery secret too, so
+ *     production only needs ONE env var for the hatch to work.
+ *   - Unset disables the endpoint (404), but with a self-explanatory error so
+ *     an operator who clicks "Fix Admin Access" on an unconfigured deploy
+ *     learns exactly which variable to set instead of seeing a bare 404.
+ *   - On success it re-activates the admin account, clears any lockout, resets
+ *     that account's password to the same secret, records the new hash in
+ *     password_history, and returns a fresh session so the operator lands in
+ *     the dashboard immediately.
  *
  * SECURITY: this is an unauthenticated account-takeover hatch by design, for
  * use when the only admin is locked out and SMTP reset isn't configured. It
- * is only as safe as the secrecy of ADMIN_FIX_PASSWORD — rotate or unset it
- * outside of recovery situations.
+ * is only as safe as the secrecy of its secret — rotate or unset it outside
+ * of recovery situations.
  */
 router.post('/api/auth/fix-admin', perIpLoginLimiter, async (req: Request, res: Response) => {
   try {
-    const expected = process.env.ADMIN_FIX_PASSWORD;
+    const expected = process.env.ADMIN_FIX_PASSWORD || process.env.INITIAL_ADMIN_PASSWORD;
     if (!expected) {
-      // Hatch disabled: behave exactly like any other unknown route.
-      return res.status(404).json({ error: 'Not found' });
+      // Hatch disabled. The message tells the operator how to enable it — a
+      // bare 404 here previously made the button look simply broken.
+      return res.status(404).json({
+        error:
+          'Admin recovery is not configured on this server. ' +
+          'Set ADMIN_FIX_PASSWORD (or INITIAL_ADMIN_PASSWORD) in the environment and restart to enable it.',
+      });
     }
 
     const { password } = req.body ?? {};
@@ -191,20 +202,29 @@ router.post('/api/auth/fix-admin', perIpLoginLimiter, async (req: Request, res: 
       return res.status(401).json({ error: 'Invalid password' });
     }
 
-    // Any account with the admin role counts; prefer the canonical 'admin'
-    // username when it exists so the hatch keeps working if a second admin
-    // is ever created.
+    // Any account with the admin role counts; prefer the canonical
+    // INITIAL_ADMIN_USERNAME / 'admin' username so the hatch keeps working if
+    // a second admin is ever created.
+    const preferred = process.env.INITIAL_ADMIN_USERNAME || 'admin';
     const admin = (await queryOne(
-      `SELECT * FROM users WHERE role = 'admin' ORDER BY (username = 'admin') DESC, id ASC LIMIT 1`
+      `SELECT * FROM users WHERE role = 'admin' ORDER BY (username = $1) DESC, id ASC LIMIT 1`,
+      [preferred]
     )) as UserRow | undefined;
     if (!admin) {
       return res.status(404).json({ error: 'No admin account exists' });
     }
 
+    const hash = bcrypt.hashSync(password, 10);
     await runQuery(
-      'UPDATE users SET password = $1, is_active = true WHERE id = $2',
-      [bcrypt.hashSync(password, 10), admin.id]
+      `UPDATE users
+       SET password = $1, is_active = TRUE, failed_login_attempts = 0, locked_until = NULL
+       WHERE id = $2`,
+      [hash, admin.id]
     );
+    // Keep the password-history audit trail honest for the reset.
+    try {
+      await runQuery('INSERT INTO password_history (user_id, password_hash) VALUES ($1, $2)', [admin.id, hash]);
+    } catch { /* history is best-effort; the reset itself already succeeded */ }
     console.log(`[fix-admin] admin account '${admin.username}' (id ${admin.id}) was reset via the recovery hatch`);
 
     const token = jwt.sign({ userId: admin.id, role: admin.role }, JWT_SECRET, { expiresIn: '24h' });

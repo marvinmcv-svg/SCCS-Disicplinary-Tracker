@@ -254,6 +254,18 @@ function App() {
     resetActivityTimer();
   };
 
+  // Session expiry: when the API layer rejects an authenticated request with
+  // 401 (expired/rotated/invalidated JWT) it clears storage and emits
+  // 'sccs:session-expired'. Dropping the in-memory state HERE is what makes
+  // the route tree actually land on the login page — without it the stale
+  // token state bounces the #/login redirect back to "/" and the app loops
+  // on 401s (dashboard remount → requests → 401 → redirect → …).
+  useEffect(() => {
+    const onSessionExpired = () => handleLogout();
+    window.addEventListener('sccs:session-expired', onSessionExpired);
+    return () => window.removeEventListener('sccs:session-expired', onSessionExpired);
+  }, [handleLogout]);
+
   useEffect(() => {
     if (token) {
       const savedUser = localStorage.getItem('user');

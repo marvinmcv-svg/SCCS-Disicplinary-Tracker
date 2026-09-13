@@ -688,12 +688,27 @@ async function createIndexes() {
 }
 
 /**
- * Creates the first administrator account from environment variables, once.
+ * Creates / repairs the administrator account declared by environment
+ * variables, on every boot.
  *
- * Deliberately create-only: an earlier version reset a hardcoded admin password
- * on every boot, which silently reverted any password change made through the
- * UI. If the account already exists this does nothing — recover a lost password
- * through the reset flow, not by redeploying.
+ * The credentials are DECLARATIVE while INITIAL_ADMIN_PASSWORD is set: the
+ * operator agrees one password ("admin / Gmc190494mcv!" here and on Railway),
+ * and every boot guarantees the account matches it. This is what makes the
+ * same login work in every environment — including a production database
+ * whose admin row was seeded by an older deploy with a different password
+ * (the pre-env default was admin/admin123, which is exactly why "login works
+ * locally but not online" happened).
+ *
+ * Boot-time guarantee, when both env vars are set:
+ *   - account exists (created if missing, including name columns)
+ *   - role is admin, account is active
+ *   - password hash matches INITIAL_ADMIN_PASSWORD (reset if not)
+ *   - any lockout state is cleared (failed_login_attempts, locked_until)
+ *   - password reset via the recovery hatch never leaves the account locked
+ *
+ * With the env vars unset it stays create-only and hands recovery to the
+ * reset flow, so a UI password change is never silently reverted on a box
+ * that does not opt into declarative credentials.
  */
 async function createDefaultAdmin() {
   const username = process.env.INITIAL_ADMIN_USERNAME;
@@ -710,23 +725,66 @@ async function createDefaultAdmin() {
     return;
   }
 
-  const existing = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
-  if (existing.rows.length > 0) {
+  const bcrypt = await import('bcryptjs');
+  const hash = bcrypt.hashSync(password, 10);
+  const first = process.env.INITIAL_ADMIN_FIRST_NAME || 'System';
+  const last = process.env.INITIAL_ADMIN_LAST_NAME || 'Administrator';
+
+  const existing = (await pool.query(
+    'SELECT id, password, role, is_active, failed_login_attempts, locked_until FROM users WHERE username = $1',
+    [username]
+  )) as { rows: Array<{ id: number; password: string; role: string; is_active: boolean; failed_login_attempts: number | null; locked_until: string | null }> };
+
+  if (existing.rows.length === 0) {
+    const created = await pool.query(
+      `INSERT INTO users (username, password, role, first_name, last_name, is_active)
+       VALUES ($1, $2, $3, $4, $5, TRUE) RETURNING id`,
+      [username, hash, 'admin', first, last]
+    );
+    if (created.rows[0]) {
+      await pool.query('INSERT INTO password_history (user_id, password_hash) VALUES ($1, $2)', [created.rows[0].id, hash]);
+    }
+    console.log(`✓ Administrator '${username}' created from INITIAL_ADMIN_USERNAME / INITIAL_ADMIN_PASSWORD`);
     return;
   }
 
-  const bcrypt = await import('bcryptjs');
+  // Account exists — enforce the declared credentials. Only touch the row
+  // when something actually differs, so a healthy boot does zero writes
+  // (bcrypt.compareSync against the stored hash, not a naive rehash).
+  const row = existing.rows[0];
+  const passwordMatches = await new Promise<boolean>((resolve) => {
+    try {
+      resolve(bcrypt.compareSync(password, row.password));
+    } catch {
+      resolve(false);
+    }
+  });
+  const lockedOut = !!row.locked_until && new Date(row.locked_until) > new Date();
+  const needsPassword = !passwordMatches;
+  const needsRepair = row.role !== 'admin' || row.is_active === false || (row.failed_login_attempts ?? 0) > 0 || lockedOut;
+
+  if (!needsPassword && !needsRepair) return;
+
   await pool.query(
-    `INSERT INTO users (username, password, role, first_name, last_name) VALUES ($1, $2, $3, $4, $5)`,
-    [
-      username,
-      bcrypt.hashSync(password, 10),
-      'admin',
-      process.env.INITIAL_ADMIN_FIRST_NAME || 'System',
-      process.env.INITIAL_ADMIN_LAST_NAME || 'Administrator',
-    ]
+    `UPDATE users
+     SET password = $1, role = 'admin', is_active = TRUE,
+         failed_login_attempts = 0, locked_until = NULL
+     WHERE id = $2`,
+    [needsPassword ? hash : row.password, row.id]
   );
-  console.log(`✓ Initial administrator '${username}' created`);
+  if (needsPassword) {
+    await pool.query('INSERT INTO password_history (user_id, password_hash) VALUES ($1, $2)', [row.id, hash]);
+  }
+  const reasons = [
+    needsPassword && 'password reset to INITIAL_ADMIN_PASSWORD',
+    row.role !== 'admin' && 'role restored to admin',
+    row.is_active === false && 'account re-activated',
+    ((row.failed_login_attempts ?? 0) > 0 || lockedOut) && 'lockout cleared',
+  ].filter(Boolean);
+  console.log(
+    `✓ Administrator '${username}' (id ${row.id}) synced on boot: ${reasons.join(', ')}. ` +
+    'INITIAL_ADMIN_PASSWORD is declarative — unset it before changing this password via the UI.'
+  );
 }
 
 async function migrateUsersTable() {

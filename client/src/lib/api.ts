@@ -171,6 +171,49 @@ export interface VersionInfo {
   minAppVersion: string;
 }
 
+// ---------------------------------------------------------------------------
+// Session-expiry (401) noise suppression
+//
+// A 401 from an expired / rotated / absent JWT is an EXPECTED event that the
+// interceptor below already handles: the stale token is cleared and the app
+// routes back to the login page. But the rejected promise still surfaces
+// through page-level `console.error(...)` catch blocks and as "unhandled
+// rejection" noise — dev overlays (such as the Next.js dev tools in the
+// preview sandbox) turn that into scary red "AxiosError: Request failed with
+// status code 401" badges that look like the app is broken, when in fact the
+// user is simply being sent to log in again.
+//
+// The two installs below mark those errors (`isSessionExpired`) and swallow
+// ONLY them. Every other console error and unhandled rejection — real bugs —
+// still reaches the console untouched. Installed once per page load, guarded
+// for both the Vite build and the sandbox bundle.
+// ---------------------------------------------------------------------------
+function markSessionExpired(err: unknown): unknown {
+  try {
+    if (err && typeof err === 'object') (err as { isSessionExpired?: boolean }).isSessionExpired = true;
+  } catch { /* non-extensible object — nothing to tag */ }
+  return err;
+}
+
+if (typeof window !== 'undefined' && !(window as unknown as { __sccs401Filter?: boolean }).__sccs401Filter) {
+  (window as unknown as { __sccs401Filter?: boolean }).__sccs401Filter = true;
+
+  // Unhandled rejections that are session-expiry 401s are already handled by
+  // the redirect — don't let the browser report them as crashes.
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = (event as PromiseRejectionEvent).reason as { isSessionExpired?: boolean } | undefined;
+    if (reason?.isSessionExpired) event.preventDefault();
+  });
+
+  // Page catch blocks log the raw AxiosError via console.error. Filter just
+  // the tagged objects out; everything else logs exactly as before.
+  const originalConsoleError = console.error.bind(console);
+  console.error = (...args: unknown[]) => {
+    if (args.some((a) => (a as { isSessionExpired?: boolean } | null)?.isSessionExpired)) return;
+    originalConsoleError(...args);
+  };
+}
+
 // Create axios instance with proper configuration
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -199,12 +242,31 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      // Only redirect to login if not already on login page.
-      // Uses the hash because the app routes with HashRouter.
-      if (!window.location.hash.includes('/login')) {
-        window.location.hash = '#/login';
+      // Tag first: everything downstream (page catch blocks, unhandled
+      // rejection reporting) can tell this 401 apart from a real error.
+      markSessionExpired(error);
+
+      // Only treat it as a session expiry when the request WAS authenticated.
+      // An unauthenticated 401 (e.g. a wrong password on the login form
+      // itself) has no session to expire — its error is shown in the UI.
+      const hadToken = !!error.config?.headers?.Authorization;
+      if (hadToken) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+
+        // Notify the SPA so in-memory auth state drops too. Clearing
+        // localStorage alone is NOT enough: the route tree is gated by App's
+        // `token` STATE, which stays truthy and bounces the #/login redirect
+        // straight back to "/" — remounting the dashboard, firing the same
+        // requests, and looping on 401s forever (observed: ~5 requests every
+        // 50ms, hammering the server and flooding the console).
+        window.dispatchEvent(new CustomEvent('sccs:session-expired'));
+
+        // Only redirect to login if not already on login page.
+        // Uses the hash because the app routes with HashRouter.
+        if (!window.location.hash.includes('/login')) {
+          window.location.hash = '#/login';
+        }
       }
     }
     return Promise.reject(error);

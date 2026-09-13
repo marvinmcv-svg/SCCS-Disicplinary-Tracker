@@ -223,9 +223,7 @@ export default function Login() {
 
   const handleFixAdmin = async () => {
     setFixPasswordError('');
-
     setFixing(true);
-    setFixPasswordError('');
     try {
       const res = await api.post('/auth/fix-admin', { password: fixPassword });
       login(res.data.user, res.data.token);
@@ -233,7 +231,9 @@ export default function Login() {
       setFixPassword('');
       navigate('/');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to fix admin');
+      // Shown INSIDE the modal — the login form is behind the overlay and a
+      // bare "Invalid password" there was invisible to the user.
+      setFixPasswordError(err.response?.data?.error || 'Failed to fix admin');
     } finally {
       setFixing(false);
     }
