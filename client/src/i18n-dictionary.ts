@@ -41,6 +41,8 @@ export const dictionary: Record<string, string> = {
   'Password': 'Contraseña',
   'Enter username': 'Ingrese el nombre de usuario',
   'Enter password': 'Ingrese la contraseña',
+  'Show password': 'Mostrar contraseña',
+  'Hide password': 'Ocultar contraseña',
   'Sign In': 'Iniciar sesión',
   'Forgot Password?': '¿Olvidó su contraseña?',
   'Admin Credentials:': 'Credenciales de administrador:',

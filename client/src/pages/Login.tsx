@@ -5,6 +5,7 @@ import { useAuth } from '../App';
 import api from '../lib/api';
 import { useI18n } from '../i18n';
 import LanguageToggle from '../components/LanguageToggle';
+import PasswordInput from '../components/PasswordInput';
 import {
   getSavedAuth,
   saveCredentials,
@@ -400,17 +401,12 @@ export default function Login() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('Password')}</label>
-            <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input pl-12"
-                placeholder={t('Enter password')}
-                required
-              />
-            </div>
+            <PasswordInput
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={t('Enter password')}
+              data-testid="login-password"
+            />
           </div>
 
           <button
@@ -559,16 +555,14 @@ export default function Login() {
               </button>
             </div>
             <p className="text-gray-500 text-sm mb-4">{t('Enter the admin password to reset the admin account.')}</p>
-            <div className="relative mb-4">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="password"
+            <div className="mb-4">
+              <PasswordInput
                 value={fixPassword}
                 onChange={(e) => { setFixPassword(e.target.value); setFixPasswordError(''); }}
                 onKeyDown={(e) => e.key === 'Enter' && handleFixAdmin()}
-                className="input pl-12"
                 placeholder={t('Enter password')}
                 autoFocus
+                data-testid="fix-admin-password"
               />
             </div>
             {fixPasswordError && (
@@ -655,26 +649,18 @@ export default function Login() {
                     autoFocus
                   />
                 </div>
-                <div className="relative mb-3">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="password"
+                <div className="mb-3">
+                  <PasswordInput
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="input pl-12"
                     placeholder={t('New password')}
-                    required
                   />
                 </div>
-                <div className="relative mb-4">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="password"
+                <div className="mb-4">
+                  <PasswordInput
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="input pl-12"
                     placeholder={t('Confirm new password')}
-                    required
                   />
                 </div>
                 <button
