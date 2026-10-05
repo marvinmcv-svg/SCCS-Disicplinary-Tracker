@@ -2,5 +2,5 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "installCommand": "bun install",
-  "buildCommand": "bunx prisma db push && INITIAL_ADMIN_USERNAME=admin INITIAL_ADMIN_PASSWORD=admin123 bun prisma/seed.ts && next build"
+  "buildCommand": "bunx prisma db push && SCCS_DB_DIRECT=1 INITIAL_ADMIN_USERNAME=admin INITIAL_ADMIN_PASSWORD=admin123 bun prisma/seed.ts && node -e \"const n=require('fs').statSync('db/sccs.db').size; if (n < 500000) { console.error('Seeded db/sccs.db is only ' + n + ' bytes'); process.exit(1) }\" && next build"
 }

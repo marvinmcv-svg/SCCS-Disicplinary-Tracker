@@ -14,7 +14,10 @@ const globalForPrisma = globalThis as unknown as {
  * used unchanged.
  */
 function vercelDatabaseUrl(): string | undefined {
-  if (!process.env.VERCEL) return undefined
+  // VERCEL=1 is also set during the build, where the seed script must write
+  // the real db/sccs.db that gets bundled, so vercel.json runs the seed with
+  // SCCS_DB_DIRECT=1 to skip the /tmp copy.
+  if (!process.env.VERCEL || process.env.SCCS_DB_DIRECT === '1') return undefined
   const target = '/tmp/sccs.db'
   if (!fs.existsSync(target)) {
     fs.copyFileSync(path.join(process.cwd(), 'db', 'sccs.db'), target)
