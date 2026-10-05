@@ -114,6 +114,10 @@ bunx playwright test
 | `db:push` | Apply `prisma/schema.prisma` to the SQLite file |
 | `db:seed` | Seed code sets, demo data and accounts (idempotent) |
 
+## Vercel demo deployment
+
+`vercel.json` builds a self-contained demo: the build pushes the schema, seeds `db/sccs.db` (admin / admin123 plus the demo accounts above) and bundles it with the API functions. At runtime `src/lib/db.ts` copies it to `/tmp` because Vercel's filesystem is read-only. **Changes made online are per server instance and reset on cold starts or redeploys**; use a hosted database (or Railway with a volume) for real school data.
+
 ## Production notes
 
 - Set a strong `JWT_SECRET` in `.env` — the built-in fallback is for development only

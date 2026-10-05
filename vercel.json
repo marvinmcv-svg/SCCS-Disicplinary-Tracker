@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "bun install",
+  "buildCommand": "bunx prisma db push && INITIAL_ADMIN_USERNAME=admin INITIAL_ADMIN_PASSWORD=admin123 bun prisma/seed.ts && next build"
+}
