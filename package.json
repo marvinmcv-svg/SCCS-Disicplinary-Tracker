@@ -1,6 +1,6 @@
 {
   "name": "sccs-disciplinary-tracker",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000 2>&1 | tee dev.log",
@@ -58,6 +58,7 @@
     "date-fns": "^4.4.0",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.23.2",
+    "geist": "^1.7.2",
     "input-otp": "^1.4.2",
     "jsonwebtoken": "^9.0.3",
     "jspdf": "^4.2.1",

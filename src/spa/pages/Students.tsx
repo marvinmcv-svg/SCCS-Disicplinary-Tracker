@@ -4,6 +4,7 @@ import api from '../lib/api';
 import * as XLSX from 'xlsx';
 import { getGradeColor, getInitials, matchesGradeFilter } from '../lib/gradeUtils';
 import { useI18n } from '../i18n';
+import { PlanBadge } from '../components/kit';
 
 interface Student {
   id: number;
@@ -68,8 +69,13 @@ export default function Students() {
     observations: '',
   });
 
+  // Active learning-support plans per student (roster alert badges). The
+  // endpoint is staff-only; other roles simply see no badges.
+  const [planMap, setPlanMap] = useState<Record<number, string[]>>({});
+
   useEffect(() => {
     loadStudents();
+    api.get('/support-plans/summary').then(res => setPlanMap(res.data || {})).catch(() => setPlanMap({}));
   }, []);
 
   const loadStudents = async () => {
@@ -413,7 +419,10 @@ export default function Students() {
                           onClick={() => openModal(student)}
                           className="text-left hover:text-blue-600 cursor-pointer"
                         >
-                          <p className="font-semibold">{student.last_name}, {student.first_name}</p>
+                          <p className="font-semibold flex items-center gap-1.5 flex-wrap">
+                            <span>{student.last_name}, {student.first_name}</span>
+                            {planMap[student.id]?.map(type => <PlanBadge key={type} type={type} />)}
+                          </p>
                           <p className="text-xs text-gray-500 md:hidden">{student.student_id}</p>
                         </button>
                       </div>

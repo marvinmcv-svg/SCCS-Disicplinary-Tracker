@@ -152,6 +152,7 @@ export default function Settings() {
           <h2 className="text-lg font-semibold">{t('Alert Thresholds')}</h2>
         </div>
 
+        <div className="table-container">
         <table className="table">
           <thead>
             <tr>
@@ -189,6 +190,7 @@ export default function Settings() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* About */}

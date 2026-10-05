@@ -302,20 +302,20 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-700 via-blue-600 to-blue-800 p-4">
+    <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-[#f5f5f7] p-4">
       <div className="absolute top-4 right-4 z-10">
         <LanguageToggle />
       </div>
-      <div className="w-full max-w-md p-6 md:p-8 bg-white rounded-2xl shadow-2xl">
-        <div className="text-center mb-6">
+      <div className="w-full max-w-[420px] p-6 md:p-9 bg-white rounded-[28px] border border-black/5 shadow-[0_2px_4px_rgba(0,0,0,0.03),0_30px_80px_-30px_rgba(0,0,0,0.25)] animate-fade-in">
+        <div className="text-center mb-7">
           <div className="relative inline-block mb-4">
-            <img src={sccsLogo} alt={t('Logo')} className="w-20 h-20 md:w-24 md:h-24 object-cover rounded-full shadow-lg border-4 border-blue-100" />
-            <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-              <Lock className="w-4 h-4 text-white" />
+            <img src={sccsLogo} alt={t('Logo')} className="w-20 h-20 object-cover rounded-[22px] shadow-[0_8px_24px_-8px_rgba(0,0,0,0.25)]" />
+            <div className="absolute -bottom-1.5 -right-1.5 w-7 h-7 bg-white rounded-full flex items-center justify-center shadow-md">
+              <Lock className="w-3.5 h-3.5 text-gray-700" />
             </div>
           </div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900">{t('Discipline Tracker')}</h1>
-          <p className="text-gray-500 mt-1 text-sm">{t('Sign in to continue')}</p>
+          <h1 className="text-[1.75rem] font-bold tracking-tight text-gray-900">{t('Discipline Tracker')}</h1>
+          <p className="text-gray-500 mt-1">{t('Sign in to continue')}</p>
         </div>
 
         {error && (
@@ -384,7 +384,7 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('Username')}</label>
+            <label className="form-label">{t('Username')}</label>
             <div className="relative">
               <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
@@ -400,7 +400,7 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('Password')}</label>
+            <label className="form-label">{t('Password')}</label>
             <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -430,17 +430,20 @@ export default function Login() {
 
         <button
           onClick={() => setShowFixModal(true)}
-          className="mt-4 w-full py-2 px-4 bg-red-600 hover:bg-red-700 rounded-lg text-sm text-white flex items-center justify-center gap-2"
+          className="mt-5 w-full py-2 px-4 rounded-full text-sm text-gray-500 hover:text-gray-900 hover:bg-black/[0.04] flex items-center justify-center gap-2 transition-colors"
         >
           <RefreshCw className="w-4 h-4" />
           {t('Fix Admin Access')}
         </button>
       </div>
+      <a href="/welcome" className="mt-6 text-sm text-gray-500 hover:text-gray-900 transition-colors">
+        {t('Discover what SCCS can do')} &rarr;
+      </a>
 
       {/* Save Password / Enable Biometrics Modal (after first login) */}
       {showSaveDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm" data-testid="save-password-dialog">
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[24px] p-6 w-full max-w-sm shadow-2xl" data-testid="save-password-dialog">
             {saveStep === 'password' ? (
               <>
                 <div className="flex items-center justify-between mb-4">

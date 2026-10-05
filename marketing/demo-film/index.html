@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>SCCS Student OS film</title>
+    <script src="assets/gsap.min.js"></script>
+    <style>
+      @font-face {
+        font-family: 'Geist';
+        src: url('assets/Geist-Variable.woff2') format('woff2');
+        font-weight: 100 900;
+        font-display: block;
+      }
+      html, body { margin: 0; background: #f5f5f7; }
+      body { font-family: 'Geist', sans-serif; color: #1d1d1f; -webkit-font-smoothing: antialiased; }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; background: #f5f5f7; }
+      .scene {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        box-sizing: border-box;
+        padding: 84px 120px 0;
+      }
+      .caption { text-align: center; max-width: 1400px; }
+      .kicker { font-size: 30px; font-weight: 600; color: #0071e3; letter-spacing: -0.01em; margin: 0 0 14px; }
+      .headline { font-size: 76px; line-height: 1.04; font-weight: 700; letter-spacing: -0.045em; margin: 0; }
+      .frame {
+        margin-top: 56px;
+        width: 1480px;
+        height: 760px;
+        border-radius: 26px 26px 0 0;
+        overflow: hidden;
+        background: #fff;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        box-shadow: 0 50px 120px -50px rgba(15, 23, 42, 0.45);
+        position: relative;
+      }
+      .frame img { display: block; width: 100%; height: auto; }
+      .bar { height: 40px; background: #f5f5f7; border-bottom: 1px solid rgba(0, 0, 0, 0.08); display: flex; align-items: center; gap: 9px; padding: 0 18px; }
+      .bar span { width: 13px; height: 13px; border-radius: 50%; background: #d2d2d7; }
+      .phones { margin-top: 56px; display: flex; gap: 56px; align-items: flex-start; }
+      .phone { width: 360px; border-radius: 52px; border: 10px solid #1d1d1f; background: #1d1d1f; overflow: hidden; box-shadow: 0 50px 100px -40px rgba(0, 0, 0, 0.5); }
+      .phone img { display: block; width: 100%; height: auto; border-radius: 42px; }
+      .center { justify-content: center; padding-top: 0; }
+      .logo { width: 150px; height: 150px; border-radius: 36px; box-shadow: 0 30px 60px -25px rgba(0, 0, 0, 0.35); }
+      .title { font-size: 120px; line-height: 1; font-weight: 700; letter-spacing: -0.055em; margin: 48px 0 0; }
+      .sub { font-size: 40px; color: #6e6e73; margin: 26px 0 0; letter-spacing: -0.02em; }
+      .pill { display: inline-block; margin-top: 44px; padding: 20px 44px; border-radius: 999px; background: #0071e3; color: #fff; font-size: 34px; font-weight: 600; }
+      .highlight {
+        position: absolute;
+        border: 5px solid #af52de;
+        border-radius: 22px;
+        box-shadow: 0 0 0 9999px rgba(29, 29, 31, 0.18);
+        opacity: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-width="1920" data-height="1080" data-duration="46" data-fps="30">
+
+      <!-- 1. Title -->
+      <section id="s1" class="scene center clip" data-start="0" data-duration="4.4" data-track-index="0">
+        <img id="s1-logo" class="logo" src="assets/sccs.png" alt="" />
+        <h1 id="s1-title" class="title">Every student, seen clearly.</h1>
+        <p id="s1-sub" class="sub">SCCS Student OS</p>
+      </section>
+
+      <!-- 2. Dashboard -->
+      <section id="s2" class="scene clip" data-start="4.4" data-duration="6.6" data-track-index="0">
+        <div id="s2-cap" class="caption">
+          <p class="kicker">Dashboard</p>
+          <h2 class="headline">Your school day at a glance.</h2>
+        </div>
+        <div id="s2-frame" class="frame">
+          <div class="bar"><span></span><span></span><span></span></div>
+          <img id="s2-img" src="assets/desktop-dashboard.webp" alt="" />
+        </div>
+      </section>
+
+      <!-- 3. Command palette -->
+      <section id="s3" class="scene clip" data-start="11" data-duration="5" data-track-index="0">
+        <div id="s3-cap" class="caption">
+          <p class="kicker">Search</p>
+          <h2 class="headline">Find anyone with Ctrl K.</h2>
+        </div>
+        <div id="s3-frame" class="frame">
+          <div class="bar"><span></span><span></span><span></span></div>
+          <img id="s3-img" src="assets/desktop-palette.webp" alt="" />
+        </div>
+      </section>
+
+      <!-- 4. Incident with learning support alert -->
+      <section id="s4" class="scene clip" data-start="16" data-duration="9" data-track-index="0">
+        <div id="s4-cap" class="caption">
+          <p class="kicker">Learning support</p>
+          <h2 class="headline">Accommodations appear before any consequence.</h2>
+        </div>
+        <div id="s4-frame" class="frame">
+          <div class="bar"><span></span><span></span><span></span></div>
+          <img id="s4-img" src="assets/desktop-incident-alert.webp" alt="" />
+          <div id="s4-hl" class="highlight" style="left: 418px; top: 343px; width: 642px; height: 170px;"></div>
+          <div id="s4-hl2" class="highlight" style="left: 418px; top: 514px; width: 642px; height: 108px; border-color: #ff3b30;"></div>
+        </div>
+      </section>
+
+      <!-- 5. Learning support plans -->
+      <section id="s5" class="scene clip" data-start="25" data-duration="6" data-track-index="0">
+        <div id="s5-cap" class="caption">
+          <p class="kicker">IEP, 504, ELL and more</p>
+          <h2 class="headline">Every plan in one place.</h2>
+        </div>
+        <div id="s5-frame" class="frame">
+          <div class="bar"><span></span><span></span><span></span></div>
+          <img id="s5-img" src="assets/desktop-support.webp" alt="" />
+        </div>
+      </section>
+
+      <!-- 6. Insights -->
+      <section id="s6" class="scene clip" data-start="31" data-duration="6" data-track-index="0">
+        <div id="s6-cap" class="caption">
+          <p class="kicker">Insights</p>
+          <h2 class="headline">Early warning you can explain.</h2>
+        </div>
+        <div id="s6-frame" class="frame">
+          <div class="bar"><span></span><span></span><span></span></div>
+          <img id="s6-img" src="assets/desktop-insights.webp" alt="" />
+        </div>
+      </section>
+
+      <!-- 7. Mobile + recognition -->
+      <section id="s7" class="scene clip" data-start="37" data-duration="5" data-track-index="0">
+        <div id="s7-cap" class="caption">
+          <p class="kicker">On every phone</p>
+          <h2 class="headline">Recognize good choices in two taps.</h2>
+        </div>
+        <div class="phones">
+          <div id="s7-p1" class="phone"><img src="assets/mobile-dashboard.webp" alt="" /></div>
+          <div id="s7-p2" class="phone"><img src="assets/mobile-recognition.webp" alt="" /></div>
+          <div id="s7-p3" class="phone"><img src="assets/mobile-support.webp" alt="" /></div>
+        </div>
+      </section>
+
+      <!-- 8. End card -->
+      <section id="s8" class="scene center clip" data-start="42" data-duration="4" data-track-index="0">
+        <img id="s8-logo" class="logo" src="assets/sccs.png" alt="" />
+        <h2 id="s8-title" class="title">SCCS Student OS</h2>
+        <p id="s8-sub" class="sub">English and Spanish. Phone and desktop.</p>
+        <span id="s8-pill" class="pill">Sign in with your SCCS account</span>
+      </section>
+    </div>
+
+    <script>
+      const tl = gsap.timeline({ paused: true });
+      const ease = 'power3.out';
+      const enter = (sel, at, y = 40, d = 0.9) => tl.fromTo(sel, { opacity: 0, y }, { opacity: 1, y: 0, duration: d, ease }, at);
+      const leave = (sel, at, d = 0.5) => tl.to(sel, { opacity: 0, duration: d, ease: 'power2.in' }, at);
+
+      // 1. Title
+      tl.fromTo('#s1-logo', { opacity: 0, scale: 0.86 }, { opacity: 1, scale: 1, duration: 1, ease }, 0.2);
+      enter('#s1-title', 0.55, 50, 1.1);
+      enter('#s1-sub', 1.1, 24);
+      leave(['#s1-logo', '#s1-title', '#s1-sub'], 3.9);
+
+      // 2. Dashboard: rise in, slow drift down the page
+      enter('#s2-cap', 4.5);
+      tl.fromTo('#s2-frame', { opacity: 0, y: 140 }, { opacity: 1, y: 0, duration: 1.2, ease }, 4.65);
+      tl.fromTo('#s2-img', { y: 0 }, { y: -150, duration: 5, ease: 'sine.inOut' }, 5.6);
+      leave(['#s2-cap', '#s2-frame'], 10.5);
+
+      // 3. Palette: gentle zoom
+      enter('#s3-cap', 11.1);
+      tl.fromTo('#s3-frame', { opacity: 0, y: 120 }, { opacity: 1, y: 0, duration: 1.1, ease }, 11.25);
+      tl.fromTo('#s3-img', { scale: 1 }, { scale: 1.12, transformOrigin: '50% 30%', duration: 3.6, ease: 'sine.inOut' }, 12);
+      leave(['#s3-cap', '#s3-frame'], 15.5);
+
+      // 4. Incident form: highlight the support plan, then the MDR warning
+      enter('#s4-cap', 16.1);
+      tl.fromTo('#s4-frame', { opacity: 0, y: 120 }, { opacity: 1, y: 0, duration: 1.1, ease }, 16.25);
+      tl.to('#s4-hl', { opacity: 1, duration: 0.6, ease }, 18);
+      tl.to('#s4-hl', { opacity: 0, duration: 0.5, ease: 'power2.inOut' }, 21);
+      tl.to('#s4-hl2', { opacity: 1, duration: 0.6, ease }, 21.2);
+      leave(['#s4-cap', '#s4-frame'], 24.5);
+
+      // 5. Support plans
+      enter('#s5-cap', 25.1);
+      tl.fromTo('#s5-frame', { opacity: 0, y: 120 }, { opacity: 1, y: 0, duration: 1.1, ease }, 25.25);
+      tl.fromTo('#s5-img', { y: 0 }, { y: -120, duration: 4, ease: 'sine.inOut' }, 26.2);
+      leave(['#s5-cap', '#s5-frame'], 30.5);
+
+      // 6. Insights
+      enter('#s6-cap', 31.1);
+      tl.fromTo('#s6-frame', { opacity: 0, y: 120 }, { opacity: 1, y: 0, duration: 1.1, ease }, 31.25);
+      tl.fromTo('#s6-img', { y: 0 }, { y: -220, duration: 4, ease: 'sine.inOut' }, 32.2);
+      leave(['#s6-cap', '#s6-frame'], 36.5);
+
+      // 7. Phones fan in
+      enter('#s7-cap', 37.1);
+      enter('#s7-p1', 37.3, 200, 1.1);
+      enter('#s7-p2', 37.45, 240, 1.1);
+      enter('#s7-p3', 37.6, 200, 1.1);
+      leave(['#s7-cap', '#s7-p1', '#s7-p2', '#s7-p3'], 41.5);
+
+      // 8. End card
+      tl.fromTo('#s8-logo', { opacity: 0, scale: 0.86 }, { opacity: 1, scale: 1, duration: 0.9, ease }, 42.2);
+      enter('#s8-title', 42.5, 50, 1);
+      enter('#s8-sub', 42.9, 24);
+      enter('#s8-pill', 43.2, 24);
+
+      window.__timelines['main'] = tl;
+    </script>
+  </body>
+</html>

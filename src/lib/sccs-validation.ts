@@ -191,6 +191,44 @@ export const mtssSchema = z.object({
   advisor: optionalText(120),
 });
 
+export const PLAN_TYPES = ['IEP', '504', 'ELL', 'BIP', 'Gifted', 'Health'] as const;
+export const PLAN_STATUSES = ['Active', 'Under Review', 'Expired', 'Closed'] as const;
+export const ACCOMMODATION_CATEGORIES = [
+  'Presentation', 'Response', 'Setting', 'Timing', 'Behavioral', 'Assistive Technology',
+] as const;
+export const RECOGNITION_CATEGORIES = [
+  'Respect', 'Responsibility', 'Integrity', 'Kindness', 'Leadership', 'Excellence',
+] as const;
+
+export const accommodationSchema = z.object({
+  category: z.enum(ACCOMMODATION_CATEGORIES, { error: 'Choose an accommodation category' }),
+  description: requiredText(500, 'Accommodation'),
+  applies_to: optionalText(120),
+  active: z.boolean().optional(),
+});
+
+export const supportPlanSchema = z.object({
+  student_id: z.coerce.number().int().positive('A student must be selected'),
+  plan_type: z.enum(PLAN_TYPES, { error: 'Plan type must be IEP, 504, ELL, BIP, Gifted or Health' }),
+  primary_need: optionalText(200),
+  case_manager: optionalText(120),
+  start_date: dateString,
+  review_date: optionalDate,
+  status: z.enum(PLAN_STATUSES).optional(),
+  behavior_considerations: optionalText(3000),
+  parent_consent: z.boolean().optional(),
+  notes: optionalText(5000),
+  accommodations: z.array(accommodationSchema).max(40, 'A plan can list at most 40 accommodations').optional(),
+});
+
+export const recognitionSchema = z.object({
+  student_id: z.coerce.number().int().positive('A student must be selected'),
+  category: z.enum(RECOGNITION_CATEGORIES, { error: 'Choose a recognition category' }),
+  points: z.coerce.number('Points must be a number').int().min(1, 'Points must be 1 to 5').max(5, 'Points must be 1 to 5').optional(),
+  note: optionalText(500),
+  date: dateString.optional(),
+});
+
 export const passwordSchema = z
   .string()
   .min(8, 'Password must be at least 8 characters')

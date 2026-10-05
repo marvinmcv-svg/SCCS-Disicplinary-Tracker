@@ -68,6 +68,19 @@ export const canEditIncidents = (user: AuthUser) =>
 export const canManageStudents = (user: AuthUser) =>
   requireRole(user, 'admin', 'counselor');
 
+/** Read learning-support plans (IEP/504/ELL…) and early-warning insights.
+ *  Staff only: these are confidential special-programs records. */
+export const canViewSupportPlans = (user: AuthUser) =>
+  requireRole(user, 'admin', 'principal', 'counselor', 'teacher', 'staff');
+
+/** Create / edit learning-support plans (case managers). */
+export const canManageSupportPlans = (user: AuthUser) =>
+  requireRole(user, 'admin', 'principal', 'counselor');
+
+/** Award PBIS recognitions — any staff member working with students. */
+export const canRecognize = (user: AuthUser) =>
+  requireRole(user, 'admin', 'principal', 'counselor', 'teacher', 'staff');
+
 /** Destructive operations and system configuration. */
 export const adminOnly = (user: AuthUser) => requireRole(user, 'admin');
 

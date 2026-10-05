@@ -3,17 +3,19 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle, Users, Clock, CheckCircle,
   AlertCircle, UserCheck, Plus, ChevronRight, BarChart3, PieChart as PieChartIcon,
-  Bell, FileText, TrendingUp, TrendingDown, Minus, Loader2, Calendar, Filter, X
+  FileText, TrendingUp, TrendingDown, Minus, Filter, X, Award, Accessibility, Gauge
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts';
 import api from '../lib/api';
 import { useI18n } from '../i18n';
+import { useAuth } from '../App';
 // Public asset (served from /public in both Vite and the sandbox) instead of a
 // bundled import, so the logo works under either build system.
 const sccsLogo = '/sccs.png';
 
-const COLORS = ['#3b82f6', '#ef4444', '#f59e0b', '#22c55e', '#8b5cf6', '#ec4899', '#06b6d4', '#14b8a6', '#f97316'];
-const STATUS_COLORS = { Open: '#ef4444', Pending: '#f59e0b', Resolved: '#22c55e' };
+// Apple system colours
+const COLORS = ['#0071e3', '#ff3b30', '#ff9f0a', '#34c759', '#af52de', '#ff2d55', '#32ade6', '#30b0c7', '#ff9500', '#5856d6', '#a2845e', '#64d2ff'];
+const STATUS_COLORS = { Open: '#ff3b30', Pending: '#ff9f0a', Resolved: '#34c759' };
 
 interface Stats {
   total: number;
@@ -33,11 +35,13 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { t, lang } = useI18n();
+  const { user } = useAuth();
+  const isStaff = ['admin', 'principal', 'counselor', 'teacher', 'staff'].includes(user?.role);
+  const [glance, setGlance] = useState<{ high: number; mdr_alerts: number; positive_ratio: number | null } | null>(null);
 
   // State
   const [stats, setStats] = useState<Stats>({ total: 0, pending: 0, resolved: 0, byCategory: [], byGrade: [], byStatus: [], recentIncidents: [], weeklyTrend: [] });
   const [studentCount, setStudentCount] = useState(0);
-  const [notificationCount, setNotificationCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [academicYear, setAcademicYear] = useState('AY 2026-2027 | Semester 1');
 
@@ -61,10 +65,13 @@ export default function Dashboard() {
     loadSettings();
   }, []);
 
-  // Load notification count on mount
+  // Early-warning + PBIS summary for the "at a glance" row (staff only).
   useEffect(() => {
-    loadNotificationCount();
-  }, []);
+    if (!isStaff) return;
+    api.get('/insights/early-warning?limit=1')
+      .then(res => setGlance(res.data?.summary ?? null))
+      .catch(() => setGlance(null));
+  }, [isStaff]);
 
   // Load initial data
   useEffect(() => {
@@ -86,15 +93,6 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Failed to load settings:', error);
-    }
-  };
-
-  const loadNotificationCount = async () => {
-    try {
-      const res = await api.get('/notifications/count');
-      setNotificationCount(res.data?.count || 0);
-    } catch (error) {
-      console.error('Failed to load notifications:', error);
     }
   };
 
@@ -256,50 +254,34 @@ export default function Dashboard() {
     setSelectedStatus('all');
   };
 
-  // Stat card component
-  const StatCard = ({ title, value, icon: Icon, color, onClick, change, clickLabel }: {
+  // Stat card component (tinted metric tile; the first <p> holds the value)
+  const StatCard = ({ title, value, icon: Icon, tone, onClick, clickLabel }: {
     title: string;
     value: number;
     icon: any;
-    color: string;
+    tone: 'blue' | 'orange' | 'green' | 'purple';
     onClick?: () => void;
-    change?: number;
     clickLabel?: string;
   }) => (
-    <button
-      onClick={onClick}
-      className={`bg-white/20 backdrop-blur rounded-xl p-3 text-center ${onClick ? 'cursor-pointer hover:bg-white/30 active:scale-95 transition-all' : ''}`}
-    >
-      <div className="flex items-center justify-center gap-1">
-        <Icon className={`w-4 h-4 ${color}`} />
-        <span className="text-xs text-blue-100">{title}</span>
-      </div>
-      <p className="text-2xl font-bold mt-1">{value}</p>
-      {change !== undefined && change !== 0 && (
-        <div className={`flex items-center justify-center gap-0.5 text-xs mt-1 ${change > 0 ? 'text-green-300' : 'text-red-300'}`}>
-          {getChangeIcon(value, value - change)} <span>{Math.abs(change)}%</span>
-        </div>
-      )}
-      {clickLabel && <span className="text-xs text-blue-200 mt-1 block">{clickLabel}</span>}
+    <button onClick={onClick} className={`metric metric-${tone} text-left`}>
+      <span className="metric-label"><Icon className="w-4 h-4" /><span>{title}</span></span>
+      <p className="metric-value">{value.toLocaleString()}</p>
+      {clickLabel && <span className="metric-foot">{clickLabel}</span>}
     </button>
   );
 
-  // Loading skeleton
+  // Loading skeleton (matches the final layout's shape)
   if (loading && stats.total === 0) {
     return (
-      <div className="space-y-4 md:space-y-6 animate-fade-in pb-24">
-        <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl p-4 md:p-6">
-          <div className="h-8 w-48 bg-white/20 rounded animate-pulse mb-2" />
-          <div className="h-4 w-32 bg-white/20 rounded animate-pulse" />
-          <div className="grid grid-cols-4 gap-3 mt-4">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-20 bg-white/20 rounded-xl animate-pulse" />
-            ))}
+      <div className="space-y-6 animate-fade-in pb-24">
+        <div className="card space-y-4">
+          <div className="skeleton h-9 w-56" />
+          <div className="skeleton h-4 w-32" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[1, 2, 3, 4].map(i => <div key={i} className="skeleton h-24" />)}
           </div>
         </div>
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-        </div>
+        <div className="skeleton h-72" />
       </div>
     );
   }
@@ -311,94 +293,101 @@ export default function Dashboard() {
     { name: 'Resolved', value: stats.resolved, color: STATUS_COLORS.Resolved }
   ].filter(d => d.value > 0);
 
-  return (
-    <div className="space-y-4 md:space-y-6 animate-fade-in pb-24 md:pb-6">
-      {/* Welcome Section with Academic Year */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl p-4 md:p-6 text-white">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold">{t('Welcome Back!')}</h1>
-            <p className="text-blue-100 text-sm md:text-base">{academicYear}</p>
-          </div>
-          <button
-            onClick={() => navigate('/notifications')}
-            className="relative p-2 hover:bg-white/20 rounded-lg transition-colors"
-          >
-            <Bell className="w-6 h-6" />
-            {notificationCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-                {notificationCount > 99 ? '99+' : notificationCount}
-              </span>
-            )}
-          </button>
-        </div>
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? t('Good morning') : hour < 18 ? t('Good afternoon') : t('Good evening');
+  const initials = `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`.toUpperCase() || 'U';
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-4 gap-3">
-          <StatCard title={t('Total')} value={stats.total} icon={AlertTriangle} color="text-white" onClick={() => navigateToIncidents()} clickLabel={t('View all')} />
-          <StatCard title={t('Pending')} value={stats.pending} icon={Clock} color="text-yellow-300" onClick={() => navigateToIncidents('status', 'Open')} clickLabel={t('View pending')} />
-          <StatCard title={t('Resolved')} value={stats.resolved} icon={CheckCircle} color="text-green-300" onClick={() => navigateToIncidents('status', 'Resolved')} clickLabel={t('View resolved')} />
-          <StatCard title={t('Students')} value={studentCount} icon={Users} color="text-white" onClick={() => navigate('/students')} clickLabel={t('View students')} />
+  const quickActions = [
+    { key: 'new', label: t('New Incident'), icon: Plus, tint: 'bg-red-50 text-red-600', onClick: () => navigate('/incidents', { state: { openNew: true } }) },
+    ...(isStaff ? [
+      { key: 'recognize', label: t('Recognize'), icon: Award, tint: 'bg-green-50 text-green-700', onClick: () => navigate('/recognition?new=1') },
+      { key: 'support', label: t('Learning Support'), icon: Accessibility, tint: 'bg-blue-50 text-blue-600', onClick: () => navigate('/support') },
+    ] : []),
+    { key: 'pending', label: t('View Pending'), icon: Clock, tint: 'bg-yellow-50 text-yellow-700', onClick: () => navigateToIncidents('status', 'Open') },
+    { key: 'report', label: t('Run Report'), icon: FileText, tint: 'bg-purple-100 text-purple-700', onClick: () => navigate('/reports') },
+    ...(isStaff ? [
+      { key: 'insights', label: t('Insights'), icon: Gauge, tint: 'bg-indigo-100 text-indigo-700', onClick: () => navigate('/insights') },
+    ] : []),
+  ];
+
+  return (
+    <div className="space-y-6 animate-fade-in pb-24 md:pb-6 max-w-6xl mx-auto">
+      {/* Greeting + headline numbers */}
+      <section className="card !p-0 overflow-hidden">
+        <div className="p-5 md:p-7 pb-4 md:pb-5 flex items-start justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="w-14 h-14 rounded-full bg-gray-100 text-gray-700 text-lg font-semibold flex items-center justify-center shrink-0">{initials}</div>
+            <div className="min-w-0">
+              <p className="text-sm text-gray-500">{greeting}{user?.firstName ? `, ${user.firstName}` : ''}</p>
+              <h1 className="page-title">{t('Welcome Back!')}</h1>
+              <p className="text-sm text-gray-500 mt-0.5">{academicYear}</p>
+            </div>
+          </div>
         </div>
 
         {/* Date Range Selector */}
-        <div className="flex items-center gap-2 mt-4 overflow-x-auto pb-1">
-          <Calendar className="w-4 h-4 text-blue-200 flex-shrink-0" />
-          {['all', 'today', 'week', 'month', 'quarter', 'custom'].map(range => (
-            <button
-              key={range}
-              onClick={() => setDateRange(range as DateRange)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors flex-shrink-0 ${
-                dateRange === range ? 'bg-white text-blue-700' : 'bg-white/20 text-white hover:bg-white/30'
-              }`}
-            >
-              {range === 'all' ? t('All Time') : range === 'today' ? t('Today') : range === 'week' ? t('Week') : range === 'month' ? t('Month') : range === 'quarter' ? t('Quarter') : t('Custom')}
-            </button>
-          ))}
+        <div className="px-5 md:px-7 pb-4 flex flex-wrap items-center gap-2">
+          <div className="segmented max-w-full overflow-x-auto" role="group" aria-label={t('Date range')}>
+            {(['all', 'today', 'week', 'month', 'quarter', 'custom'] as DateRange[]).map(range => (
+              <button
+                key={range}
+                type="button"
+                aria-pressed={dateRange === range}
+                onClick={() => setDateRange(range)}
+                className={dateRange === range ? 'is-active' : ''}
+              >
+                {range === 'all' ? t('All Time') : range === 'today' ? t('Today') : range === 'week' ? t('Week') : range === 'month' ? t('Month') : range === 'quarter' ? t('Quarter') : t('Custom')}
+              </button>
+            ))}
+          </div>
           {dateRange === 'custom' && (
-            <div className="flex items-center gap-2 ml-2">
-              <input
-                type="date"
-                value={customStartDate}
-                onChange={e => setCustomStartDate(e.target.value)}
-                className="bg-white/20 border border-white/30 rounded px-2 py-1 text-xs text-white"
-              />
-              <span className="text-white/70">-</span>
-              <input
-                type="date"
-                value={customEndDate}
-                onChange={e => setCustomEndDate(e.target.value)}
-                className="bg-white/20 border border-white/30 rounded px-2 py-1 text-xs text-white"
-              />
+            <div className="flex items-center gap-2">
+              <input type="date" value={customStartDate} onChange={e => setCustomStartDate(e.target.value)} className="input !min-h-[36px] !py-1 text-sm w-auto" aria-label={t('Start Date')} />
+              <span className="text-gray-400">-</span>
+              <input type="date" value={customEndDate} onChange={e => setCustomEndDate(e.target.value)} className="input !min-h-[36px] !py-1 text-sm w-auto" aria-label={t('End Date')} />
             </div>
           )}
         </div>
-      </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-5 md:px-7 pb-5 md:pb-7">
+          <StatCard title={t('Total')} value={stats.total} icon={AlertTriangle} tone="blue" onClick={() => navigateToIncidents()} clickLabel={t('View all')} />
+          <StatCard title={t('Pending')} value={stats.pending} icon={Clock} tone="orange" onClick={() => navigateToIncidents('status', 'Open')} clickLabel={t('View pending')} />
+          <StatCard title={t('Resolved')} value={stats.resolved} icon={CheckCircle} tone="green" onClick={() => navigateToIncidents('status', 'Resolved')} clickLabel={t('View resolved')} />
+          <StatCard title={t('Students')} value={studentCount} icon={Users} tone="purple" onClick={() => navigate('/students')} clickLabel={t('View students')} />
+        </div>
+      </section>
 
       {/* Quick Actions */}
-      <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 md:overflow-visible md:flex-wrap">
-        <button
-          onClick={() => navigate('/incidents')}
-          className="flex-shrink-0 bg-red-500 text-white rounded-2xl px-4 py-3 flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
-        >
-          <Plus className="w-5 h-5" />
-          <span className="font-semibold">{t('+ New Incident')}</span>
-        </button>
-        <button
-          onClick={() => navigateToIncidents('status', 'Open')}
-          className="flex-shrink-0 bg-yellow-500 text-white rounded-2xl px-4 py-3 flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
-        >
-          <Clock className="w-5 h-5" />
-          <span className="font-semibold">{t('View Pending')}</span>
-        </button>
-        <button
-          onClick={() => navigate('/reports')}
-          className="flex-shrink-0 bg-white rounded-2xl px-4 py-3 flex items-center gap-2 shadow-md border border-gray-100 active:scale-95 transition-transform"
-        >
-          <FileText className="w-5 h-5 text-blue-600" />
-          <span className="font-semibold text-gray-700">{t('Run Report')}</span>
-        </button>
-      </div>
+      <section aria-label={t('Quick actions')} className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+        {quickActions.map(a => (
+          <button key={a.key} onClick={a.onClick} className="group flex flex-col items-center gap-2 rounded-[20px] bg-white border border-black/5 py-4 px-2 transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-card)] active:scale-[0.97]">
+            <span className={`w-12 h-12 rounded-full flex items-center justify-center ${a.tint}`}><a.icon className="w-5 h-5" /></span>
+            <span className="text-[13px] font-medium text-gray-900 text-center leading-tight">{a.label}</span>
+          </button>
+        ))}
+      </section>
+
+      {/* At a glance: early warning + PBIS (staff only) */}
+      {isStaff && glance && (
+        <section className="grid md:grid-cols-3 gap-3" aria-label={t('At a glance')}>
+          <button onClick={() => navigate('/insights')} className="callout callout-danger text-left items-center">
+            <Gauge className="w-5 h-5 shrink-0" />
+            <span className="flex-1"><strong className="tabular-nums">{glance.high}</strong> {t('students at high risk')}</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <button onClick={() => navigate('/insights')} className="callout callout-purple text-left items-center">
+            <Accessibility className="w-5 h-5 shrink-0" />
+            <span className="flex-1"><strong className="tabular-nums">{glance.mdr_alerts}</strong> {t('IEP/504 removal alerts')}</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <button onClick={() => navigate('/recognition')} className="callout callout-info text-left items-center">
+            <Award className="w-5 h-5 shrink-0" />
+            <span className="flex-1"><strong className="tabular-nums">{glance.positive_ratio ?? '-'} : 1</strong> {t('positive to corrective, 30 days')}</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </section>
+      )}
 
       {/* Category Chart with Filters */}
       <div className="bg-white rounded-2xl p-4 shadow-sm">

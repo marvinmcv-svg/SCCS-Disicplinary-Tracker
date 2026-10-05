@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../lib/api';
 import { useI18n } from '../i18n';
 import * as XLSX from 'xlsx';
+import SupportAlert from '../components/SupportAlert';
 
 interface Student {
   id: number;
@@ -173,7 +174,7 @@ export default function Incidents() {
   const violationRef = useRef<HTMLDivElement>(null);
   const advisorRef = useRef<HTMLDivElement>(null);
 
-  const prefillData = location.state as { studentId?: number; violationCategory?: string } | null;
+  const prefillData = location.state as { studentId?: number; violationCategory?: string; openNew?: boolean } | null;
   const pageSize = 20;
 
   const filteredStudentsForSelect = students.filter(s =>
@@ -441,6 +442,16 @@ export default function Incidents() {
 
   const closeModal = () => setShowModal(false);
 
+  // Deep link: navigate('/incidents', { state: { openNew: true } }) opens the
+  // new-incident form as soon as the pickers have loaded.
+  const openedForKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (!loading && prefillData?.openNew && openedForKey.current !== location.key) {
+      openedForKey.current = location.key;
+      openModal();
+    }
+  }, [loading, location.key]);
+
   // Selecting a PlusPortals penalty pre-fills the referral's quantities from
   // the code's defaults (still editable), mirrors the penalty name into the
   // consequence text and starts the served status at PENDING — exactly how
@@ -648,8 +659,8 @@ export default function Incidents() {
 
       {/* Pagination Controls */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 pb-4">
-          <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="btn btn-secondary py-2 px-3 disabled:opacity-50">{t('First')}</button>
+        <div className="flex flex-wrap items-center justify-center gap-2 pb-4">
+          <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="btn btn-secondary py-2 px-3 disabled:opacity-50 hidden sm:inline-flex">{t('First')}</button>
           <button onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1} className="btn btn-secondary py-2 px-3 disabled:opacity-50"><ChevronLeft className="w-4 h-4 mr-1" />{t('Prev')}</button>
           <div className="flex items-center gap-1">
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -663,7 +674,7 @@ export default function Incidents() {
             })}
           </div>
           <button onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage >= totalPages} className="btn btn-secondary py-2 px-3 disabled:opacity-50">{t('Next')}<ChevronRight className="w-4 h-4 ml-1" /></button>
-          <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage >= totalPages} className="btn btn-secondary py-2 px-3 disabled:opacity-50">{t('Last')}</button>
+          <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage >= totalPages} className="btn btn-secondary py-2 px-3 disabled:opacity-50 hidden sm:inline-flex">{t('Last')}</button>
         </div>
       )}
 
@@ -751,6 +762,8 @@ export default function Incidents() {
                   )}
                 </div>
               </div>
+
+              <SupportAlert studentId={formData.student_id} />
 
               {filteredViolations.length > 0 && (
                 <div className="p-3 bg-gray-50 rounded-lg text-sm">

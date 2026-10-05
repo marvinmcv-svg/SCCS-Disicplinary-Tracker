@@ -450,6 +450,7 @@ export default function MTSS() {
                 {loading ? (
                   <div className="text-center py-8 text-gray-400">{t('Loading...')}</div>
                 ) : interventionsByTier[tier].length > 0 ? (
+                  <div className="table-container">
                   <table className="table">
                     <thead>
                       <tr>
@@ -525,6 +526,7 @@ export default function MTSS() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 ) : (
                   <div className="text-center py-8 text-gray-400">
                     <HeartHandshake className="w-8 h-8 mx-auto mb-2" />

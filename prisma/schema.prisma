@@ -66,6 +66,8 @@ model Students {
 
   incidents      Incidents[]
   mtss           MtssInterventions[]
+  support_plans  SupportPlans[]
+  recognitions   Recognitions[]
 
   @@map("students")
 }
@@ -335,4 +337,65 @@ model ParentStudentLinks {
 
   @@unique([parent_user_id, student_id])
   @@map("parent_student_links")
+}
+
+// Learning support plans (IEP / 504 / ELL / BIP / Gifted / Health) — the
+// SIS "special programs" record. Plans carry the accommodations every staff
+// member must honour and behaviour considerations surfaced when an incident
+// is logged for the student (so discipline stays IDEA/504-compliant).
+model SupportPlans {
+  id                      Int      @id @default(autoincrement())
+  student_id              Int
+  plan_type               String // 'IEP' | '504' | 'ELL' | 'BIP' | 'Gifted' | 'Health'
+  primary_need            String?
+  case_manager            String?
+  start_date              String
+  review_date             String?
+  status                  String   @default("Active") // Active | Under Review | Expired | Closed
+  behavior_considerations String?
+  parent_consent          Boolean  @default(true)
+  notes                   String?
+  created_at              DateTime @default(now())
+  updated_at              DateTime @default(now()) @updatedAt
+
+  student                 Students @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  accommodations          Accommodations[]
+
+  @@index([student_id])
+  @@map("support_plans")
+}
+
+model Accommodations {
+  id          Int      @id @default(autoincrement())
+  plan_id     Int
+  category    String // Presentation | Response | Setting | Timing | Behavioral | Assistive Technology
+  description String
+  applies_to  String   @default("All classes")
+  active      Boolean  @default(true)
+  created_at  DateTime @default(now())
+
+  plan        SupportPlans @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+
+  @@index([plan_id])
+  @@map("accommodations")
+}
+
+// Positive behaviour recognitions (PBIS). Tracked separately from conduct
+// points so the corrective ledger stays auditable; dashboards report the
+// positive-to-corrective ratio (PBIS target is 4:1 or better).
+model Recognitions {
+  id         Int      @id @default(autoincrement())
+  student_id Int
+  category   String // Respect | Responsibility | Integrity | Kindness | Leadership | Excellence
+  points     Int      @default(1)
+  note       String?
+  awarded_by String?
+  date       String
+  created_at DateTime @default(now())
+
+  student    Students @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@index([student_id])
+  @@index([date])
+  @@map("recognitions")
 }

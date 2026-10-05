@@ -16,6 +16,9 @@ import Settings from './pages/Settings';
 import Users from './pages/Users';
 import UserProfile from './pages/UserProfile';
 import Reports from './pages/Reports';
+import LearningSupport from './pages/LearningSupport';
+import Recognition from './pages/Recognition';
+import Insights from './pages/Insights';
 import Layout from './components/Layout';
 import api from './lib/api';
 import { I18nProvider, useI18n } from './i18n';
@@ -41,7 +44,7 @@ export const useAuth = () => {
 const CURRENT_VERSION =
   (import.meta as any).env?.VITE_APP_VERSION ||
   (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_APP_VERSION : undefined) ||
-  '2.0.0';
+  '2.1.0';
 
 // Session timeout constants (in milliseconds)
 const WARNING_TIME = 25 * 60 * 1000; // 25 minutes (show warning)
@@ -70,11 +73,11 @@ function UpdateBanner() {
   if (!updateAvailable || dismissed) return null;
 
   return (
-    <div className="fixed top-0 left-0 right-0 bg-yellow-500 text-black px-4 py-2 text-center text-sm z-50 flex items-center justify-center gap-2">
+    <div className="fixed top-3 left-1/2 -translate-x-1/2 glass border border-black/5 shadow-lg rounded-full text-gray-900 px-4 py-2 text-center text-sm z-50 flex items-center justify-center gap-2">
       <span>{t('A new version ({version}) is available!', { version: CURRENT_VERSION })}</span>
       <button
         onClick={() => setDismissed(true)}
-        className="ml-2 px-2 py-1 bg-yellow-600 text-white rounded text-xs"
+        className="ml-2 px-3 py-1 bg-blue-600 text-white rounded-full text-xs font-medium"
       >
         {t('Dismiss')}
       </button>
@@ -96,8 +99,8 @@ function SessionTimeoutWarning({
   const { t } = useI18n();
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl">
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-[100]">
+      <div className="bg-white rounded-[24px] p-6 w-full max-w-md mx-4 shadow-2xl">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
@@ -291,6 +294,7 @@ function App() {
   return (
     <AuthContext.Provider value={{ user, token, login, logout: handleLogout }}>
       <I18nProvider>
+        <div className="sccs-app">
         <UpdateBanner />
         {showSessionWarning && (
           <SessionTimeoutWarning
@@ -310,6 +314,9 @@ function App() {
               <Route path="incidents/:id" element={<IncidentDetail />} />
               <Route path="violations" element={<Violations />} />
               <Route path="reports" element={<Reports />} />
+              <Route path="support" element={<LearningSupport />} />
+              <Route path="recognition" element={<Recognition />} />
+              <Route path="insights" element={<Insights />} />
               <Route path="mtss" element={<MTSS />} />
               <Route path="users" element={<Users />} />
               <Route path="users/:id" element={<UserProfile />} />
@@ -317,6 +324,7 @@ function App() {
             </Route>
           </Routes>
         </HashRouter>
+        </div>
       </I18nProvider>
     </AuthContext.Provider>
   );

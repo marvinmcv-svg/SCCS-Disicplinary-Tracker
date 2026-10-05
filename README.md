@@ -2,11 +2,21 @@
 
 Mobile-first disciplinary record tracking app for **Santa Cruz Christian School (SCCS)** — bilingual (English / Español), role-based, and aligned with the **PlusPortals SIS discipline code sets** used by the school.
 
-Version **2.0.0** — ported from the original Express/PostgreSQL + Vite stack to a single **Next.js 16** app (App Router API routes + Prisma/SQLite) that runs anywhere with one command. The original stack remains available in the git history.
+Version **2.1.0**: adds learning support plans with accommodations, PBIS recognition, explainable early-warning insights, a command palette, an Apple-style redesign and a product landing page with a HyperFrames film. Version 2.0.0 was ported from the original Express/PostgreSQL + Vite stack to a single **Next.js 16** app (App Router API routes + Prisma/SQLite) that runs anywhere with one command. The original stack remains available in the git history.
 
 ---
 
 ## Features
+
+### New in 2.1 (see [docs/powerschool-research.md](docs/powerschool-research.md))
+
+- **Learning Support** (`#/support`): IEP, 504, ELL, BIP, Gifted and Health plans with categorized accommodations, case manager and annual review dates. Plan badges show on the roster and student profile, and the incident form shows the student's plan and behavior guidance before a consequence is chosen.
+- **IDEA safeguard**: students with an IEP or 504 plan are flagged at 8 days of out-of-school removal and again at 10 days, when a manifestation determination review is required.
+- **Recognition** (`#/recognition`): two-tap PBIS recognitions, leaderboard, and the positive-to-corrective ratio.
+- **Insights** (`#/insights`): explainable early-warning scores plus the manifestation determination alert list.
+- **Command palette**: Ctrl/Cmd + K finds any student, screen or action.
+- **Redesign**: Apple-style design system (system/Geist type, one accent, glass navigation, floating tab bar on phones).
+- **Landing page** at `/welcome` with a 46-second product film rendered with [HyperFrames](https://github.com/heygen-com/hyperframes) (source in `marketing/demo-film`).
 
 - **Incident registration with PlusPortals SIS codes** — pick the infraction, location, action, penalty (auto-fills detention hours / ISS / OSS days) and served status, mirroring the PlusPortals discipline entry flow
 - **Five seeded code sets** (fully editable by admins on the *Violations* page → *PlusPortals SIS Code Sets*):
@@ -40,13 +50,14 @@ Version **2.0.0** — ported from the original Express/PostgreSQL + Vite stack t
 Prerequisite: [bun](https://bun.sh) (v1.2+). Node.js 20+ also works with npm/pnpm if you prefer.
 
 ```bash
+cp .env.example .env # needed for the admin account to be seeded
 bun install          # install dependencies (generates the Prisma client)
 bun run db:push      # create the SQLite database at db/sccs.db
 bun run db:seed      # seed code sets, demo roster, incidents and accounts
 bun run dev          # start at http://localhost:3000
 ```
 
-Optional: copy `.env.example` to `.env` to customize the admin credentials, JWT secret and version handshake. Every variable is optional — the app runs with safe defaults.
+Copy `.env.example` to `.env` (the seed creates the `admin` account from it) and customize the admin credentials, JWT secret and version handshake. Every variable is optional — the app runs with safe defaults.
 
 ### Demo accounts
 
@@ -75,7 +86,9 @@ src/
 prisma/
   schema.prisma   # 20-table schema (SQLite) — the db path is pinned here
   seed.ts         # idempotent seed: codes, demo data, accounts
-e2e/              # Playwright end-to-end suite (44 cases, mobile + desktop)
+e2e/              # Playwright end-to-end suite (mobile + desktop)
+marketing/        # HyperFrames source for the /welcome product film
+docs/             # PowerSchool research behind the 2.1 features
 public/           # PWA manifest, icons, service worker
 db/               # SQLite database file (created by db:push, not committed)
 ```
@@ -88,6 +101,8 @@ The Playwright suite targets a running dev server and re-seeds a deterministic b
 bun run dev &        # server on :3000
 bunx playwright test
 ```
+
+`e2e/features.spec.ts` covers the 2.1 features, the landing page and its film, and checks every screen for runtime errors and sideways scrolling on phone and desktop. If the bundled Playwright browser is not downloaded, point at an installed Chromium with `PW_CHROMIUM_PATH=/path/to/chromium`.
 
 ## Scripts
 
