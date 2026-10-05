@@ -1,0 +1,338 @@
+// SCCS Discipline Tracker — Prisma schema (SQLite port of the original PostgreSQL schema)
+// Field names are intentionally snake_case so API JSON responses match the
+// original Express/pg row shapes consumed by the cloned frontend.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  // Single source of truth for the database location. A literal URL (no env
+  // indirection) is baked into the generated client, the CLI and every
+  // script, so they can never diverge. Relative SQLite paths resolve against
+  // this schema file's directory, so "file:../db/sccs.db" points at
+  // <project root>/db/sccs.db on any machine.
+  url      = "file:../db/sccs.db"
+}
+
+model Users {
+  id                    Int       @id @default(autoincrement())
+  username              String    @unique
+  password              String
+  role                  String    @default("user")
+  first_name            String?
+  last_name             String?
+  email                 String?
+  classroom             String?
+  phone                 String?
+  profile_picture       String?
+  created_at            DateTime  @default(now())
+  department            String?
+  advisory              String?
+  is_active             Boolean   @default(true)
+  last_login            DateTime?
+  two_factor_enabled    Boolean   @default(false)
+  last_activity         DateTime?
+  failed_login_attempts Int       @default(0)
+  locked_until          DateTime?
+  terms_accepted_at     DateTime?
+  password_changed_at   DateTime  @default(now())
+
+  @@map("users")
+}
+
+model Students {
+  id             Int     @id @default(autoincrement())
+  student_id     String  @unique
+  last_name      String
+  first_name     String
+  grade          Int     @default(9)
+  section        String?
+  house_team     String?
+  counselor      String?
+  advisory       String?
+  gpa            Float   @default(0)
+  total_points   Int     @default(100)
+  conduct_status String  @default("Good")
+  observations   String  @default("")
+  date_of_birth  String?
+  parent_name    String?
+  parent_phone   String?
+  parent_email   String?
+  gender         String?
+  profile_picture String?
+  created_at     DateTime @default(now())
+
+  incidents      Incidents[]
+  mtss           MtssInterventions[]
+
+  @@map("students")
+}
+
+model Violations {
+  id                        Int     @id @default(autoincrement())
+  category                  String
+  violation_type            String
+  description               String?
+  points_deduction          Int     @default(-2)
+  default_consequence       String?
+  min_oss_days              Int     @default(0)
+  max_oss_days              Int     @default(1)
+  severity                  String  @default("Medium")
+  mandatory_parent_contact  Boolean @default(false)
+  mandatory_admin_review    Boolean @default(false)
+  progressive_consequences  String? // JSON text: [["1st","Warning"], ...]
+
+  incidents                 Incidents[]
+
+  @@map("violations")
+}
+
+model Incidents {
+  id                    Int     @id @default(autoincrement())
+  incident_id           String  @unique
+  date                  String
+  time                  String?
+  student_id            Int
+  violation_id          Int
+  location              String?
+  description           String?
+  witnesses             String?
+  parent_contacted      String  @default("No")
+  contact_date          String?
+  action_taken          String?
+  consequence           String?
+  // PlusPortals (SIS) referral codes captured at registration:
+  // penalty = "CODE — Name" from discipline_codes(group='penalty');
+  // penalty_served = "CODE — Name" from discipline_codes(group='served').
+  penalty               String?
+  penalty_served        String?
+  points_deducted       Int     @default(-2)
+  days_iss              Int     @default(0)
+  days_oss              Int     @default(0)
+  detention_hours       Float   @default(0)
+  referral_date         String?
+  administrator_id      Int?
+  notes                 String?
+  follow_up_needed      String  @default("No")
+  follow_up_date        String?
+  status                String  @default("Open")
+  resolved_date         String?
+  evidence              String?
+  reported_by           String?
+  escalated_to_principal Boolean @default(false)
+  principal_notified_at String?
+  ntss_ready            Boolean @default(false)
+  ntss_submitted_at     DateTime?
+  created_at            DateTime @default(now())
+
+  student               Students @relation(fields: [student_id], references: [id])
+  violation             Violations @relation(fields: [violation_id], references: [id])
+  status_logs           IncidentStatusLogs[]
+  evidence_files        IncidentEvidence[]
+  parent_contacts       ParentContacts[]
+
+  @@index([student_id])
+  @@index([violation_id])
+  @@index([date])
+  @@map("incidents")
+}
+
+model ParentContacts {
+  id                 Int     @id @default(autoincrement())
+  incident_id        Int
+  contact_date       String
+  contact_method     String?
+  parent_name        String?
+  notes              String?
+  follow_up_required String  @default("No")
+
+  incident           Incidents @relation(fields: [incident_id], references: [id], onDelete: Cascade)
+
+  @@map("parent_contacts")
+}
+
+model MtssInterventions {
+  id                  Int     @id @default(autoincrement())
+  student_id          Int
+  tier                Int
+  intervention        String
+  start_date          String
+  end_date            String?
+  progress            String  @default("Not Started")
+  notes               String?
+  created_at          DateTime @default(now())
+  intervention_goal   String?
+  progress_monitoring String?
+  review_date         String?
+  exit_criteria       String?
+  incident_link       Int?
+  advisor             String?
+  tier_history        String? // JSON text
+
+  student             Students @relation(fields: [student_id], references: [id])
+
+  @@index([student_id])
+  @@map("mtss_interventions")
+}
+
+model Alerts {
+  id         Int     @id @default(autoincrement())
+  alert_type String
+  threshold  Int     @default(3)
+  action     String?
+  enabled    String  @default("Yes")
+
+  @@map("alerts")
+}
+
+// PlusPortals (Rediker SIS) discipline codes — the school's code sets for
+// penalties, actions, served statuses and locations, as used when logging a
+// discipline referral in PlusPortals. Infraction codes live in the violations
+// table under category 'PlusPortals' so they can carry points/consequences.
+// Values stored on incidents are "CODE — Name" strings (same convention as
+// the PlusPortals violations). Penalty rows may carry default quantities
+// (detention_hours / days_iss / days_oss) that pre-fill a referral's numbers.
+model DisciplineCodes {
+  id             Int      @id @default(autoincrement())
+  group          String // 'penalty' | 'action' | 'served' | 'location'
+  code           String
+  name           String
+  description    String?
+  detention_hours Float  @default(0)
+  days_iss       Int      @default(0)
+  days_oss       Int      @default(0)
+  active         Boolean  @default(true)
+  sort_order     Int      @default(0)
+  created_at     DateTime @default(now())
+
+  @@unique([group, code])
+  @@index([group])
+  @@map("discipline_codes")
+}
+
+model Settings {
+  key   String @id
+  value String
+
+  @@map("settings")
+}
+
+model IncidentStatusLogs {
+  id              Int      @id @default(autoincrement())
+  incident_id     Int
+  changed_by      Int
+  previous_status String?
+  new_status      String
+  changed_at      DateTime @default(now())
+  notes           String?
+
+  incident        Incidents @relation(fields: [incident_id], references: [id], onDelete: Cascade)
+
+  @@index([incident_id])
+  @@map("incident_status_logs")
+}
+
+model IncidentEvidence {
+  id          Int      @id @default(autoincrement())
+  incident_id Int
+  file_name   String
+  file_url    String?
+  file_type   String?
+  uploaded_by Int
+  uploaded_at DateTime @default(now())
+
+  incident    Incidents @relation(fields: [incident_id], references: [id], onDelete: Cascade)
+
+  @@index([incident_id])
+  @@map("incident_evidence")
+}
+
+model UserActivityLog {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  action     String
+  details    String?
+  created_at DateTime @default(now())
+
+  @@index([user_id])
+  @@map("user_activity_log")
+}
+
+model PasswordResetTokens {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  token      String   @unique
+  expires_at DateTime
+  used       Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  @@map("password_reset_tokens")
+}
+
+model PasswordHistory {
+  id            Int      @id @default(autoincrement())
+  user_id       Int
+  password_hash String
+  changed_at    DateTime @default(now())
+
+  @@map("password_history")
+}
+
+model AuditLogs {
+  id           Int      @id @default(autoincrement())
+  user_id      Int?
+  username     String?
+  role         String?
+  action       String
+  entity_type  String?
+  entity_id    String?
+  entity_label String?
+  changes      String? // JSON text
+  ip           String?
+  user_agent   String?
+  created_at   DateTime @default(now())
+
+  @@index([created_at])
+  @@map("audit_logs")
+}
+
+model SecurityEvents {
+  id         Int      @id @default(autoincrement())
+  event_type String
+  severity   String   @default("info")
+  user_id    Int?
+  username   String?
+  details    String? // JSON text
+  ip         String?
+  created_at DateTime @default(now())
+
+  @@map("security_events")
+}
+
+model Sessions {
+  jti            String    @id
+  user_id        Int
+  created_at     DateTime  @default(now())
+  last_activity  DateTime  @default(now())
+  expires_at     DateTime
+  revoked_at     DateTime?
+  revoked_reason String?
+  ip             String?
+  user_agent     String?
+
+  @@index([user_id])
+  @@map("sessions")
+}
+
+model ParentStudentLinks {
+  id             Int      @id @default(autoincrement())
+  parent_user_id Int
+  student_id     Int
+  verified       Boolean  @default(false)
+  created_at     DateTime @default(now())
+
+  @@unique([parent_user_id, student_id])
+  @@map("parent_student_links")
+}
