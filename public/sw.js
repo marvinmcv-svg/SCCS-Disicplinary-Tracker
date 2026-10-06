@@ -10,16 +10,16 @@
  *      room computer, one user's student data could be served to the next
  *      person to open the app.
  *
- * So: API requests never touch the cache. Static assets are cache-first because
- * Vite fingerprints their filenames, which makes them safe to keep.
+ * So: API requests never touch the cache. Next.js build assets are cache-first because
+ * their filenames are fingerprinted, which makes them safe to keep.
  */
 
-const VERSION = 'v3';
+const VERSION = 'v4';
 const SHELL_CACHE = `sccs-shell-${VERSION}`;
 const ASSET_CACHE = `sccs-assets-${VERSION}`;
 
 // The minimum needed to render the app shell offline.
-const SHELL_FILES = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
+const SHELL_FILES = ['/', '/manifest.json', '/sccs.png', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', event => {
   event.waitUntil(
@@ -41,10 +41,17 @@ self.addEventListener('activate', event => {
   );
 });
 
+function store(cacheName, key, response) {
+  // Only whole, same-origin, successful responses (never 206 partial video).
+  if (response.status !== 200 || response.type !== 'basic') return;
+  const copy = response.clone();
+  caches.open(cacheName).then(cache => cache.put(key, copy)).catch(() => {});
+}
+
 self.addEventListener('fetch', event => {
   const { request } = event;
 
-  if (request.method !== 'GET') return;
+  if (request.method !== 'GET' || request.headers.has('range')) return;
 
   const url = new URL(request.url);
 
@@ -61,27 +68,37 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       fetch(request)
         .then(response => {
-          const copy = response.clone();
-          caches.open(SHELL_CACHE).then(cache => cache.put('/index.html', copy));
+          if (url.pathname === '/') store(SHELL_CACHE, '/', response);
           return response;
         })
-        .catch(() => caches.match('/index.html').then(r => r || Response.error()))
+        .catch(() => caches.match(request).then(r => r || caches.match('/')).then(r => r || Response.error()))
     );
     return;
   }
 
-  // Static assets: cache first. Vite fingerprints these filenames, so a cached
-  // copy is always correct for the build that requested it.
+  // Build assets: cache first. Next.js fingerprints these filenames, so a
+  // cached copy is always correct for the build that requested it.
+  if (url.pathname.startsWith('/_next/static/')) {
+    event.respondWith(
+      caches.match(request).then(
+        cached =>
+          cached ||
+          fetch(request).then(response => {
+            store(ASSET_CACHE, request, response);
+            return response;
+          })
+      )
+    );
+    return;
+  }
+
+  // Everything else (icons, images): network first, cache as a fallback.
   event.respondWith(
-    caches.match(request).then(cached => {
-      if (cached) return cached;
-      return fetch(request).then(response => {
-        if (response.ok && response.type === 'basic') {
-          const copy = response.clone();
-          caches.open(ASSET_CACHE).then(cache => cache.put(request, copy));
-        }
+    fetch(request)
+      .then(response => {
+        store(ASSET_CACHE, request, response);
         return response;
-      });
-    })
+      })
+      .catch(() => caches.match(request).then(r => r || Response.error()))
   );
 });

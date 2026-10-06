@@ -5,6 +5,7 @@ import { useAuth } from '../App';
 import api from '../lib/api';
 import { useI18n } from '../i18n';
 import LanguageToggle from '../components/LanguageToggle';
+import { InstallAppButton, ThemeToggleButton } from '../components/AppPreferences';
 import PasswordInput from '../components/PasswordInput';
 import {
   getSavedAuth,
@@ -302,8 +303,9 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-[#f5f5f7] p-4">
-      <div className="absolute top-4 right-4 z-10">
+    <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-gray-50 dark:bg-black p-4">
+      <div className="absolute top-[calc(env(safe-area-inset-top)+1rem)] right-[calc(env(safe-area-inset-right)+1rem)] z-10 flex items-center gap-1">
+        <ThemeToggleButton />
         <LanguageToggle />
       </div>
       <div className="w-full max-w-[420px] p-6 md:p-9 bg-white rounded-[28px] border border-black/5 shadow-[0_2px_4px_rgba(0,0,0,0.03),0_30px_80px_-30px_rgba(0,0,0,0.25)] animate-fade-in">
@@ -430,15 +432,18 @@ export default function Login() {
 
         <button
           onClick={() => setShowFixModal(true)}
-          className="mt-5 w-full py-2 px-4 rounded-full text-sm text-gray-500 hover:text-gray-900 hover:bg-black/[0.04] flex items-center justify-center gap-2 transition-colors"
+          className="mt-5 w-full py-2 px-4 rounded-full text-sm text-gray-500 hover:text-gray-900 hover:bg-[var(--fill-hover)] flex items-center justify-center gap-2 transition-colors"
         >
           <RefreshCw className="w-4 h-4" />
           {t('Fix Admin Access')}
         </button>
       </div>
-      <a href="/welcome" className="mt-6 text-sm text-gray-500 hover:text-gray-900 transition-colors">
-        {t('Discover what SCCS can do')} &rarr;
-      </a>
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 pb-[env(safe-area-inset-bottom)]">
+        <a href="/welcome" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
+          {t('Discover what SCCS can do')} &rarr;
+        </a>
+        <InstallAppButton variant="link" />
+      </div>
 
       {/* Save Password / Enable Biometrics Modal (after first login) */}
       {showSaveDialog && (

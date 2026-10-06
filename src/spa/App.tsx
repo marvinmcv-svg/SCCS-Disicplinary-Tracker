@@ -44,7 +44,7 @@ export const useAuth = () => {
 const CURRENT_VERSION =
   (import.meta as any).env?.VITE_APP_VERSION ||
   (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_APP_VERSION : undefined) ||
-  '2.1.0';
+  '2.2.0';
 
 // Session timeout constants (in milliseconds)
 const WARNING_TIME = 25 * 60 * 1000; // 25 minutes (show warning)

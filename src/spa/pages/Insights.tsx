@@ -124,7 +124,7 @@ export default function Insights() {
                 <button type="button" className="mdr-row" onClick={() => navigate(`/students/${m.id}`)}>
                   <StudentAvatar first={m.first_name} last={m.last_name} grade={m.grade} picture={m.profile_picture} size={36} />
                   <span className="flex-1 min-w-0 text-left">
-                    <span className="block font-semibold text-gray-900 truncate">{m.first_name} {m.last_name}</span>
+                    <span className="block font-semibold text-gray-900 break-words">{m.first_name} {m.last_name}</span>
                     <span className="flex gap-1 mt-0.5">{m.plan_types.map((p) => <PlanBadge key={p} type={p} />)}</span>
                   </span>
                   <span className="text-right">

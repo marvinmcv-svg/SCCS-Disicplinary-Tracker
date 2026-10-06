@@ -9,6 +9,7 @@ import api from '../lib/api';
 import { useI18n } from '../i18n';
 import LanguageToggle from './LanguageToggle';
 import CommandPalette, { PaletteCommand } from './CommandPalette';
+import { AppearanceControl, InstallAppButton, ThemeToggleButton } from './AppPreferences';
 
 // Public asset (served from /public) so the logo works under any build system.
 const sccsLogo = '/sccs.png';
@@ -199,7 +200,7 @@ export default function Layout() {
         <div className="md:hidden fixed inset-0 bg-black/30 backdrop-blur-[2px] z-40" onClick={() => setMobileMenuOpen(false)} />
       )}
       <aside
-        className={`md:hidden fixed left-0 top-0 h-full w-[84%] max-w-[320px] bg-[#f5f5f7] z-50 flex flex-col transform transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+        className={`md:hidden fixed left-0 top-0 h-full w-[84%] max-w-[320px] bg-gray-50 z-50 flex flex-col transform transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         aria-hidden={!mobileMenuOpen}
@@ -216,7 +217,7 @@ export default function Layout() {
             <X className="w-5 h-5" />
           </button>
         </div>
-        <nav className="flex-1 overflow-y-auto px-3 pb-4">
+        <nav className="flex-1 min-h-0 overflow-y-auto px-3 pb-4">
           {groups.map((g) => (
             <div key={g.label}>
               <p className="nav-group-label">{t(g.label)}</p>
@@ -242,6 +243,13 @@ export default function Layout() {
             </div>
             <LanguageToggle />
           </div>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <span className="text-sm text-gray-500">{t('Appearance')}</span>
+            <AppearanceControl />
+          </div>
+          <div className="mb-2 -mx-3">
+            <InstallAppButton />
+          </div>
           <button onClick={handleLogout} className="btn btn-secondary w-full">
             <LogOut className="w-5 h-5" />
             <span>{t('Logout')}</span>
@@ -252,7 +260,7 @@ export default function Layout() {
       {/* Desktop sidebar */}
       <aside className="hidden md:flex flex-col fixed left-0 top-0 h-[100dvh] w-64 glass sidebar z-20">
         <div className="px-4 pt-5 pb-3">
-          <button onClick={() => navigate('/')} className="w-full flex items-center gap-3 rounded-xl p-1 -m-1 hover:bg-black/[0.04] transition-colors">
+          <button onClick={() => navigate('/')} className="w-full flex items-center gap-3 rounded-xl p-1 -m-1 hover:bg-[var(--fill-hover)] transition-colors">
             <img src={sccsLogo} alt="Logo" className="w-9 h-9 rounded-[10px] object-cover" />
             <div className="text-left">
               <h1 className="font-semibold text-[15px] leading-tight text-gray-900">SCCS</h1>
@@ -268,7 +276,7 @@ export default function Layout() {
           </button>
         </div>
 
-        <nav className="px-3 flex-1 overflow-y-auto pb-4">
+        <nav className="px-3 flex-1 min-h-0 overflow-y-auto pb-4">
           {groups.map((g) => (
             <div key={g.label}>
               <p className="nav-group-label">{t(g.label)}</p>
@@ -289,11 +297,15 @@ export default function Layout() {
               <p className="text-[11px] text-gray-500">{t('Logged in as')}</p>
               <p className="text-sm font-semibold text-gray-900 truncate">{user?.lastName}, {user?.firstName}</p>
             </div>
-            <LanguageToggle />
           </div>
+          <div className="flex items-center justify-between px-1 mb-1">
+            <LanguageToggle />
+            <ThemeToggleButton />
+          </div>
+          <InstallAppButton />
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 w-full px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-black/[0.045] rounded-[9px] transition-colors text-sm font-medium"
+            className="flex items-center gap-2 w-full px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-[var(--fill-hover)] rounded-[9px] transition-colors text-sm font-medium"
           >
             <LogOut className="w-[18px] h-[18px]" />
             <span>{t('Logout')}</span>

@@ -316,13 +316,13 @@ export default function Users() {
   };
 
   return (
-    <div className="p-4 md:p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Shield className="w-6 h-6 text-blue-600" />
-          <h1 className="text-xl md:text-2xl font-bold">{t('User Management')}</h1>
+    <div className="animate-fade-in">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6">
+        <div className="flex items-center gap-3 min-w-0">
+          <Shield className="w-6 h-6 text-blue-600 shrink-0" />
+          <h1 className="page-title">{t('User Management')}</h1>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           {currentUser?.role === 'admin' && (
             <button onClick={openActivityModal} className="btn btn-secondary flex items-center gap-2">
               <FileText className="w-5 h-5" />

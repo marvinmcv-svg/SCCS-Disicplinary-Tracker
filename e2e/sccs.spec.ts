@@ -185,9 +185,9 @@ test('incidents list loads with rows and status badges', async ({ page }) => {
   await login(page);
   await navigateTo(page, 'Incidents');
   await expect(page.getByPlaceholder(/Search incidents/i)).toBeVisible();
-  await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 20_000 });
-  expect(await page.locator('tbody tr').count()).toBeGreaterThan(0);
-  await expect(page.locator('.badge').first()).toBeVisible();
+  await expect(page.locator('[data-testid=incident-row]:visible').first()).toBeVisible({ timeout: 20_000 });
+  expect(await page.locator('[data-testid=incident-row]:visible').count()).toBeGreaterThan(0);
+  await expect(page.locator('.badge:visible').first()).toBeVisible();
 });
 
 test('record a new incident end-to-end and resolve it', async ({ page }) => {
@@ -229,9 +229,9 @@ test('record a new incident end-to-end and resolve it', async ({ page }) => {
   // find the new incident (newest today, student surname Roberts) — it must
   // carry the PlusPortals code in its violation column
   await page.getByPlaceholder(/Search incidents/i).fill('Roberts');
-  await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator('tbody tr').first()).toContainText('Open');
-  await expect(page.locator('tbody tr').first()).toContainText('DISRUPT — Classroom Disruption');
+  await expect(page.locator('[data-testid=incident-row]:visible').first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('[data-testid=incident-row]:visible').first()).toContainText('Open');
+  await expect(page.locator('[data-testid=incident-row]:visible').first()).toContainText('DISRUPT — Classroom Disruption');
 
   // open its detail page (highest id → first row once the reload lands)
   await expect
@@ -244,7 +244,7 @@ test('record a new incident end-to-end and resolve it', async ({ page }) => {
     }), { timeout: 15_000 })
     .toBeGreaterThan(0);
   await page.waitForTimeout(800);
-  await page.locator('tbody tr').first().click();
+  await page.locator('[data-testid=incident-row]:visible').first().click();
   await expect(page.getByText('E2E playwright created this incident').first()).toBeVisible({ timeout: 15_000 });
 
   // resolve it (status action button in detail header)
@@ -396,9 +396,9 @@ test('teacher (CarlosP) can register an incident with a PlusPortals code', async
   // the new incident carries the PlusPortals code (the client search matches
   // id / student name / violation type, not the description — search surname)
   await page.getByPlaceholder(/Search incidents/i).fill('Torres');
-  await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator('tbody tr').first()).toContainText('VAP — Vaping/E-Cigarette');
-  await expect(page.locator('tbody tr').first()).toContainText('PlusPortals');
+  await expect(page.locator('[data-testid=incident-row]:visible').first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('[data-testid=incident-row]:visible').first()).toContainText('VAP — Vaping/E-Cigarette');
+  await expect(page.locator('[data-testid=incident-row]:visible').first()).toContainText('PlusPortals');
 
   // cleanup as admin (teachers cannot delete incidents)
   await page.evaluate(async (admin) => {

@@ -1,7 +1,7 @@
 /*
  * /welcome landing page. One accent (system blue), Apple neutrals, one radius
  * system (cards 28px, controls full pill), light and dark via
- * prefers-color-scheme. Motion lives in motion.tsx and respects reduced motion.
+ * `html.dark` (device setting or the in-app choice, see src/lib/theme.ts). Motion lives in motion.tsx and respects reduced motion.
  */
 .welcome {
   --wl-bg: #fbfbfd;
@@ -28,21 +28,19 @@
   overflow-x: clip;
 }
 
-@media (prefers-color-scheme: dark) {
-  .welcome {
-    --wl-bg: #0b0b0d;
-    --wl-band: #151517;
-    --wl-surface: #1c1c1e;
-    --wl-text: #f5f5f7;
-    --wl-muted: #a1a1a6;
-    --wl-line: rgba(255, 255, 255, 0.1);
-    --wl-accent: #2997ff;
-    --wl-accent-hover: #47a6ff;
-    --wl-green-bg: #10261a;
-    --wl-green-fg: #7fe0a0;
-    --wl-blue-bg: #0f2747;
-    --wl-shadow: 0 2px 6px rgba(0, 0, 0, 0.3), 0 40px 90px -40px rgba(0, 0, 0, 0.8);
-  }
+html.dark .welcome {
+  --wl-bg: #0b0b0d;
+  --wl-band: #151517;
+  --wl-surface: #1c1c1e;
+  --wl-text: #f5f5f7;
+  --wl-muted: #a1a1a6;
+  --wl-line: rgba(255, 255, 255, 0.1);
+  --wl-accent: #2997ff;
+  --wl-accent-hover: #47a6ff;
+  --wl-green-bg: #10261a;
+  --wl-green-fg: #7fe0a0;
+  --wl-blue-bg: #0f2747;
+  --wl-shadow: 0 2px 6px rgba(0, 0, 0, 0.3), 0 40px 90px -40px rgba(0, 0, 0, 0.8);
 }
 
 .welcome ::selection { background: rgba(0, 113, 227, 0.22); }

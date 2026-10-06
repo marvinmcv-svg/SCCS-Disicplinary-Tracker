@@ -134,11 +134,11 @@ export default function Recognition() {
                     <button type="button" className="list-row" onClick={() => navigate(`/students/${r.student_id}`)}>
                       <StudentAvatar first={r.first_name} last={r.last_name} grade={r.grade} picture={r.profile_picture} />
                       <span className="flex-1 min-w-0 text-left">
-                        <span className="flex items-center gap-2">
-                          <span className="font-semibold text-gray-900 truncate">{r.first_name} {r.last_name}</span>
+                        <span className="flex items-center gap-x-2 gap-y-1 flex-wrap">
+                          <span className="font-semibold text-gray-900 break-words">{r.first_name} {r.last_name}</span>
                           <span className="value-chip"><Icon className="w-3.5 h-3.5" /> {t(r.category)}</span>
                         </span>
-                        <span className="block text-sm text-gray-500 truncate">{r.note || t('Recognized')}</span>
+                        <span className="block text-sm text-gray-500 line-clamp-2">{r.note || t('Recognized')}</span>
                       </span>
                       <span className="text-right shrink-0">
                         <span className="block text-sm font-semibold text-green-700">+{r.points}</span>
@@ -161,7 +161,7 @@ export default function Recognition() {
                   <li key={l.student_id} className="flex items-center gap-3">
                     <span className="w-5 text-sm font-semibold text-gray-400 tabular-nums">{i + 1}</span>
                     <StudentAvatar first={l.first_name} last={l.last_name} grade={l.grade} size={32} />
-                    <span className="flex-1 min-w-0 text-sm font-medium text-gray-900 truncate">{l.first_name} {l.last_name}</span>
+                    <span className="flex-1 min-w-0 text-sm font-medium text-gray-900 break-words">{l.first_name} {l.last_name}</span>
                     <span className="text-sm font-semibold text-gray-900 tabular-nums">{l.points}</span>
                   </li>
                 ))}

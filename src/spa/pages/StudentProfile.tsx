@@ -258,7 +258,7 @@ export default function StudentProfile() {
         </div>
 
         {/* Quick Info Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 border-t border-black/5 bg-[#fbfbfd]">
+        <div className="grid grid-cols-2 md:grid-cols-4 border-t border-black/5 bg-[var(--surface-2)]">
           <div className="flex items-center gap-3 p-4">
             <User className="w-5 h-5 text-gray-400" />
             <div>
@@ -277,7 +277,7 @@ export default function StudentProfile() {
             <Mail className="w-5 h-5 text-gray-400" />
             <div>
               <p className="text-xs text-gray-500">{t('Parent Email')}</p>
-              <p className="text-sm font-medium text-gray-900 truncate">{student.parent_email || '-'}</p>
+              <p className="text-sm font-medium text-gray-900 break-all">{student.parent_email || '-'}</p>
             </div>
           </div>
           <div className="flex items-center gap-3 p-4">
@@ -291,7 +291,7 @@ export default function StudentProfile() {
             <User className="w-5 h-5 text-gray-400" />
             <div>
               <p className="text-xs text-gray-500">{t('Parent/Guardian')}</p>
-              <p className="text-sm font-medium text-gray-900 truncate">{student.parent_name || '-'}</p>
+              <p className="text-sm font-medium text-gray-900 break-words">{student.parent_name || '-'}</p>
             </div>
           </div>
           <div className="flex items-center gap-3 p-4">

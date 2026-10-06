@@ -226,11 +226,11 @@ export default function LearningSupport() {
                     <StudentAvatar first={p.first_name} last={p.last_name} grade={p.grade} picture={p.profile_picture} />
                     <span className="flex-1 min-w-0 text-left">
                       <span className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-gray-900 truncate">{p.last_name}, {p.first_name}</span>
+                        <span className="font-semibold text-gray-900 break-words">{p.last_name}, {p.first_name}</span>
                         <PlanBadge type={p.plan_type} />
                         {p.status !== 'Active' && <span className="badge badge-warning">{t(p.status)}</span>}
                       </span>
-                      <span className="block text-sm text-gray-500 truncate">
+                      <span className="block text-sm text-gray-500 line-clamp-2">
                         {p.primary_need ?? t(PLAN_LABELS[p.plan_type])}
                       </span>
                     </span>

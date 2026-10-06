@@ -405,3 +405,116 @@ test('login page links to the landing page', async ({ page }) => {
   await expect(page).toHaveURL(/\/welcome$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Every student, seen clearly.');
 });
+
+// ---------------------------------------------------------------------------
+// Installable app (PWA) and app icons
+// ---------------------------------------------------------------------------
+test('the app is installable: manifest, logo icons and a registered service worker', async ({ page }) => {
+  const manifestRes = await page.request.get('/manifest.json');
+  expect(manifestRes.ok()).toBeTruthy();
+  const manifest = await manifestRes.json();
+  expect(manifest.display).toBe('standalone');
+  expect(manifest.start_url).toBe('/');
+  expect(manifest.theme_color).not.toBe('#26A69A');
+  const sizes = manifest.icons.map((i: { sizes: string; purpose: string }) => `${i.sizes}/${i.purpose}`);
+  expect(sizes).toEqual(expect.arrayContaining(['192x192/any', '512x512/any', '512x512/maskable']));
+  for (const icon of manifest.icons) {
+    const res = await page.request.get(icon.src);
+    expect(res.ok(), icon.src).toBeTruthy();
+    expect(res.headers()['content-type']).toContain('image/png');
+  }
+  expect((await page.request.get('/apple-touch-icon.png')).ok()).toBeTruthy();
+  const sw = await page.request.get('/sw.js');
+  expect(sw.ok()).toBeTruthy();
+  expect(sw.headers()['cache-control']).toContain('no-cache');
+
+  await page.goto('/');
+  await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', '/manifest.json');
+  await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute('href', /apple-touch-icon\.png/);
+  const scope = await page.evaluate(async () => {
+    const reg = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise<null>((r) => setTimeout(() => r(null), 15_000)),
+    ]);
+    return reg ? reg.scope : null;
+  });
+  expect(scope).toBe(new URL('/', page.url()).href);
+});
+
+test('install app explains the steps when the browser has no install prompt', async ({ page }) => {
+  await page.goto('/#/login');
+  await page.getByRole('button', { name: 'Install app' }).click();
+  const help = page.getByTestId('install-help');
+  await expect(help).toBeVisible();
+  await expect(help).toContainText(/Add to Home Screen|Install SCCS/);
+  await help.getByRole('button', { name: 'Done' }).click();
+  await expect(help).toHaveCount(0);
+});
+
+// ---------------------------------------------------------------------------
+// Dark mode
+// ---------------------------------------------------------------------------
+const bg = (page: Page, sel: string) =>
+  page.locator(sel).first().evaluate((el) => getComputedStyle(el).backgroundColor);
+const isDarkColor = (rgb: string) => {
+  const [r, g, b] = (rgb.match(/\d+/g) ?? []).map(Number);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 60;
+};
+
+test('dark mode follows the device and can be pinned in Settings', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await apiLogin(page);
+  await expect(page.locator('html')).toHaveClass(/dark/);
+  expect(isDarkColor(await bg(page, '.sccs-app'))).toBeTruthy();
+
+  await page.goto('/#/settings');
+  const appearance = page.getByRole('group', { name: 'Appearance' }).first();
+  await appearance.getByRole('button', { name: 'Light' }).click();
+  await expect(page.locator('html')).not.toHaveClass(/dark/);
+  expect(isDarkColor(await bg(page, '.card'))).toBeFalsy();
+
+  // The choice survives a reload, even though the device is still dark.
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('html')).not.toHaveClass(/dark/);
+
+  await page.getByRole('group', { name: 'Appearance' }).first().getByRole('button', { name: 'Dark' }).click();
+  await expect(page.locator('html')).toHaveClass(/dark/);
+  expect(isDarkColor(await bg(page, '.card'))).toBeTruthy();
+  await page.getByRole('group', { name: 'Appearance' }).first().getByRole('button', { name: 'Automatic' }).click();
+});
+
+test('every screen in dark mode: dark surfaces, readable text, no sideways scrolling', async ({ page }) => {
+  test.setTimeout(150_000);
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await apiLogin(page);
+  for (const [route, text] of SCREENS) {
+    await page.goto(`/#${route}`);
+    await expect(page.locator('main').getByText(text).first()).toBeVisible({ timeout: 20_000 });
+    await page.waitForTimeout(500);
+    const report = await page.evaluate(() => {
+      const lum = (c: string) => {
+        const [r, g, b] = (c.match(/[\d.]+/g) ?? []).map(Number);
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
+      // Any large light panel in dark mode is a missed surface.
+      const lightPanels = [...document.querySelectorAll('main *')]
+        .filter((el) => {
+          const r = el.getBoundingClientRect();
+          const cs = getComputedStyle(el);
+          const a = Number((cs.backgroundColor.match(/[\d.]+/g) ?? [])[3] ?? 1);
+          return r.width > 120 && r.height > 40 && a > 0.5 && lum(cs.backgroundColor) > 200;
+        })
+        .map((el) => `${el.tagName}.${String(el.className).slice(0, 60)}`);
+      const h1 = document.querySelector('main h1');
+      return {
+        overflow: document.documentElement.scrollWidth - window.innerWidth,
+        lightPanels: lightPanels.slice(0, 5),
+        h1: h1 ? lum(getComputedStyle(h1).color) : 255,
+      };
+    });
+    expect(report.overflow, `${route} scrolls sideways`).toBeLessThanOrEqual(0);
+    expect(report.lightPanels, `${route} light panels in dark mode`).toEqual([]);
+    expect(report.h1, `${route} heading is light on dark`).toBeGreaterThan(200);
+  }
+});

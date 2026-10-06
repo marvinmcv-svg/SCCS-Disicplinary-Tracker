@@ -16,6 +16,8 @@ const sccsLogo = '/sccs.png';
 // Apple system colours
 const COLORS = ['#0071e3', '#ff3b30', '#ff9f0a', '#34c759', '#af52de', '#ff2d55', '#32ade6', '#30b0c7', '#ff9500', '#5856d6', '#a2845e', '#64d2ff'];
 const STATUS_COLORS = { Open: '#ff3b30', Pending: '#ff9f0a', Resolved: '#34c759' };
+// Chart chrome follows the light/dark tokens in spa.css.
+const TOOLTIP_STYLE = { background: 'var(--surface-raised)', color: 'var(--label)', border: '1px solid var(--separator)', borderRadius: '12px', boxShadow: 'var(--shadow-raised)' };
 
 interface Stats {
   total: number;
@@ -327,7 +329,7 @@ export default function Dashboard() {
 
         {/* Date Range Selector */}
         <div className="px-5 md:px-7 pb-4 flex flex-wrap items-center gap-2">
-          <div className="segmented max-w-full overflow-x-auto" role="group" aria-label={t('Date range')}>
+          <div className="segmented grid grid-cols-3 w-full sm:inline-flex sm:w-auto" role="group" aria-label={t('Date range')}>
             {(['all', 'today', 'week', 'month', 'quarter', 'custom'] as DateRange[]).map(range => (
               <button
                 key={range}
@@ -449,10 +451,10 @@ export default function Dashboard() {
             <ResponsiveContainer width="100%" height="100%">
               {chartView === 'bar' ? (
                 <BarChart data={stats.byCategory} onClick={handleCategoryClick}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="category" fontSize={10} stroke="#9ca3af" angle={-15} textAnchor="end" height={60} tickFormatter={(val: any) => t(String(val))} />
-                  <YAxis fontSize={10} stroke="#9ca3af" />
-                  <Tooltip contentStyle={{ background: '#fff', border: '1px solid #f0f0f0', borderRadius: '8px' }} labelFormatter={(label: any) => t(String(label))} formatter={(value: any) => [value, t('Incidents')]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                  <XAxis dataKey="category" fontSize={10} stroke="var(--chart-axis)" angle={-15} textAnchor="end" height={60} tickFormatter={(val: any) => t(String(val))} />
+                  <YAxis fontSize={10} stroke="var(--chart-axis)" />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={(label: any) => t(String(label))} formatter={(value: any) => [value, t('Incidents')]} />
                   <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} cursor="pointer">
                     {stats.byCategory.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={selectedCategory === entry.category ? '#1d4ed8' : COLORS[index % COLORS.length]} />
@@ -461,10 +463,10 @@ export default function Dashboard() {
                 </BarChart>
               ) : (
                 <LineChart data={stats.weeklyTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="week" fontSize={10} stroke="#9ca3af" tickFormatter={val => new Date(val).toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { month: 'short', day: 'numeric' })} />
-                  <YAxis fontSize={10} stroke="#9ca3af" />
-                  <Tooltip contentStyle={{ background: '#fff', border: '1px solid #f0f0f0', borderRadius: '8px' }} labelFormatter={(label: any) => new Date(label).toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { month: 'short', day: 'numeric' })} formatter={(value: any) => [value, t('Incidents')]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                  <XAxis dataKey="week" fontSize={10} stroke="var(--chart-axis)" tickFormatter={val => new Date(val).toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { month: 'short', day: 'numeric' })} />
+                  <YAxis fontSize={10} stroke="var(--chart-axis)" />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={(label: any) => new Date(label).toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { month: 'short', day: 'numeric' })} formatter={(value: any) => [value, t('Incidents')]} />
                   <Line type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} dot={{ fill: '#3b82f6' }} />
                 </LineChart>
               )}
@@ -510,8 +512,8 @@ export default function Dashboard() {
                     <Cell key={`cell-${index}`} fill={entry.color} stroke={selectedStatus === entry.name ? '#1d4ed8' : 'transparent'} strokeWidth={3} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: any, name: any) => [value, t(String(name))]} />
-                <Legend formatter={(value: any) => t(String(value))} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(value: any, name: any) => [value, t(String(name))]} />
+                <Legend formatter={(value: any) => <span style={{ color: 'var(--label-2)' }}>{t(String(value))}</span>} />
               </PieChart>
             </ResponsiveContainer>
             {/* Center label */}

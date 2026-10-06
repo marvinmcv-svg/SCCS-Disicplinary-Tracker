@@ -325,7 +325,7 @@ export default function Violations() {
                 {list.length === 0 ? (
                   <p className="text-sm text-gray-400">{t('No codes yet.')}</p>
                 ) : (
-                  <div className="flex flex-wrap gap-2 max-h-44 overflow-y-auto">
+                  <div className="flex flex-wrap gap-2 md:max-h-44 md:overflow-y-auto">
                     {list.map(c => (
                       <span
                         key={c.id}

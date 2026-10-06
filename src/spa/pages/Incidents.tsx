@@ -602,7 +602,32 @@ export default function Incidents() {
         {loading ? (
           <div className="text-center py-12 text-gray-400">{t('Loading...')}</div>
         ) : paginatedIncidents.length > 0 ? (
-          <div className="overflow-x-auto">
+          <>
+          {/* Phones: one card per incident, so student and violation are never hidden */}
+          <ul className="md:hidden list-inset">
+            {paginatedIncidents.map((incident) => (
+              <li key={incident.id}>
+                <button type="button" data-testid="incident-row" className="list-row !items-start !px-4" onClick={() => openIncidentDetail(incident)}>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="font-semibold text-gray-900 leading-snug">{incident.last_name}, {incident.first_name}</p>
+                      <span className={`badge shrink-0 ${getStatusColor(incident.status)}`}>{t(incident.status)}</span>
+                    </div>
+                    <p className="text-sm text-gray-700 mt-0.5 leading-snug">
+                      {t(incident.violation_type)} <span className="text-gray-500">· {t(incident.category)}</span>
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
+                      <span className="tabular-nums">{incident.date}</span>
+                      <span className="font-mono">{incident.incident_id}</span>
+                      {incident.location && <span>{namePart(incident.location)}</span>}
+                      {incident.advisor && <span>{incident.advisor}</span>}
+                    </p>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
@@ -618,9 +643,9 @@ export default function Incidents() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {paginatedIncidents.map((incident) => (
-                  <tr key={incident.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => openIncidentDetail(incident)}>
+                  <tr key={incident.id} data-testid="incident-row" className="hover:bg-gray-50 cursor-pointer" onClick={() => openIncidentDetail(incident)}>
                     <td className="px-4 py-3 font-mono text-sm">{incident.incident_id}</td>
-                    <td className="px-4 py-3">{incident.date}</td>
+                    <td className="px-4 py-3 whitespace-nowrap tabular-nums">{incident.date}</td>
                     <td className="px-4 py-3 hide-mobile">
                       <div><p className="font-medium">{incident.last_name}, {incident.first_name}</p></div>
                     </td>
@@ -648,6 +673,7 @@ export default function Incidents() {
               </tbody>
             </table>
           </div>
+          </>
         ) : (
           <div className="text-center py-12 text-gray-400">
             <AlertCircle className="w-12 h-12 mx-auto mb-2" />

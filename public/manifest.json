@@ -1,32 +1,24 @@
 {
-  "name": "SCCS Discipline Tracker",
+  "name": "SCCS Student OS",
   "short_name": "SCCS",
-  "description": "Student discipline tracking and incident management system",
+  "description": "Discipline, learning support and recognition for SCCS.",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
-  "id": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
   "background_color": "#ffffff",
-  "theme_color": "#26A69A",
+  "theme_color": "#ffffff",
   "categories": ["education", "productivity"],
   "icons": [
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-maskable-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    { "src": "/welcome/desktop-dashboard.webp", "sizes": "1680x1050", "type": "image/webp", "form_factor": "wide", "label": "Dashboard" },
+    { "src": "/welcome/mobile-dashboard.webp", "sizes": "600x1008", "type": "image/webp", "form_factor": "narrow", "label": "Dashboard on a phone" }
   ]
 }

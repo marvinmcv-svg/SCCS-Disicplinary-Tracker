@@ -318,12 +318,12 @@ export default function MTSS() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t('MTSS Interventions')}</h1>
-          <p className="text-gray-500">{t('Multi-Tiered System of Supports tracking')}</p>
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0">
+          <h1 className="page-title">{t('MTSS Interventions')}</h1>
+          <p className="page-subtitle">{t('Multi-Tiered System of Supports tracking')}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <button onClick={exportToPDF} className="btn btn-secondary">
             <Download className="w-5 h-5" />
             {t('Export PDF')}
@@ -450,7 +450,39 @@ export default function MTSS() {
                 {loading ? (
                   <div className="text-center py-8 text-gray-400">{t('Loading...')}</div>
                 ) : interventionsByTier[tier].length > 0 ? (
-                  <div className="table-container">
+                  <>
+                  {/* Phones: one card per intervention so every field is visible */}
+                  <ul className="md:hidden list-inset -mx-1">
+                    {interventionsByTier[tier].map((intervention) => (
+                      <li key={intervention.id} className="py-3 px-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-gray-900">{intervention.last_name}, {intervention.first_name}</p>
+                            <p className="text-sm text-gray-700">{t(intervention.intervention)}</p>
+                          </div>
+                          <span className={`badge shrink-0 ${getProgressColor(intervention.progress)}`}>{t(intervention.progress)}</span>
+                        </div>
+                        {intervention.intervention_goal && (
+                          <p className="text-sm text-gray-500 mt-1 flex gap-1.5"><Target className="w-3.5 h-3.5 mt-0.5 shrink-0" />{intervention.intervention_goal}</p>
+                        )}
+                        <dl className="grid grid-cols-3 gap-2 mt-2 text-xs">
+                          <div><dt className="text-gray-500">{t('Advisor')}</dt><dd className="text-gray-900">{intervention.advisor || '-'}</dd></div>
+                          <div><dt className="text-gray-500">{t('Start Date')}</dt><dd className="text-gray-900 tabular-nums">{intervention.start_date}</dd></div>
+                          <div><dt className="text-gray-500">{t('Review Date')}</dt><dd className={`tabular-nums ${intervention.review_date && new Date(intervention.review_date) < new Date() ? 'text-red-600' : 'text-gray-900'}`}>{intervention.review_date || '-'}</dd></div>
+                        </dl>
+                        <div className="flex items-center gap-4 mt-2">
+                          {intervention.incident_link && (
+                            <button type="button" className="text-sm text-blue-600 inline-flex items-center gap-1" onClick={() => navigate(`/incidents/${intervention.incident_link}`)}>
+                              <Link2 className="w-4 h-4" /> {t('Incident')}
+                            </button>
+                          )}
+                          <button type="button" onClick={() => openEditModal(intervention)} className="text-sm font-medium text-blue-600">{t('Edit')}</button>
+                          <button type="button" onClick={() => handleDelete(intervention.id)} className="text-sm font-medium text-red-600">{t('Complete')}</button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="table-container hidden md:block">
                   <table className="table">
                     <thead>
                       <tr>
@@ -527,6 +559,7 @@ export default function MTSS() {
                     </tbody>
                   </table>
                   </div>
+                  </>
                 ) : (
                   <div className="text-center py-8 text-gray-400">
                     <HeartHandshake className="w-8 h-8 mx-auto mb-2" />
