@@ -17,7 +17,6 @@ export const metadata: Metadata = {
     ],
     apple: { url: "/apple-touch-icon.png", sizes: "180x180" },
   },
-  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     title: "SCCS",
@@ -45,6 +44,10 @@ export default function RootLayout({
     <html lang="en" className={GeistSans.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
+        {/* use-credentials: behind Vercel Authentication the manifest request
+            must carry the login cookie, or it is refused and the browser
+            never offers to install the app. */}
+        <link rel="manifest" href="/manifest.json" crossOrigin="use-credentials" />
       </head>
       <body className="antialiased">
         <PwaSetup />
