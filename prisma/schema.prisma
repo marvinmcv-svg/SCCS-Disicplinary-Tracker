@@ -45,6 +45,7 @@ model Users {
 model Students {
   id             Int     @id @default(autoincrement())
   student_id     String  @unique
+  apid           String? // school SIS/AP id from the official roster
   last_name      String
   first_name     String
   grade          Int     @default(9)

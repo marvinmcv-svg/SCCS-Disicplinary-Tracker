@@ -15,6 +15,7 @@ next-env.d.ts
 # database (created by `bun run db:push` / `db:seed` — never commit student data)
 db/*.db
 db/*.db-journal
+db/roster*.csv
 
 # environment
 .env

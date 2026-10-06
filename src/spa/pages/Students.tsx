@@ -9,6 +9,7 @@ import { PlanBadge } from '../components/kit';
 interface Student {
   id: number;
   student_id: string;
+  apid?: string | null;
   last_name: string;
   first_name: string;
   grade: string;
@@ -313,7 +314,8 @@ export default function Students() {
     const matchesSearch = !search ||
       s.last_name.toLowerCase().includes(search.toLowerCase()) ||
       s.first_name.toLowerCase().includes(search.toLowerCase()) ||
-      s.student_id.toLowerCase().includes(search.toLowerCase());
+      s.student_id.toLowerCase().includes(search.toLowerCase()) ||
+      (s.apid ?? '').toLowerCase().includes(search.toLowerCase());
     return matchesSearch && matchesGradeFilter(s, filterGrade);
   });
 

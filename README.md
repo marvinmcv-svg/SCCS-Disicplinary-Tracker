@@ -114,6 +114,17 @@ bunx playwright test
 | `db:push` | Apply `prisma/schema.prisma` to the SQLite file |
 | `db:seed` | Seed code sets, demo data and accounts (idempotent) |
 
+## Loading the school roster
+
+Real student data never goes into this (public) repository: `db/roster*.csv` is git-ignored.
+
+1. Convert the school's spreadsheet (columns `UNIQUE ID`, `APID`, `GRADE LEVEL`, `LAST NAME`, `FIRST NAME`):
+   `node scripts/roster-from-xlsx.mjs "Secondary Student List.xlsx"` writes `db/roster.csv`.
+2. `bun prisma/seed.ts` then deletes every demo student (with their incidents, MTSS, plans and recognitions) and loads the roster. Unique IDs keep their leading zeros; the APID is stored and searchable.
+3. For Vercel, run the same script with `--base64` and save the output as the encrypted project environment variable `SCCS_ROSTER_B64`; the next deploy loads it.
+
+The E2E suite always seeds the demo dataset (`SCCS_ROSTER=demo`), so run `bun prisma/seed.ts` again after testing to restore the roster locally.
+
 ## Vercel demo deployment
 
 `vercel.json` builds a self-contained demo: the build pushes the schema, seeds `db/sccs.db` (admin / admin123 plus the demo accounts above) and bundles it with the API functions. At runtime `src/lib/db.ts` copies it to `/tmp` because Vercel's filesystem is read-only. **Changes made online are per server instance and reset on cold starts or redeploys**; use a hosted database (or Railway with a volume) for real school data.

@@ -36,6 +36,9 @@
  * The database path comes from prisma/schema.prisma (single source of truth).
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
+import zlib from 'node:zlib';
 import bcrypt from 'bcryptjs';
 import { db } from '../src/lib/db';
 
@@ -2153,6 +2156,114 @@ async function seedLearningSupport(): Promise<void> {
   console.log(`Inserted ${recs.length} PBIS recognitions`);
 }
 
+// ---------------------------------------------------------------------------
+// Real roster (replaces every demo student)
+// ---------------------------------------------------------------------------
+// The school's roster is private and never committed (db/roster*.csv is
+// git-ignored). It comes from SCCS_ROSTER_B64 (gzip + base64 of the CSV, set
+// as an encrypted Vercel environment variable) or from db/roster.csv locally;
+// build either with scripts/roster-from-xlsx.mjs. SCCS_ROSTER=demo forces the
+// demo dataset (the E2E suite uses it).
+type RosterRow = { student_id: string; apid: string | null; grade: number; last_name: string; first_name: string };
+
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ',') { row.push(cell); cell = ''; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(cell); cell = '';
+      if (row.some((c) => c !== '')) rows.push(row);
+      row = [];
+    } else cell += ch;
+  }
+  row.push(cell);
+  if (row.some((c) => c !== '')) rows.push(row);
+  return rows;
+}
+
+function loadRoster(): RosterRow[] | null {
+  if (process.env.SCCS_ROSTER === 'demo') return null;
+  let csv: string | null = null;
+  if (process.env.SCCS_ROSTER_B64) {
+    csv = zlib.gunzipSync(Buffer.from(process.env.SCCS_ROSTER_B64, 'base64')).toString('utf8');
+  } else {
+    const file = path.resolve(__dirname, '../db/roster.csv');
+    if (fs.existsSync(file)) csv = fs.readFileSync(file, 'utf8');
+  }
+  if (!csv) return null;
+  const [header, ...rows] = parseCsv(csv);
+  const at = (name: string) => {
+    const i = header.indexOf(name);
+    if (i < 0) throw new Error(`roster: missing column ${name}`);
+    return i;
+  };
+  const [cId, cApid, cGrade, cLast, cFirst] = ['student_id', 'apid', 'grade', 'last_name', 'first_name'].map(at);
+  const seen = new Set<string>();
+  return rows.map((r) => {
+    const row: RosterRow = {
+      student_id: r[cId].trim(),
+      apid: r[cApid]?.trim() || null,
+      grade: parseInt(r[cGrade], 10),
+      last_name: r[cLast].trim(),
+      first_name: r[cFirst].trim(),
+    };
+    if (!row.student_id || !row.last_name || !row.first_name || Number.isNaN(row.grade)) throw new Error(`roster: incomplete row ${r.join(',')}`);
+    if (seen.has(row.student_id)) throw new Error(`roster: duplicate student id ${row.student_id}`);
+    seen.add(row.student_id);
+    return row;
+  });
+}
+
+/** Deletes every student and everything attached to one. */
+async function wipeAllStudents(): Promise<void> {
+  const incidentIds = (await db.incidents.findMany({ select: { id: true } })).map((i) => i.id);
+  for (const ids of chunk(incidentIds, 500)) {
+    await db.incidentStatusLogs.deleteMany({ where: { incident_id: { in: ids } } });
+    await db.parentContacts.deleteMany({ where: { incident_id: { in: ids } } });
+    await db.incidentEvidence.deleteMany({ where: { incident_id: { in: ids } } });
+  }
+  const removed = {
+    incidents: (await db.incidents.deleteMany({})).count,
+    mtss: (await db.mtssInterventions.deleteMany({})).count,
+    accommodations: (await db.accommodations.deleteMany({})).count,
+    plans: (await db.supportPlans.deleteMany({})).count,
+    recognitions: (await db.recognitions.deleteMany({})).count,
+    parentLinks: (await db.parentStudentLinks.deleteMany({})).count,
+    students: (await db.students.deleteMany({})).count,
+  };
+  console.log('• removed students and their records:', removed);
+}
+
+/** Replaces every student (and all their records) with the school roster. */
+async function seedRealRoster(roster: RosterRow[]): Promise<void> {
+  await wipeAllStudents();
+
+  for (const batch of chunk(roster, 200)) {
+    await db.students.createMany({
+      data: batch.map((r) => ({
+        student_id: r.student_id,
+        apid: r.apid,
+        grade: r.grade,
+        last_name: r.last_name,
+        first_name: r.first_name,
+      })),
+    });
+  }
+  const count = await db.students.count();
+  if (count !== roster.length) throw new Error(`roster: expected ${roster.length} students, found ${count}`);
+  console.log(`• loaded ${count} students from the school roster`);
+}
+
 async function main(): Promise<void> {
   console.log(`SCCS seed — target database: ${process.env.DATABASE_URL ?? '(from .env)'}`);
   console.log(`Today (UTC): ${TODAY}\n`);
@@ -2164,6 +2275,21 @@ async function main(): Promise<void> {
   await seedAlerts();
   await seedDefaultSettings();
   const adminId = await createDefaultAdmin();
+
+  const roster = loadRoster();
+  if (roster) {
+    await seedRealRoster(roster);
+    await seedAdvisorAccounts();
+    console.log('\n✅ Seed complete with the school roster (no demo data).');
+    return;
+  }
+
+  // Switching a database from the real roster back to demo data (E2E runs):
+  // roster ids are all digits, demo ids look like S-2026-002.
+  if (await db.students.count({ where: { NOT: { student_id: { startsWith: 'S-' } } } }) > 0
+      && (await db.students.findFirst({ where: { student_id: { startsWith: '0' } } }))) {
+    await wipeAllStudents();
+  }
 
   // Demo dataset (idempotent: wipes + regenerates S-2026-002…S-2026-601 rows).
   await seedDemoData(adminId);

@@ -12,6 +12,7 @@ import { AccommodationGroups, PLAN_LABELS } from './LearningSupport';
 interface Student {
   id: number;
   student_id: string;
+  apid?: string | null;
   last_name: string;
   first_name: string;
   grade: string;
@@ -233,6 +234,9 @@ export default function StudentProfile() {
                   <User className="w-4 h-4" />
                   {t('ID')}: {student.student_id}
                 </span>
+                {student.apid && (
+                  <span className="flex items-center gap-1">APID: {student.apid}</span>
+                )}
               </div>
               <div className="flex flex-wrap items-center gap-2 mt-3">
                 {mtss ? (
