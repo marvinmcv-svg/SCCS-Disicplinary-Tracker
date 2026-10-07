@@ -902,7 +902,7 @@ async function seedAlerts(): Promise<void> {
 async function seedDefaultSettings(): Promise<void> {
   const settings: [string, string][] = [
     ['school_name', 'SCCS'],
-    ['academic_year', '2025-2026'],
+    ['academic_year', '2026-2027'],
     ['max_points', '100'],
     ['passing_threshold', '60'],
   ];
@@ -910,10 +910,10 @@ async function seedDefaultSettings(): Promise<void> {
     await db.settings.upsert({
       where: { key },
       create: { key, value },
-      update: { value },
+      update: {}, // never overwrite what the school has changed in Settings
     });
   }
-  console.log('✓ settings upserted (4 keys)');
+  console.log('✓ settings present (4 keys)');
 }
 
 // ---------------------------------------------------------------------------
@@ -2163,7 +2163,7 @@ async function seedLearningSupport(): Promise<void> {
 // git-ignored). It comes from SCCS_ROSTER_B64 (gzip + base64 of the CSV, set
 // as an encrypted Vercel environment variable) or from db/roster.csv locally;
 // build either with scripts/roster-from-xlsx.mjs. SCCS_ROSTER=demo forces the
-// demo dataset (the E2E suite uses it).
+// demo dataset (the E2E suite uses it); SCCS_ROSTER=none leaves students alone.
 type RosterRow = { student_id: string; apid: string | null; grade: number; last_name: string; first_name: string };
 
 function parseCsv(text: string): string[][] {
@@ -2244,11 +2244,24 @@ async function wipeAllStudents(): Promise<void> {
   console.log('• removed students and their records:', removed);
 }
 
-/** Replaces every student (and all their records) with the school roster. */
+/**
+ * Brings the students table in line with the school roster without touching
+ * anything staff have recorded since. The database is persistent (Supabase),
+ * so this runs on every deploy: demo students are removed once, new roster
+ * students are added, and names/grades/APIDs are refreshed by Unique ID.
+ * Students missing from a newer roster are kept (their history matters).
+ */
 async function seedRealRoster(roster: RosterRow[]): Promise<void> {
-  await wipeAllStudents();
+  if (await db.students.findFirst({ where: { student_id: { startsWith: 'S-' } } })) {
+    await wipeAllStudents();
+  }
 
-  for (const batch of chunk(roster, 200)) {
+  const existing = new Map(
+    (await db.students.findMany({ select: { student_id: true, apid: true, grade: true, last_name: true, first_name: true } }))
+      .map((s) => [s.student_id, s]),
+  );
+  const toCreate = roster.filter((r) => !existing.has(r.student_id));
+  for (const batch of chunk(toCreate, 200)) {
     await db.students.createMany({
       data: batch.map((r) => ({
         student_id: r.student_id,
@@ -2259,13 +2272,24 @@ async function seedRealRoster(roster: RosterRow[]): Promise<void> {
       })),
     });
   }
+  let updated = 0;
+  for (const r of roster) {
+    const cur = existing.get(r.student_id);
+    if (!cur) continue;
+    if (cur.apid !== r.apid || cur.grade !== r.grade || cur.last_name !== r.last_name || cur.first_name !== r.first_name) {
+      await db.students.update({
+        where: { student_id: r.student_id },
+        data: { apid: r.apid, grade: r.grade, last_name: r.last_name, first_name: r.first_name },
+      });
+      updated++;
+    }
+  }
   const count = await db.students.count();
-  if (count !== roster.length) throw new Error(`roster: expected ${roster.length} students, found ${count}`);
-  console.log(`• loaded ${count} students from the school roster`);
+  console.log(`• roster: ${toCreate.length} added, ${updated} updated, ${count} students in the database`);
 }
 
 async function main(): Promise<void> {
-  console.log(`SCCS seed — target database: ${process.env.DATABASE_URL ?? '(from .env)'}`);
+  console.log(`SCCS seed — target database: ${(process.env.DATABASE_URL ?? '(unset)').replace(/:[^:@/]*@/, ':***@')}`);
   console.log(`Today (UTC): ${TODAY}\n`);
 
   // Reference data + admin first (never re-touched once seeded).
@@ -2275,6 +2299,14 @@ async function main(): Promise<void> {
   await seedAlerts();
   await seedDefaultSettings();
   const adminId = await createDefaultAdmin();
+
+  // Production deploys without a roster set SCCS_ROSTER=none: reference data
+  // and accounts only, and never the demo students.
+  if (process.env.SCCS_ROSTER === 'none') {
+    await seedAdvisorAccounts();
+    console.log('\n✅ Seed complete (reference data only; students untouched).');
+    return;
+  }
 
   const roster = loadRoster();
   if (roster) {

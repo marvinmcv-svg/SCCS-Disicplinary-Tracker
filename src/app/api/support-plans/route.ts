@@ -24,10 +24,10 @@ export const GET = withAuth(async (req, user) => {
     const q = sp.get('q')?.trim();
     if (q) {
       where.OR = [
-        { student: { first_name: { contains: q } } },
-        { student: { last_name: { contains: q } } },
-        { student: { student_id: { contains: q } } },
-        { primary_need: { contains: q } },
+        { student: { first_name: { contains: q, mode: 'insensitive' } } },
+        { student: { last_name: { contains: q, mode: 'insensitive' } } },
+        { student: { student_id: { contains: q, mode: 'insensitive' } } },
+        { primary_need: { contains: q, mode: 'insensitive' } },
       ];
     }
 

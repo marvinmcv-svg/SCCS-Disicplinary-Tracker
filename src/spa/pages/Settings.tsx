@@ -3,6 +3,7 @@ import { Save, Settings as SettingsIcon, Bell, Shield, Smartphone } from 'lucide
 import api from '../lib/api';
 import { useI18n } from '../i18n';
 import { AppearanceControl, InstallAppButton } from '../components/AppPreferences';
+import { FingerprintSettings } from '../components/FingerprintSettings';
 
 interface Alert {
   id: number;
@@ -98,6 +99,9 @@ export default function Settings() {
             <AppearanceControl />
           </div>
           <InstallAppButton variant="button" />
+        </div>
+        <div className="border-t border-gray-200 mt-5 pt-5">
+          <FingerprintSettings />
         </div>
       </div>
 
@@ -213,7 +217,7 @@ export default function Settings() {
         </div>
         <div className="text-gray-600">
           <p><strong>SCCS Student OS</strong></p>
-          <p className="text-sm">{t('Version')} 2.2.0</p>
+          <p className="text-sm">{t('Version')} 2.3.0</p>
           <p className="text-sm mt-2">{t('Discipline, learning support, recognition and early warning for SCCS, in English and Spanish.')}</p>
           <p className="text-sm mt-2">{t('Features include incident tracking, student management, MTSS interventions, rewards system, and real-time analytics.')}</p>
         </div>

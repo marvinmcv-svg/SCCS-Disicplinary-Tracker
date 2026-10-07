@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { Prisma } from '@prisma/client';
 import { db } from '@/lib/db';
-import { withAuth } from '@/lib/sccs-auth';
+import { withAuth, isAdminLike } from '@/lib/sccs-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 // to_date, limit (default 100).
 export const GET = withAuth(async (req, user) => {
   try {
-    if (user.role !== 'admin') {
+    if (!isAdminLike(user.role)) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 

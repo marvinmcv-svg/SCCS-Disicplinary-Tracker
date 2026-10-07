@@ -125,15 +125,32 @@ Real student data never goes into this (public) repository: `db/roster*.csv` is 
 
 The E2E suite always seeds the demo dataset (`SCCS_ROSTER=demo`), so run `bun prisma/seed.ts` again after testing to restore the roster locally.
 
-## Vercel demo deployment
+## Deployment (Vercel + Supabase)
 
-`vercel.json` builds a self-contained demo: the build pushes the schema, seeds `db/sccs.db` (admin / admin123 plus the demo accounts above) and bundles it with the API functions. At runtime `src/lib/db.ts` copies it to `/tmp` because Vercel's filesystem is read-only. **Changes made online are per server instance and reset on cold starts or redeploys**; use a hosted database (or Railway with a volume) for real school data.
+Data lives in **Supabase Postgres** (project `sccs-student-os`), in a private `sccs` schema owned by the `sccs_app` role, so it is not reachable through Supabase's public REST API. Every save goes straight to that database and is shared by all users and devices; open screens refresh themselves when the app regains focus and every 30 seconds.
+
+Vercel project environment variables (all encrypted, never committed):
+
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Supabase transaction pooler (`:6543`, `?pgbouncer=true&connection_limit=1&schema=sccs`), used by the app |
+| `DIRECT_URL` | Supabase session pooler (`:5432`, `?schema=sccs`), used by `prisma db push` at build |
+| `JWT_SECRET` | Signs login sessions; the app refuses to run in production without it |
+| `SCCS_ROSTER_B64` | The school roster (see above); new students are added on deploy, nothing is deleted |
+| `RESEND_API_KEY` or `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`, plus `MAIL_FROM` | Email to coordinators when a referral is filed (optional; without it the referral still reaches their in-app inbox) |
+| `INITIAL_ADMIN_USERNAME` / `INITIAL_ADMIN_PASSWORD` | First admin account, created only when no admin exists |
+
+`scripts/vercel-build.sh` runs `prisma db push` (which refuses data-losing changes), tops up reference data and the roster, then builds. Locally, any Postgres works (see `.env.example`); the E2E suite seeds demo data into it.
+
+## Roles
+
+`admin` (everything), `coordinator` (everything an admin can do except manage admin accounts, plus the confidential Secondary Disciplinary Referrals inbox), `principal`, `counselor`, `teacher`, `staff`, `parent`, `student`.
 
 ## Production notes
 
-- Set a strong `JWT_SECRET` in `.env` — the built-in fallback is for development only
 - Change the initial admin password on first login
-- Back up `db/sccs.db` — it holds all incidents, contacts and MTSS records
+- Supabase free projects pause after a week without activity; upgrade or keep the app in use
+- Fingerprint sign-in (passkeys) is tied to the web address it was set up on: always open the app at the same address
 - Keep `APP_VERSION` and `NEXT_PUBLIC_APP_VERSION` in sync to control the update banner
 
 ## License

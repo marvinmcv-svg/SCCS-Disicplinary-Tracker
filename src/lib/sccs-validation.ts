@@ -245,7 +245,7 @@ export const userCreateSchema = z.object({
     .regex(/^[A-Za-z0-9._-]+$/, 'Username may contain only letters, numbers, dot, underscore and hyphen'),
   password: passwordSchema,
   role: z
-    .enum(['admin', 'principal', 'counselor', 'teacher', 'staff', 'parent', 'student', 'user'],
+    .enum(['admin', 'coordinator', 'principal', 'counselor', 'teacher', 'staff', 'parent', 'student', 'user'],
       { error: 'Role must be admin, principal, counselor, teacher, staff, parent, student or user' })
     .optional(),
   first_name: optionalText(100),

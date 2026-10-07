@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, User, Calendar, Phone, Mail, MapPin, Clock, AlertTriangle, CheckCircle, Printer, ChevronRight, GraduationCap, Accessibility, Award, Plus, AlertOctagon } from 'lucide-react';
 import api from '../lib/api';
+import { useLiveRefresh } from '../lib/useLiveRefresh';
 import { Incident } from '../lib/api';
 import { useI18n } from '../i18n';
 import { useAuth } from '../App';
@@ -53,9 +54,10 @@ interface StudentIncident extends Incident {
 export default function StudentProfile() {
   const { t, lang } = useI18n();
   const { user } = useAuth();
-  const isStaff = ['admin', 'principal', 'counselor', 'teacher', 'staff'].includes(user?.role);
+  const isStaff = ['admin', 'coordinator', 'principal', 'counselor', 'teacher', 'staff'].includes(user?.role);
   const { id } = useParams<{ id: string }>();
-  const support = useStudentSupport(isStaff ? id : null);
+  const [supportVersion, setSupportVersion] = useState(0);
+  const support = useStudentSupport(isStaff ? id : null, supportVersion);
   const navigate = useNavigate();
   const [student, setStudent] = useState<Student | null>(null);
   const [incidents, setIncidents] = useState<StudentIncident[]>([]);
@@ -91,6 +93,7 @@ export default function StudentProfile() {
     }
   }, [id]);
 
+  useLiveRefresh(() => { loadData(); setSupportVersion((v) => v + 1); });
   useEffect(() => {
     loadData();
   }, [loadData]);

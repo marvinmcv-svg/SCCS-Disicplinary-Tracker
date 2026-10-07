@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, Fragment } from 'react';
 import { Plus, Search, X, User, Check, Loader, Upload, FileSpreadsheet, Camera } from 'lucide-react';
 import api from '../lib/api';
+import { useLiveRefresh } from '../lib/useLiveRefresh';
 import * as XLSX from 'xlsx';
 import { getGradeColor, getInitials, matchesGradeFilter } from '../lib/gradeUtils';
 import { useI18n } from '../i18n';
@@ -74,6 +75,7 @@ export default function Students() {
   // endpoint is staff-only; other roles simply see no badges.
   const [planMap, setPlanMap] = useState<Record<number, string[]>>({});
 
+  useLiveRefresh(() => loadStudents());
   useEffect(() => {
     loadStudents();
     api.get('/support-plans/summary').then(res => setPlanMap(res.data || {})).catch(() => setPlanMap({}));

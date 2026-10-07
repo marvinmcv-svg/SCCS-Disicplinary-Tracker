@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
+import { useLiveRefresh } from '../lib/useLiveRefresh';
 import { useAuth } from '../App';
 import { useI18n } from '../i18n';
 import { User as UserIcon, Shield, Trash2, Plus, X, Mail, Phone, MapPin, Loader, Search, Clock, Users as UsersIcon, FileText, UserCheck, Power, AlertTriangle } from 'lucide-react';
@@ -40,6 +41,8 @@ interface ActivityLogEntry {
 const roleOptions = [
   { value: '', label: 'All Roles' },
   { value: 'admin', label: 'Admin' },
+  { value: 'coordinator', label: 'Coordinator' },
+  { value: 'principal', label: 'Principal' },
   { value: 'counselor', label: 'Counselor' },
   { value: 'teacher', label: 'Teacher' },
   { value: 'user', label: 'User' },
@@ -93,6 +96,7 @@ export default function Users() {
   });
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  useLiveRefresh(() => loadUsers());
   useEffect(() => {
     loadUsers();
     // Set up heartbeat for online indicator
@@ -272,6 +276,7 @@ export default function Users() {
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'admin': return 'bg-purple-100 text-purple-700';
+      case 'coordinator': return 'bg-indigo-100 text-indigo-700';
       case 'counselor': return 'bg-blue-100 text-blue-700';
       case 'teacher': return 'bg-green-100 text-green-700';
       default: return 'bg-gray-100 text-gray-700';
@@ -323,7 +328,7 @@ export default function Users() {
           <h1 className="page-title">{t('User Management')}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {currentUser?.role === 'admin' && (
+          {['admin', 'coordinator'].includes(currentUser?.role) && (
             <button onClick={openActivityModal} className="btn btn-secondary flex items-center gap-2">
               <FileText className="w-5 h-5" />
               {t('Activity Log')}
@@ -541,8 +546,11 @@ export default function Users() {
                   >
                     <option value="user">{t('User')}</option>
                     <option value="teacher">{t('Teacher')}</option>
+                    <option value="staff">{t('Staff')}</option>
                     <option value="counselor">{t('Counselor')}</option>
-                    <option value="admin">{t('Admin')}</option>
+                    <option value="principal">{t('Principal')}</option>
+                    <option value="coordinator">{t('Coordinator')}</option>
+                    {currentUser?.role === 'admin' && <option value="admin">{t('Admin')}</option>}
                   </select>
                 </div>
               </div>

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Award, Crown, Handshake, HeartHandshake, Minus, Plus, ShieldCheck, Sparkles, Star, Trophy } from 'lucide-react';
 import api from '../lib/api';
+import { useLiveRefresh } from '../lib/useLiveRefresh';
 import { useI18n } from '../i18n';
 import { EmptyState, PageHeader, Segmented, Sheet, Skeleton, StudentAvatar, formatShortDate } from '../components/kit';
 
@@ -53,7 +54,6 @@ export default function Recognition() {
   const [toast, setToast] = useState('');
 
   const load = useCallback(async () => {
-    setLoading(true);
     try {
       const [rec, ew] = await Promise.all([
         api.get<RecognitionResponse>(`/recognitions?days=${range}&limit=40`),
@@ -66,6 +66,7 @@ export default function Recognition() {
     }
   }, [range]);
 
+  useLiveRefresh(() => load());
   useEffect(() => { load(); }, [load]);
 
   const closeSheet = () => {

@@ -6,6 +6,8 @@ import {
   Calendar, Phone, Mail, Eye, Printer, Download
 } from 'lucide-react';
 import api from '../lib/api';
+import { useLiveRefresh } from '../lib/useLiveRefresh';
+import { parentEmailMailto } from '../lib/parentEmail';
 import { useAuth } from '../App';
 import { useI18n } from '../i18n';
 import * as XLSX from 'xlsx';
@@ -43,6 +45,8 @@ interface Incident {
   last_name?: string;
   first_name?: string;
   student_id_raw?: string;
+  parent_name?: string | null;
+  parent_email?: string | null;
   violation_type?: string;
   category?: string;
   reported_by?: string;
@@ -293,6 +297,7 @@ export default function IncidentDetail() {
     }
   }, [id]);
 
+  useLiveRefresh(() => loadData());
   useEffect(() => {
     loadData();
   }, [loadData]);
@@ -397,33 +402,8 @@ export default function IncidentDetail() {
 
   const handleSendToParent = () => {
     if (!incident) return;
-    const studentName = `${incident.first_name} ${incident.last_name}`;
-    const message = `Dear Parent/Guardian,
-
-This is to inform you that an incident involving your child (${studentName}) was recorded at SCCS.
-
-Incident Details:
-- Date: ${incident.date}
-- Type: ${incident.violation_type}
-- Category: ${incident.category}
-- Location: ${incident.location || 'N/A'}
-- Description: ${incident.description || 'N/A'}
-- Action Taken: ${incident.action_taken || 'Under Review'}
-- Penalty: ${incident.penalty || 'N/A'}
-- Served: ${incident.penalty_served || 'N/A'}
-
-Please contact the school if you have any questions.
-
-SCCS Administration`;
-
-    const encodedMessage = encodeURIComponent(message);
-    // Try WhatsApp first, fallback to email
-    const phone = ''; // Would need parent phone from student record
-    const email = ''; // Would need parent email from student record
-
-    // Create email link
-    const mailtoLink = `mailto:?subject=Discipline Incident Notification - ${studentName}&body=${encodedMessage}`;
-    window.open(mailtoLink, '_blank');
+    // Spanish first, then English (see lib/parentEmail.ts).
+    window.location.href = parentEmailMailto(incident);
   };
 
   const handleExportPDF = () => {

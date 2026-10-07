@@ -2,7 +2,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
 import {
   LayoutDashboard, Users, AlertTriangle, BookOpen, HeartHandshake, Settings, LogOut, Menu, X, Shield, Bell,
-  Accessibility, Award, Gauge, FileBarChart, Search, Plus,
+  Accessibility, Award, Gauge, FileBarChart, Search, Plus, ClipboardList,
 } from 'lucide-react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import api from '../lib/api';
@@ -10,6 +10,7 @@ import { useI18n } from '../i18n';
 import LanguageToggle from './LanguageToggle';
 import CommandPalette, { PaletteCommand } from './CommandPalette';
 import { AppearanceControl, InstallAppButton, ThemeToggleButton } from './AppPreferences';
+import { FingerprintSetupRow } from './FingerprintSettings';
 
 // Public asset (served from /public) so the logo works under any build system.
 const sccsLogo = '/sccs.png';
@@ -37,6 +38,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: 'Discipline',
     items: [
       { to: '/incidents', icon: AlertTriangle, label: 'Incidents' },
+      { to: '/referrals', icon: ClipboardList, label: 'Referrals', staffOnly: true },
       { to: '/violations', icon: BookOpen, label: 'Violations' },
       { to: '/reports', icon: FileBarChart, label: 'Reports' },
     ],
@@ -50,7 +52,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   },
 ];
 
-const STAFF_ROLES = ['admin', 'principal', 'counselor', 'teacher', 'staff'];
+const STAFF_ROLES = ['admin', 'coordinator', 'principal', 'counselor', 'teacher', 'staff'];
 
 function Bubble({ count }: { count: number }) {
   if (count <= 0) return null;
@@ -101,7 +103,7 @@ export default function Layout() {
       }
     };
     load();
-    const interval = setInterval(load, 60000);
+    const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -249,6 +251,7 @@ export default function Layout() {
           </div>
           <div className="mb-2 -mx-3">
             <InstallAppButton />
+            <FingerprintSetupRow />
           </div>
           <button onClick={handleLogout} className="btn btn-secondary w-full">
             <LogOut className="w-5 h-5" />
@@ -303,6 +306,7 @@ export default function Layout() {
             <ThemeToggleButton />
           </div>
           <InstallAppButton />
+          <FingerprintSetupRow />
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 w-full px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-[var(--fill-hover)] rounded-[9px] transition-colors text-sm font-medium"

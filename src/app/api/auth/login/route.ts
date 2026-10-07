@@ -81,6 +81,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
+    if (!user.is_active) {
+      return NextResponse.json({ error: 'This account has been deactivated. Contact a coordinator.' }, { status: 403 });
+    }
+
     const token = signToken(user.id, user.role);
     // Keep last_login fresh for the "Currently Online" indicator.
     await db.users.update({ where: { id: user.id }, data: { last_login: new Date() } });

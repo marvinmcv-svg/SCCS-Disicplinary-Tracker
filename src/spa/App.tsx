@@ -19,6 +19,7 @@ import Reports from './pages/Reports';
 import LearningSupport from './pages/LearningSupport';
 import Recognition from './pages/Recognition';
 import Insights from './pages/Insights';
+import Referrals from './pages/Referrals';
 import Layout from './components/Layout';
 import api from './lib/api';
 import { I18nProvider, useI18n } from './i18n';
@@ -44,7 +45,7 @@ export const useAuth = () => {
 const CURRENT_VERSION =
   (import.meta as any).env?.VITE_APP_VERSION ||
   (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_APP_VERSION : undefined) ||
-  '2.2.0';
+  '2.3.0';
 
 // Session timeout constants (in milliseconds)
 const WARNING_TIME = 25 * 60 * 1000; // 25 minutes (show warning)
@@ -317,6 +318,7 @@ function App() {
               <Route path="support" element={<LearningSupport />} />
               <Route path="recognition" element={<Recognition />} />
               <Route path="insights" element={<Insights />} />
+              <Route path="referrals" element={<Referrals />} />
               <Route path="mtss" element={<MTSS />} />
               <Route path="users" element={<Users />} />
               <Route path="users/:id" element={<UserProfile />} />

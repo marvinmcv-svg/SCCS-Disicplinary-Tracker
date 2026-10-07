@@ -20,7 +20,8 @@ export interface StudentSupport {
   recognition_points: number;
 }
 
-export function useStudentSupport(studentId: number | string | null | undefined) {
+/** `version` changes force a reload (the profile bumps it on live refresh). */
+export function useStudentSupport(studentId: number | string | null | undefined, version = 0) {
   const [data, setData] = useState<StudentSupport | null>(null);
   useEffect(() => {
     const id = Number(studentId);
@@ -30,7 +31,7 @@ export function useStudentSupport(studentId: number | string | null | undefined)
       .then((r) => { if (!cancelled) setData(r.data); })
       .catch(() => { if (!cancelled) setData(null); });
     return () => { cancelled = true; };
-  }, [studentId]);
+  }, [studentId, version]);
   return data;
 }
 

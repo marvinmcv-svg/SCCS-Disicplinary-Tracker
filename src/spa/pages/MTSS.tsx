@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Plus, Search, X, HeartHandshake, ChevronDown, ChevronUp, Calendar, Target, FileText, Download, Link2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
+import { useLiveRefresh } from '../lib/useLiveRefresh';
 import { useI18n } from '../i18n';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -96,6 +97,7 @@ export default function MTSS() {
     incident_link: '' as string | number,
   });
 
+  useLiveRefresh(() => loadData());
   useEffect(() => {
     loadData();
   }, []);

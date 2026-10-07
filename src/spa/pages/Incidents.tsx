@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Plus, Search, X, AlertCircle, CheckCircle, Clock, Loader, Check, Trash2, ChevronLeft, ChevronRight, Download, FileText, Calendar } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../lib/api';
+import { useLiveRefresh } from '../lib/useLiveRefresh';
 import { useI18n } from '../i18n';
 import * as XLSX from 'xlsx';
 import SupportAlert from '../components/SupportAlert';
@@ -302,6 +303,7 @@ export default function Incidents() {
     }
   };
 
+  useLiveRefresh(() => loadData());
   useEffect(() => { loadData(); }, []);
 
   const getDateRange = () => {

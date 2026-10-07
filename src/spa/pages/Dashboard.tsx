@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts';
 import api from '../lib/api';
+import { useLiveRefresh } from '../lib/useLiveRefresh';
 import { useI18n } from '../i18n';
 import { useAuth } from '../App';
 // Public asset (served from /public in both Vite and the sandbox) instead of a
@@ -38,7 +39,7 @@ export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { t, lang } = useI18n();
   const { user } = useAuth();
-  const isStaff = ['admin', 'principal', 'counselor', 'teacher', 'staff'].includes(user?.role);
+  const isStaff = ['admin', 'coordinator', 'principal', 'counselor', 'teacher', 'staff'].includes(user?.role);
   const [glance, setGlance] = useState<{ high: number; mdr_alerts: number; positive_ratio: number | null } | null>(null);
 
   // State
@@ -76,6 +77,7 @@ export default function Dashboard() {
   }, [isStaff]);
 
   // Load initial data
+  useLiveRefresh(() => { loadStats(); loadStudentCount(); });
   useEffect(() => {
     loadGrades();
     loadStats();

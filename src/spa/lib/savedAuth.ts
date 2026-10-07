@@ -1,214 +1,100 @@
-// Local "save password + biometric sign-in" support for the login page.
+// Fingerprint / Face ID / Windows Hello sign-in (WebAuthn passkeys), client side.
 //
-// Design (mirrors how native mobile apps and password managers work):
-//   1. After a successful first login the user is offered to save their
-//      credentials on this device (localStorage, obfuscated — see note below).
-//   2. They can then enable BIOMETRIC sign-in: a WebAuthn platform
-//      credential (fingerprint / Face ID / Windows Hello / device passkey)
-//      that must be verified before the saved credentials are used again.
-//   3. On return visits the login page offers one-tap "Continue as …"
-//      (saved password) or "Sign in with biometrics" (WebAuthn unlock first).
+// The device's biometric lock guards a private key that never leaves it; the
+// server stores only the public key (see src/lib/passkeys.ts). Nothing secret
+// is kept in the browser: the only local value is a hint with the name of the
+// person who set up fingerprint sign-in, so the login page can greet them.
 //
-// Security note: the password is stored OBFUSCATED (base64), not encrypted —
-// it never leaves the device and is only used to call POST /auth/login, which
-// is still fully validated server-side. The WebAuthn unlock adds a
-// user-verification gate in front of the quick sign-in. Clearing saved data
-// is one click ("Forget saved sign-in"), and a changed/rotated password makes
-// the quick sign-in fail, which auto-clears the stale credentials.
+// The previous version saved the password itself in localStorage and only
+// "unlocked" it with the fingerprint; that data is wiped on first load.
+import { startAuthentication, startRegistration, browserSupportsWebAuthn } from '@simplewebauthn/browser';
+import api from './api';
 
-const STORE_KEY = 'sccs_saved_auth';
+const HINT_KEY = 'sccs_passkey_hint';
 const PREFS_KEY = 'sccs_auth_prefs';
+const LEGACY_KEY = 'sccs_saved_auth';
 
-export interface SavedAuth {
+export interface PasskeyHint {
   username: string;
-  password: string;
   displayName: string;
-  biometricEnabled: boolean;
-  credentialId: string | null;
-  savedAt: number;
 }
 
-export interface AuthPrefs {
-  neverAsk: boolean;
-}
-
-// ---------------------------------------------------------------------------
-// Obfuscation helpers (NOT encryption — keeps casual shoulder-surfing and
-// devtools casual inspection from showing a plaintext password)
-// ---------------------------------------------------------------------------
-
-function encodeSecret(plain: string): string {
+export function getPasskeyHint(): PasskeyHint | null {
   try {
-    const bytes = new TextEncoder().encode(`v1:${plain}`);
-    let binary = '';
-    bytes.forEach(b => { binary += String.fromCharCode(b); });
-    return btoa(binary);
-  } catch {
-    return '';
-  }
-}
-
-function decodeSecret(encoded: string): string {
-  try {
-    const binary = atob(encoded);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    const text = new TextDecoder().decode(bytes);
-    return text.startsWith('v1:') ? text.slice(3) : '';
-  } catch {
-    return '';
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Saved credential storage
-// ---------------------------------------------------------------------------
-
-export function getSavedAuth(): SavedAuth | null {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed.username !== 'string' || typeof parsed.p !== 'string') return null;
-    return {
-      username: parsed.username,
-      password: decodeSecret(parsed.p),
-      displayName: typeof parsed.displayName === 'string' && parsed.displayName ? parsed.displayName : parsed.username,
-      biometricEnabled: !!parsed.biometricEnabled,
-      credentialId: typeof parsed.credentialId === 'string' ? parsed.credentialId : null,
-      savedAt: typeof parsed.savedAt === 'number' ? parsed.savedAt : Date.now(),
-    };
+    const raw = localStorage.getItem(HINT_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed.username === 'string' ? { username: parsed.username, displayName: parsed.displayName || parsed.username } : null;
   } catch {
     return null;
   }
 }
 
-export function saveCredentials(username: string, password: string, displayName: string): void {
-  // Saving a new account replaces any previously saved one (last login wins,
-  // exactly like a browser password manager updating an entry). Biometric
-  // unlock is reset — it must be (re-)enabled for the new credentials.
-  localStorage.setItem(STORE_KEY, JSON.stringify({
-    username,
-    p: encodeSecret(password),
-    displayName: displayName || username,
-    biometricEnabled: false,
-    credentialId: null,
-    savedAt: Date.now(),
-  }));
-}
-
-export function setBiometric(username: string, credentialId: string): void {
-  const saved = getSavedAuth();
-  if (!saved || saved.username !== username) return;
-  localStorage.setItem(STORE_KEY, JSON.stringify({
-    ...JSON.parse(localStorage.getItem(STORE_KEY) || '{}'),
-    biometricEnabled: true,
-    credentialId,
-  }));
-}
-
-export function clearSavedAuth(): void {
-  localStorage.removeItem(STORE_KEY);
-}
-
-// ---------------------------------------------------------------------------
-// Preferences ("Never ask again on this device")
-// ---------------------------------------------------------------------------
-
-export function getPrefs(): AuthPrefs {
+export function setPasskeyHint(hint: PasskeyHint | null): void {
   try {
-    const raw = localStorage.getItem(PREFS_KEY);
-    if (!raw) return { neverAsk: false };
-    const parsed = JSON.parse(raw);
-    return { neverAsk: !!parsed?.neverAsk };
+    if (hint) localStorage.setItem(HINT_KEY, JSON.stringify(hint));
+    else localStorage.removeItem(HINT_KEY);
   } catch {
-    return { neverAsk: false };
+    /* storage unavailable: the login page just won't greet by name */
   }
 }
 
-export function setNeverAsk(value: boolean): void {
-  localStorage.setItem(PREFS_KEY, JSON.stringify({ neverAsk: value }));
-}
-
-// ---------------------------------------------------------------------------
-// WebAuthn / biometric helpers (raw platform API — no dependencies)
-// ---------------------------------------------------------------------------
-
-function bufferToBase64url(buffer: ArrayBuffer | Uint8Array): string {
-  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
-  let binary = '';
-  bytes.forEach(b => { binary += String.fromCharCode(b); });
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-function base64urlToBuffer(id: string): Uint8Array<ArrayBuffer> {
-  const base64 = id.replace(/-/g, '+').replace(/_/g, '/');
-  const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
-  const binary = atob(padded);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
-/** True when this browser/device exposes a user-verifying platform authenticator. */
-export async function isBiometricAvailable(): Promise<boolean> {
+/** Removes the old saved-password data from earlier versions of the app. */
+export function clearLegacySavedPassword(): void {
   try {
-    if (typeof window === 'undefined' || !('PublicKeyCredential' in window)) return false;
-    const fn = (window.PublicKeyCredential as unknown as {
-      isUserVerifyingPlatformAuthenticatorAvailable?: () => Promise<boolean>;
-    }).isUserVerifyingPlatformAuthenticatorAvailable;
-    if (typeof fn !== 'function') return false;
-    return await fn.call(window.PublicKeyCredential);
+    localStorage.removeItem(LEGACY_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function getNeverAsk(): boolean {
+  try {
+    return !!JSON.parse(localStorage.getItem(PREFS_KEY) || '{}')?.neverAsk;
   } catch {
     return false;
   }
 }
 
-/**
- * Register a platform (biometric) credential for this user on this device.
- * Returns the credential id (base64url) to store alongside the saved login.
- * Throws when the device has no authenticator or the user cancels the prompt.
- */
-export async function createBiometricCredential(username: string): Promise<string> {
-  const challenge = crypto.getRandomValues(new Uint8Array(32));
-  const userId = new TextEncoder().encode(`sccs:${username}`);
-  const credential = (await navigator.credentials.create({
-    publicKey: {
-      challenge,
-      // rp.id omitted → defaults to the current origin's domain, so the
-      // credential works on whichever HTTPS host the app is served from.
-      rp: { name: 'SCCS Discipline Tracker' },
-      user: { id: userId, name: username, displayName: username },
-      pubKeyCredParams: [
-        { type: 'public-key', alg: -7 },   // ES256
-        { type: 'public-key', alg: -257 }, // RS256
-      ],
-      authenticatorSelection: {
-        authenticatorAttachment: 'platform',
-        userVerification: 'required',
-        residentKey: 'preferred',
-      },
-      timeout: 60_000,
-      attestation: 'none',
-    },
-  })) as PublicKeyCredential | null;
-  if (!credential) throw new Error('credential creation cancelled');
-  return bufferToBase64url(credential.rawId);
+export function setNeverAsk(value: boolean): void {
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ neverAsk: value }));
+  } catch {
+    /* ignore */
+  }
 }
 
-/**
- * Ask the device's biometric authenticator to verify the user (fingerprint,
- * face, Windows Hello…). Resolves true only when user verification succeeds.
- */
-export async function verifyBiometric(credentialId: string): Promise<boolean> {
-  const challenge = crypto.getRandomValues(new Uint8Array(32));
-  const assertion = await navigator.credentials.get({
-    publicKey: {
-      challenge,
-      allowCredentials: [{ type: 'public-key', id: base64urlToBuffer(credentialId) }],
-      userVerification: 'required',
-      timeout: 60_000,
-    },
-  });
-  return !!assertion;
+/** True when this device has a fingerprint / face / PIN authenticator. */
+export async function isBiometricAvailable(): Promise<boolean> {
+  try {
+    if (!browserSupportsWebAuthn()) return false;
+    return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+  } catch {
+    return false;
+  }
+}
+
+/** Adds fingerprint sign-in for the signed-in user on this device. */
+export async function registerPasskey(): Promise<void> {
+  const { data } = await api.post('/auth/passkey/register-options');
+  const response = await startRegistration({ optionsJSON: data.options });
+  await api.post('/auth/passkey/register', { challengeId: data.challengeId, response });
+}
+
+/** Signs in with the fingerprint; resolves to the same { token, user } as a password login. */
+export async function signInWithPasskey(): Promise<{ token: string; user: any }> {
+  const { data } = await api.post('/auth/passkey/login-options');
+  const response = await startAuthentication({ optionsJSON: data.options });
+  const res = await api.post('/auth/passkey/login', { challengeId: data.challengeId, response });
+  return res.data;
+}
+
+/** A readable message for a WebAuthn failure (cancelled prompt, wrong site…). */
+export function passkeyErrorMessage(error: any): string | null {
+  const server = error?.response?.data?.error;
+  if (server) return server;
+  const name = error?.name || error?.cause?.name;
+  if (name === 'NotAllowedError' || name === 'AbortError') return null; // the user cancelled
+  if (name === 'InvalidStateError') return 'Fingerprint sign-in is already set up on this device.';
+  if (name === 'SecurityError') return 'Fingerprint sign-in only works on the app’s main web address (HTTPS).';
+  return 'Fingerprint sign-in is not available right now. Please use your password.';
 }

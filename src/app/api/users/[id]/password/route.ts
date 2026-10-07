@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
-import { withAuth } from '@/lib/sccs-auth';
+import { withAuth, isAdminLike, guardAdminAccounts } from '@/lib/sccs-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,10 +11,12 @@ type Ctx = { params: Promise<{ id: string }> };
 
 export const PUT = withAuth<Ctx>(async (req, user, ctx) => {
   try {
-    if (user.role !== 'admin') {
+    if (!isAdminLike(user.role)) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     const { id } = await ctx.params;
+    const denied = await guardAdminAccounts(user, Number.parseInt(id, 10));
+    if (denied) return denied;
     const body = (await req.json().catch(() => ({}))) as { password?: unknown } | null;
     const password = body?.password;
     if (!password) {

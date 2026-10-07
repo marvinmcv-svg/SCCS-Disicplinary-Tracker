@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
-import { withAuth } from '@/lib/sccs-auth';
+import { withAuth, isAdminLike, guardAdminAccounts } from '@/lib/sccs-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -92,17 +92,24 @@ export const PUT = withAuth<Ctx>(async (req, user, ctx) => {
     } = body;
 
     // Allow if admin OR if editing own profile
-    if (user.role !== 'admin' && user.userId !== numericId) {
+    if (!isAdminLike(user.role) && user.userId !== numericId) {
       return NextResponse.json({ error: 'You can only edit your own profile' }, { status: 403 });
     }
 
     // Non-admins cannot change roles
-    if (user.role !== 'admin' && role !== user.role) {
+    if (!isAdminLike(user.role) && role !== user.role) {
       return NextResponse.json({ error: 'You cannot change your own role' }, { status: 403 });
     }
 
+    if (user.userId !== numericId) {
+      const denied = await guardAdminAccounts(user, numericId, role);
+      if (denied) return denied;
+    } else if (user.role === 'coordinator' && role === 'admin') {
+      return NextResponse.json({ error: 'Only an admin can give the admin role' }, { status: 403 });
+    }
+
     // Only admins can change is_active or two_factor_enabled
-    if ((is_active !== undefined || two_factor_enabled !== undefined) && user.role !== 'admin') {
+    if ((is_active !== undefined || two_factor_enabled !== undefined) && !isAdminLike(user.role)) {
       return NextResponse.json(
         { error: 'Only admins can modify active status or 2FA settings' },
         { status: 403 },
@@ -186,7 +193,7 @@ export const PUT = withAuth<Ctx>(async (req, user, ctx) => {
 // DELETE — admin only, soft delete (is_active = false).
 export const DELETE = withAuth<Ctx>(async (_req, user, ctx) => {
   try {
-    if (user.role !== 'admin') {
+    if (!isAdminLike(user.role)) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     const { id } = await ctx.params;
@@ -194,6 +201,8 @@ export const DELETE = withAuth<Ctx>(async (_req, user, ctx) => {
     if (user.userId === numericId) {
       return NextResponse.json({ error: 'Cannot deactivate your own account' }, { status: 400 });
     }
+    const denied = await guardAdminAccounts(user, numericId);
+    if (denied) return denied;
 
     // Soft delete - set is_active = false
     await db.users.updateMany({ where: { id: numericId }, data: { is_active: false } });

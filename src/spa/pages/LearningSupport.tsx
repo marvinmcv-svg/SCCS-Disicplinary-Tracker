@@ -7,6 +7,7 @@ import {
   Accessibility, CalendarClock, ChevronRight, HeartHandshake, Pencil, Plus, Search, ShieldAlert, Trash2, UserRound,
 } from 'lucide-react';
 import api from '../lib/api';
+import { useLiveRefresh } from '../lib/useLiveRefresh';
 import { useAuth } from '../App';
 import { useI18n } from '../i18n';
 import {
@@ -73,7 +74,7 @@ export default function LearningSupport() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const canManage = ['admin', 'principal', 'counselor'].includes(user?.role);
+  const canManage = ['admin', 'coordinator', 'principal', 'counselor'].includes(user?.role);
 
   const [plans, setPlans] = useState<SupportPlan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,6 +97,7 @@ export default function LearningSupport() {
     }
   }, [t]);
 
+  useLiveRefresh(() => load());
   useEffect(() => { load(); }, [load]);
 
   // Deep link: #/support?student=ID opens that student's first plan.

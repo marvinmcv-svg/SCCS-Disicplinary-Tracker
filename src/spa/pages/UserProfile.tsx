@@ -86,14 +86,18 @@ export default function UserProfile() {
   });
   const [passwordError, setPasswordError] = useState('');
 
-  const isAdmin = currentUser?.role === 'admin';
+  // Coordinators have admin-level access (except over admin accounts, enforced by the API).
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'coordinator';
   const isOwnProfile = currentUser?.id === parseInt(id || '0');
   const canEdit = isOwnProfile || isAdmin;
 
   const roleOptions = [
     { value: 'user', label: 'User', description: 'Standard access' },
     { value: 'teacher', label: 'Teacher', description: 'Teacher access' },
+    { value: 'staff', label: 'Staff', description: 'Staff access' },
     { value: 'counselor', label: 'Counselor', description: 'Counselor access' },
+    { value: 'principal', label: 'Principal', description: 'Principal access' },
+    { value: 'coordinator', label: 'Coordinator', description: 'Everything an admin can do, plus disciplinary referrals' },
     { value: 'admin', label: 'Admin', description: 'Full administrative access' },
   ];
 
@@ -394,6 +398,7 @@ export default function UserProfile() {
               <div className="flex items-center gap-3 mt-2 flex-wrap">
                 <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
                   user?.role === 'admin' ? 'bg-purple-200 text-purple-800' :
+                  user?.role === 'coordinator' ? 'bg-indigo-200 text-indigo-800' :
                   user?.role === 'counselor' ? 'bg-blue-200 text-blue-800' :
                   user?.role === 'teacher' ? 'bg-green-200 text-green-800' :
                   'bg-gray-200 text-gray-800'
@@ -499,7 +504,7 @@ export default function UserProfile() {
                 className="select"
                 disabled={!isAdmin}
               >
-                {roleOptions.map(opt => (
+                {roleOptions.filter(opt => opt.value !== 'admin' || currentUser?.role === 'admin' || user?.role === 'admin').map(opt => (
                   <option key={opt.value} value={opt.value}>
                     {t(opt.label)}
                   </option>

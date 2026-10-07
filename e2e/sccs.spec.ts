@@ -9,7 +9,7 @@ import { test, expect, Page } from '@playwright/test';
 const ADMIN = { username: 'admin', password: 'admin123' };
 const TEACHER = { username: 'CarlosP', password: 'Carlos123456!' };
 
-/** Log in through the UI and dismiss the optional save-password dialog. */
+/** Log in through the UI and dismiss the optional fingerprint offer. */
 async function login(page: Page, username = ADMIN.username, password = ADMIN.password) {
   await page.goto('/');
   await expect(page.getByPlaceholder('Enter username')).toBeVisible();
@@ -17,15 +17,13 @@ async function login(page: Page, username = ADMIN.username, password = ADMIN.pas
   await page.getByTestId('login-password').fill(password);
   await page.getByRole('button', { name: 'Sign In' }).click();
 
-  // First-login "Save your password?" dialog → Not Now
-  // (two nodes carry "Not Now": the X icon's aria-label and the text button —
-  // pin the visible text button to avoid a strict-mode violation)
-  const dialog = page.getByTestId('save-password-dialog');
+  // "Use your fingerprint next time?" only appears on devices with a sensor.
+  const dialog = page.getByTestId('passkey-offer-dialog');
   try {
-    await dialog.waitFor({ state: 'visible', timeout: 5_000 });
-    await dialog.getByText('Not Now', { exact: true }).click();
+    await dialog.waitFor({ state: 'visible', timeout: 3_000 });
+    await dialog.getByText('Not now', { exact: true }).click();
   } catch {
-    /* dialog only appears on first login for a fresh profile */
+    /* no fingerprint sensor in this browser */
   }
 
   await expect(page.getByRole('heading', { name: 'Welcome Back!' })).toBeVisible({ timeout: 20_000 });
@@ -519,14 +517,14 @@ test('reports page renders summary', async ({ page }) => {
 test('language toggle switches the whole UI to Spanish', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('group', { name: /Language|Idioma/ }).getByRole('button', { name: 'ES' }).click();
-  await expect(page.getByRole('button', { name: /Iniciar sesión/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Iniciar sesión$/i })).toBeVisible();
   await page.getByPlaceholder(/Nombre de usuario/i).fill(ADMIN.username);
   await page.getByTestId('login-password').fill(ADMIN.password);
-  await page.getByRole('button', { name: /Iniciar sesión/i }).click();
-  const dialog = page.getByTestId('save-password-dialog');
+  await page.getByRole('button', { name: /^Iniciar sesión$/i }).click();
+  const dialog = page.getByTestId('passkey-offer-dialog');
   try {
-    await dialog.waitFor({ state: 'visible', timeout: 5_000 });
-    await dialog.getByText('Ahora no', { exact: true, ignoreCase: true }).click();
+    await dialog.waitFor({ state: 'visible', timeout: 3_000 });
+    await dialog.getByText('Ahora no', { exact: true }).click();
   } catch { /* optional */ }
   await expect(page.getByRole('heading', { name: /Bienvenido/i })).toBeVisible({ timeout: 20_000 });
 });
