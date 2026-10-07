@@ -298,7 +298,7 @@ test('users management lists seeded staff accounts (admin only)', async ({ page 
   await navigateTo(page, 'Users');
   await expect(page.getByPlaceholder(/Search users/i)).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('MsTello').first()).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText('principal').first()).toBeVisible();
+  await expect(page.locator(':text-is("principal"):visible').first()).toBeVisible();
 });
 
 test('admin creates a user on the Users dashboard — persisted and can log in', async ({ page }) => {
