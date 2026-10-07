@@ -9,7 +9,7 @@ import { test, expect, Page } from '@playwright/test';
 const ADMIN = { username: 'admin', password: 'admin123' };
 const TEACHER = { username: 'CarlosP', password: 'Carlos123456!' };
 
-/** Log in through the UI and dismiss the optional save-password dialog. */
+/** Log in through the UI and dismiss the optional fingerprint offer. */
 async function login(page: Page, username = ADMIN.username, password = ADMIN.password) {
   await page.goto('/');
   await expect(page.getByPlaceholder('Enter username')).toBeVisible();
@@ -17,15 +17,13 @@ async function login(page: Page, username = ADMIN.username, password = ADMIN.pas
   await page.getByTestId('login-password').fill(password);
   await page.getByRole('button', { name: 'Sign In' }).click();
 
-  // First-login "Save your password?" dialog → Not Now
-  // (two nodes carry "Not Now": the X icon's aria-label and the text button —
-  // pin the visible text button to avoid a strict-mode violation)
-  const dialog = page.getByTestId('save-password-dialog');
+  // "Use your fingerprint next time?" only appears on devices with a sensor.
+  const dialog = page.getByTestId('passkey-offer-dialog');
   try {
-    await dialog.waitFor({ state: 'visible', timeout: 5_000 });
-    await dialog.getByText('Not Now', { exact: true }).click();
+    await dialog.waitFor({ state: 'visible', timeout: 3_000 });
+    await dialog.getByText('Not now', { exact: true }).click();
   } catch {
-    /* dialog only appears on first login for a fresh profile */
+    /* no fingerprint sensor in this browser */
   }
 
   await expect(page.getByRole('heading', { name: 'Welcome Back!' })).toBeVisible({ timeout: 20_000 });
@@ -148,14 +146,15 @@ test('students roster loads with search', async ({ page }) => {
 
   const search = page.getByPlaceholder(/Search by name or ID/i);
   await expect(search).toBeVisible({ timeout: 20_000 });
-  await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 20_000 });
-  const initialRows = await page.locator('tbody tr').count();
+  const rows = page.getByTestId('student-row');
+  await expect(rows.first()).toBeVisible({ timeout: 20_000 });
+  const initialRows = await rows.count();
   expect(initialRows).toBeGreaterThan(0);
 
   // search narrows the roster
   await search.fill('Adams');
-  await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
-  const visible = await page.locator('tbody tr').count();
+  await expect(rows.first()).toBeVisible({ timeout: 15_000 });
+  const visible = await rows.count();
   expect(visible).toBeGreaterThan(0);
   expect(visible).toBeLessThan(initialRows);
 });
@@ -185,9 +184,9 @@ test('incidents list loads with rows and status badges', async ({ page }) => {
   await login(page);
   await navigateTo(page, 'Incidents');
   await expect(page.getByPlaceholder(/Search incidents/i)).toBeVisible();
-  await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 20_000 });
-  expect(await page.locator('tbody tr').count()).toBeGreaterThan(0);
-  await expect(page.locator('.badge').first()).toBeVisible();
+  await expect(page.locator('[data-testid=incident-row]:visible').first()).toBeVisible({ timeout: 20_000 });
+  expect(await page.locator('[data-testid=incident-row]:visible').count()).toBeGreaterThan(0);
+  await expect(page.locator('.badge:visible').first()).toBeVisible();
 });
 
 test('record a new incident end-to-end and resolve it', async ({ page }) => {
@@ -229,9 +228,9 @@ test('record a new incident end-to-end and resolve it', async ({ page }) => {
   // find the new incident (newest today, student surname Roberts) — it must
   // carry the PlusPortals code in its violation column
   await page.getByPlaceholder(/Search incidents/i).fill('Roberts');
-  await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator('tbody tr').first()).toContainText('Open');
-  await expect(page.locator('tbody tr').first()).toContainText('DISRUPT — Classroom Disruption');
+  await expect(page.locator('[data-testid=incident-row]:visible').first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('[data-testid=incident-row]:visible').first()).toContainText('Open');
+  await expect(page.locator('[data-testid=incident-row]:visible').first()).toContainText('DISRUPT — Classroom Disruption');
 
   // open its detail page (highest id → first row once the reload lands)
   await expect
@@ -244,7 +243,7 @@ test('record a new incident end-to-end and resolve it', async ({ page }) => {
     }), { timeout: 15_000 })
     .toBeGreaterThan(0);
   await page.waitForTimeout(800);
-  await page.locator('tbody tr').first().click();
+  await page.locator('[data-testid=incident-row]:visible').first().click();
   await expect(page.getByText('E2E playwright created this incident').first()).toBeVisible({ timeout: 15_000 });
 
   // resolve it (status action button in detail header)
@@ -300,7 +299,7 @@ test('users management lists seeded staff accounts (admin only)', async ({ page 
   await navigateTo(page, 'Users');
   await expect(page.getByPlaceholder(/Search users/i)).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('MsTello').first()).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText('principal').first()).toBeVisible();
+  await expect(page.locator(':text-is("principal"):visible').first()).toBeVisible();
 });
 
 test('admin creates a user on the Users dashboard — persisted and can log in', async ({ page }) => {
@@ -396,9 +395,9 @@ test('teacher (CarlosP) can register an incident with a PlusPortals code', async
   // the new incident carries the PlusPortals code (the client search matches
   // id / student name / violation type, not the description — search surname)
   await page.getByPlaceholder(/Search incidents/i).fill('Torres');
-  await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator('tbody tr').first()).toContainText('VAP — Vaping/E-Cigarette');
-  await expect(page.locator('tbody tr').first()).toContainText('PlusPortals');
+  await expect(page.locator('[data-testid=incident-row]:visible').first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('[data-testid=incident-row]:visible').first()).toContainText('VAP — Vaping/E-Cigarette');
+  await expect(page.locator('[data-testid=incident-row]:visible').first()).toContainText('PlusPortals');
 
   // cleanup as admin (teachers cannot delete incidents)
   await page.evaluate(async (admin) => {
@@ -519,14 +518,14 @@ test('reports page renders summary', async ({ page }) => {
 test('language toggle switches the whole UI to Spanish', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('group', { name: /Language|Idioma/ }).getByRole('button', { name: 'ES' }).click();
-  await expect(page.getByRole('button', { name: /Iniciar sesión/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Iniciar sesión$/i })).toBeVisible();
   await page.getByPlaceholder(/Nombre de usuario/i).fill(ADMIN.username);
   await page.getByTestId('login-password').fill(ADMIN.password);
-  await page.getByRole('button', { name: /Iniciar sesión/i }).click();
-  const dialog = page.getByTestId('save-password-dialog');
+  await page.getByRole('button', { name: /^Iniciar sesión$/i }).click();
+  const dialog = page.getByTestId('passkey-offer-dialog');
   try {
-    await dialog.waitFor({ state: 'visible', timeout: 5_000 });
-    await dialog.getByText('Ahora no', { exact: true, ignoreCase: true }).click();
+    await dialog.waitFor({ state: 'visible', timeout: 3_000 });
+    await dialog.getByText('Ahora no', { exact: true }).click();
   } catch { /* optional */ }
   await expect(page.getByRole('heading', { name: /Bienvenido/i })).toBeVisible({ timeout: 20_000 });
 });

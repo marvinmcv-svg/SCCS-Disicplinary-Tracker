@@ -12,7 +12,12 @@ export default defineConfig({
   reporter: [['list']],
   globalSetup: './e2e/global-setup.ts',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: process.env.E2E_BASE_URL || 'http://localhost:3000',
+    // Optional: point at a pre-installed Chromium when the bundled browser
+    // revision is not downloaded (e.g. PW_CHROMIUM_PATH=/opt/pw-browsers/chromium).
+    launchOptions: process.env.PW_CHROMIUM_PATH
+      ? { executablePath: process.env.PW_CHROMIUM_PATH }
+      : undefined,
     trace: 'off',
     screenshot: 'only-on-failure',
     actionTimeout: 15_000,

@@ -313,7 +313,7 @@ export default function Violations() {
                   <h3 className="font-semibold text-gray-800">
                     {g.label} <span className="text-sm font-normal text-gray-500">({list.length})</span>
                   </h3>
-                  {user?.role === 'admin' && (
+                  {['admin', 'coordinator'].includes(user?.role) && (
                     <button
                       onClick={() => openCodeModal(g.key)}
                       className="text-sm text-emerald-700 hover:text-emerald-800 font-medium flex items-center gap-1"
@@ -325,7 +325,7 @@ export default function Violations() {
                 {list.length === 0 ? (
                   <p className="text-sm text-gray-400">{t('No codes yet.')}</p>
                 ) : (
-                  <div className="flex flex-wrap gap-2 max-h-44 overflow-y-auto">
+                  <div className="flex flex-wrap gap-2 md:max-h-44 md:overflow-y-auto">
                     {list.map(c => (
                       <span
                         key={c.id}
@@ -334,7 +334,7 @@ export default function Violations() {
                       >
                         <span className="font-mono font-bold">{c.code}</span>
                         <span>{c.name}</span>
-                        {user?.role === 'admin' && (
+                        {['admin', 'coordinator'].includes(user?.role) && (
                           <>
                             <button
                               onClick={() => openCodeModal(c.group, c)}
@@ -498,7 +498,7 @@ export default function Violations() {
                           </div>
 
                           {/* Admin Edit Button */}
-                          {user?.role === 'admin' && (
+                          {['admin', 'coordinator'].includes(user?.role) && (
                             <button
                               onClick={(e) => openEditModal(violation, e)}
                               className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"

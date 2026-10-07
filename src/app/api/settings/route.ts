@@ -19,27 +19,32 @@ export const GET = withAuth(async () => {
   }
 });
 
-// PUT — upsert one setting (admin only).
+// Keys the Settings screen edits.
+const EDITABLE_KEYS = ['school_name', 'academic_year', 'max_points', 'passing_threshold'];
+
+// PUT — save settings (admins and coordinators). Accepts one setting as
+// { key, value } or the whole Settings form as { school_name: …, … }.
 export const PUT = withAuth(async (req, user) => {
   try {
     if (!adminOnly(user)) return forbidden();
 
-    const body = (await req.json().catch(() => null)) as
-      | { key?: unknown; value?: unknown }
-      | null;
-    const key = body?.key;
-    const value = body?.value;
-
-    if (typeof key !== 'string' || !key) {
+    const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body || typeof body !== 'object') {
       return NextResponse.json({ error: 'Key and value are required' }, { status: 400 });
     }
-    // INSERT ... ON CONFLICT (key) DO UPDATE SET value = $2
-    const valueStr = value === undefined || value === null ? '' : String(value);
-    await db.settings.upsert({
-      where: { key },
-      create: { key, value: valueStr },
-      update: { value: valueStr },
-    });
+    const entries: [string, unknown][] =
+      typeof body.key === 'string' && body.key
+        ? [[body.key, body.value]]
+        : Object.entries(body).filter(([k]) => EDITABLE_KEYS.includes(k));
+    if (entries.length === 0) {
+      return NextResponse.json({ error: 'Key and value are required' }, { status: 400 });
+    }
+    await db.$transaction(
+      entries.map(([key, value]) => {
+        const valueStr = value === undefined || value === null ? '' : String(value);
+        return db.settings.upsert({ where: { key }, create: { key, value: valueStr }, update: { value: valueStr } });
+      }),
+    );
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 400 });

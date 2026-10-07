@@ -2,8 +2,10 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Plus, Search, X, AlertCircle, CheckCircle, Clock, Loader, Check, Trash2, ChevronLeft, ChevronRight, Download, FileText, Calendar } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../lib/api';
+import { useLiveRefresh } from '../lib/useLiveRefresh';
 import { useI18n } from '../i18n';
 import * as XLSX from 'xlsx';
+import SupportAlert from '../components/SupportAlert';
 
 interface Student {
   id: number;
@@ -173,7 +175,7 @@ export default function Incidents() {
   const violationRef = useRef<HTMLDivElement>(null);
   const advisorRef = useRef<HTMLDivElement>(null);
 
-  const prefillData = location.state as { studentId?: number; violationCategory?: string } | null;
+  const prefillData = location.state as { studentId?: number; violationCategory?: string; openNew?: boolean } | null;
   const pageSize = 20;
 
   const filteredStudentsForSelect = students.filter(s =>
@@ -301,6 +303,7 @@ export default function Incidents() {
     }
   };
 
+  useLiveRefresh(() => loadData());
   useEffect(() => { loadData(); }, []);
 
   const getDateRange = () => {
@@ -440,6 +443,16 @@ export default function Incidents() {
   };
 
   const closeModal = () => setShowModal(false);
+
+  // Deep link: navigate('/incidents', { state: { openNew: true } }) opens the
+  // new-incident form as soon as the pickers have loaded.
+  const openedForKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (!loading && prefillData?.openNew && openedForKey.current !== location.key) {
+      openedForKey.current = location.key;
+      openModal();
+    }
+  }, [loading, location.key]);
 
   // Selecting a PlusPortals penalty pre-fills the referral's quantities from
   // the code's defaults (still editable), mirrors the penalty name into the
@@ -591,7 +604,32 @@ export default function Incidents() {
         {loading ? (
           <div className="text-center py-12 text-gray-400">{t('Loading...')}</div>
         ) : paginatedIncidents.length > 0 ? (
-          <div className="overflow-x-auto">
+          <>
+          {/* Phones: one card per incident, so student and violation are never hidden */}
+          <ul className="md:hidden list-inset">
+            {paginatedIncidents.map((incident) => (
+              <li key={incident.id}>
+                <button type="button" data-testid="incident-row" className="list-row !items-start !px-4" onClick={() => openIncidentDetail(incident)}>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="font-semibold text-gray-900 leading-snug">{incident.last_name}, {incident.first_name}</p>
+                      <span className={`badge shrink-0 ${getStatusColor(incident.status)}`}>{t(incident.status)}</span>
+                    </div>
+                    <p className="text-sm text-gray-700 mt-0.5 leading-snug">
+                      {t(incident.violation_type)} <span className="text-gray-500">· {t(incident.category)}</span>
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
+                      <span className="tabular-nums">{incident.date}</span>
+                      <span className="font-mono">{incident.incident_id}</span>
+                      {incident.location && <span>{namePart(incident.location)}</span>}
+                      {incident.advisor && <span>{incident.advisor}</span>}
+                    </p>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
@@ -607,9 +645,9 @@ export default function Incidents() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {paginatedIncidents.map((incident) => (
-                  <tr key={incident.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => openIncidentDetail(incident)}>
+                  <tr key={incident.id} data-testid="incident-row" className="hover:bg-gray-50 cursor-pointer" onClick={() => openIncidentDetail(incident)}>
                     <td className="px-4 py-3 font-mono text-sm">{incident.incident_id}</td>
-                    <td className="px-4 py-3">{incident.date}</td>
+                    <td className="px-4 py-3 whitespace-nowrap tabular-nums">{incident.date}</td>
                     <td className="px-4 py-3 hide-mobile">
                       <div><p className="font-medium">{incident.last_name}, {incident.first_name}</p></div>
                     </td>
@@ -637,6 +675,7 @@ export default function Incidents() {
               </tbody>
             </table>
           </div>
+          </>
         ) : (
           <div className="text-center py-12 text-gray-400">
             <AlertCircle className="w-12 h-12 mx-auto mb-2" />
@@ -648,8 +687,8 @@ export default function Incidents() {
 
       {/* Pagination Controls */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 pb-4">
-          <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="btn btn-secondary py-2 px-3 disabled:opacity-50">{t('First')}</button>
+        <div className="flex flex-wrap items-center justify-center gap-2 pb-4">
+          <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="btn btn-secondary py-2 px-3 disabled:opacity-50 hidden sm:inline-flex">{t('First')}</button>
           <button onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1} className="btn btn-secondary py-2 px-3 disabled:opacity-50"><ChevronLeft className="w-4 h-4 mr-1" />{t('Prev')}</button>
           <div className="flex items-center gap-1">
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -663,7 +702,7 @@ export default function Incidents() {
             })}
           </div>
           <button onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage >= totalPages} className="btn btn-secondary py-2 px-3 disabled:opacity-50">{t('Next')}<ChevronRight className="w-4 h-4 ml-1" /></button>
-          <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage >= totalPages} className="btn btn-secondary py-2 px-3 disabled:opacity-50">{t('Last')}</button>
+          <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage >= totalPages} className="btn btn-secondary py-2 px-3 disabled:opacity-50 hidden sm:inline-flex">{t('Last')}</button>
         </div>
       )}
 
@@ -751,6 +790,8 @@ export default function Incidents() {
                   )}
                 </div>
               </div>
+
+              <SupportAlert studentId={formData.student_id} />
 
               {filteredViolations.length > 0 && (
                 <div className="p-3 bg-gray-50 rounded-lg text-sm">

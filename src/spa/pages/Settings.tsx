@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Save, Settings as SettingsIcon, Bell, Shield } from 'lucide-react';
+import { Save, Settings as SettingsIcon, Bell, Shield, Smartphone } from 'lucide-react';
 import api from '../lib/api';
 import { useI18n } from '../i18n';
+import { AppearanceControl, InstallAppButton } from '../components/AppPreferences';
+import { FingerprintSettings } from '../components/FingerprintSettings';
 
 interface Alert {
   id: number;
@@ -79,8 +81,27 @@ export default function Settings() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t('Settings')}</h1>
-          <p className="text-gray-500">{t('Configure system preferences and alerts')}</p>
+          <h1 className="page-title">{t('Settings')}</h1>
+          <p className="page-subtitle">{t('Configure system preferences and alerts')}</p>
+        </div>
+      </div>
+
+      {/* This device */}
+      <div className="card">
+        <div className="flex items-center gap-2 mb-1">
+          <Smartphone className="w-5 h-5 text-gray-500" />
+          <h2 className="text-lg font-semibold">{t('App')}</h2>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">{t('Use SCCS like a native app: its own icon, full screen, and quicker to open.')}</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-medium text-gray-700">{t('Appearance')}</span>
+            <AppearanceControl />
+          </div>
+          <InstallAppButton variant="button" />
+        </div>
+        <div className="border-t border-gray-200 mt-5 pt-5">
+          <FingerprintSettings />
         </div>
       </div>
 
@@ -92,7 +113,7 @@ export default function Settings() {
         </div>
 
         <form onSubmit={handleSaveSettings} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="form-label">{t('School Name')}</label>
               <input
@@ -114,7 +135,7 @@ export default function Settings() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="form-label">{t('Max Points')}</label>
               <input
@@ -152,43 +173,40 @@ export default function Settings() {
           <h2 className="text-lg font-semibold">{t('Alert Thresholds')}</h2>
         </div>
 
-        <table className="table">
-          <thead>
-            <tr>
-              <th>{t('Alert Type')}</th>
-              <th>{t('Threshold')}</th>
-              <th>{t('Action')}</th>
-              <th>{t('Enabled')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {alerts.map((alert) => (
-              <tr key={alert.id}>
-                <td className="font-medium">{alert.alert_type}</td>
-                <td>
+        {/* One row per alert; stacks on phones so nothing is cut off. */}
+        <ul className="list-inset">
+          {alerts.map((alert) => (
+            <li key={alert.id} className="py-4 first:pt-0 last:pb-0 flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-gray-900">{alert.alert_type}</p>
+                <p className="text-sm text-gray-500">{alert.action}</p>
+              </div>
+              <div className="flex items-end gap-3 shrink-0">
+                <label className="block">
+                  <span className="form-label">{t('Threshold')}</span>
                   <input
                     type="number"
                     value={alert.threshold}
                     onChange={(e) => handleAlertChange(alert.id, 'threshold', parseInt(e.target.value))}
-                    className="input w-20"
+                    className="input w-24"
                     min="1"
                   />
-                </td>
-                <td className="text-gray-600">{alert.action}</td>
-                <td>
+                </label>
+                <label className="block">
+                  <span className="form-label">{t('Enabled')}</span>
                   <select
                     value={alert.enabled}
                     onChange={(e) => handleAlertChange(alert.id, 'enabled', e.target.value)}
-                    className="select w-24"
+                    className="select w-28"
                   >
                     <option value="Yes">{t('Yes')}</option>
                     <option value="No">{t('No')}</option>
                   </select>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </label>
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
 
       {/* About */}
@@ -198,9 +216,9 @@ export default function Settings() {
           <h2 className="text-lg font-semibold">{t('About')}</h2>
         </div>
         <div className="text-gray-600">
-          <p><strong>{t('Discipline Tracker Pro')}</strong></p>
-          <p className="text-sm">{t('Version')} 1.0.0</p>
-          <p className="text-sm mt-2">{t('A comprehensive school discipline management system built with React, Node.js, and SQLite.')}</p>
+          <p><strong>SCCS Student OS</strong></p>
+          <p className="text-sm">{t('Version')} 2.3.0</p>
+          <p className="text-sm mt-2">{t('Discipline, learning support, recognition and early warning for SCCS, in English and Spanish.')}</p>
           <p className="text-sm mt-2">{t('Features include incident tracking, student management, MTSS interventions, rewards system, and real-time analytics.')}</p>
         </div>
       </div>

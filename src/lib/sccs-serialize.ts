@@ -20,6 +20,8 @@ export function flattenIncident(row: IncidentWithRefs) {
     grade: s?.grade ?? null,
     counselor: s?.counselor ?? null,
     advisory: s?.advisory ?? null,
+    parent_name: s?.parent_name ?? null,
+    parent_email: s?.parent_email ?? null,
     violation_type: v?.violation_type ?? '',
     category: v?.category ?? '',
     student: undefined,

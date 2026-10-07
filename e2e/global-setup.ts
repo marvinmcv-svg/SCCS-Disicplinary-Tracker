@@ -12,6 +12,8 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
   // The Prisma schema pins the SQLite URL, so no DATABASE_URL is needed here.
   const res = spawnSync('bun', ['prisma/seed.ts'], {
     cwd: root,
+    // The suite asserts on the demo dataset, never the school's real roster.
+    env: { ...process.env, SCCS_ROSTER: 'demo' },
     stdio: 'pipe',
     timeout: 120_000,
   });

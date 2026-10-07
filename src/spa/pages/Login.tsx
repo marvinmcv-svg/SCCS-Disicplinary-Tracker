@@ -1,22 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Lock, User, RefreshCw, X, Mail, Fingerprint, Save, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Loader2, Lock, User, RefreshCw, X, Mail, Fingerprint } from 'lucide-react';
 import { useAuth } from '../App';
 import api from '../lib/api';
 import { useI18n } from '../i18n';
 import LanguageToggle from '../components/LanguageToggle';
+import { InstallAppButton, ThemeToggleButton } from '../components/AppPreferences';
 import PasswordInput from '../components/PasswordInput';
 import {
-  getSavedAuth,
-  saveCredentials,
-  clearSavedAuth,
-  setBiometric,
-  getPrefs,
+  getPasskeyHint,
+  setPasskeyHint,
+  clearLegacySavedPassword,
+  getNeverAsk,
   setNeverAsk,
   isBiometricAvailable,
-  createBiometricCredential,
-  verifyBiometric,
-  type SavedAuth,
+  registerPasskey,
+  signInWithPasskey,
+  passkeyErrorMessage,
+  type PasskeyHint,
 } from '../lib/savedAuth';
 // Public asset (served from /public in both Vite and the sandbox) instead of a
 // bundled import, so the logo works under either build system.
@@ -38,20 +39,18 @@ export default function Login() {
   const [fixing, setFixing] = useState(false);
   const { t } = useI18n();
 
-  // Saved password + biometric sign-in state
-  const [savedAuth, setSavedAuth] = useState<SavedAuth | null>(null);
-  const [showSaveDialog, setShowSaveDialog] = useState(false);
-  const [saveStep, setSaveStep] = useState<'password' | 'biometric'>('password');
+  // Fingerprint (passkey) sign-in state
+  const [hint, setHint] = useState<PasskeyHint | null>(null);
   const [bioAvailable, setBioAvailable] = useState(false);
+  const [showPasskeyOffer, setShowPasskeyOffer] = useState(false);
   const [bioEnabling, setBioEnabling] = useState(false);
   const [bioError, setBioError] = useState('');
   const [bioSuccess, setBioSuccess] = useState('');
-  const [quickLoading, setQuickLoading] = useState(false);
   const [bioLoginLoading, setBioLoginLoading] = useState(false);
-  // Authenticated user+token held here while the save-password dialog is open;
-  // login() is only applied once the dialog resolves (the /login route
-  // auto-redirects the moment the token is set).
-  const pendingLoginRef = useRef<{ user: any; token: string; username: string; password: string; displayName: string } | null>(null);
+  // Authenticated user+token held here while the "use your fingerprint next
+  // time?" offer is open; login() is applied once it closes (the /login route
+  // redirects the moment the session is set).
+  const pendingLoginRef = useRef<{ user: any; token: string; displayName: string } | null>(null);
   const usernameInputRef = useRef<HTMLInputElement>(null);
 
   // Password Reset States
@@ -68,14 +67,13 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // Prefill the form from a saved sign-in (like a browser password manager)
-  // and check whether this device supports biometric unlock.
+  // Greet a returning fingerprint user, and check for a biometric sensor.
   useEffect(() => {
-    const saved = getSavedAuth();
+    clearLegacySavedPassword();
+    const saved = getPasskeyHint();
     if (saved) {
-      setSavedAuth(saved);
+      setHint(saved);
       setUsername(saved.username);
-      setPassword(saved.password);
     }
     isBiometricAvailable().then(setBioAvailable).catch(() => setBioAvailable(false));
   }, []);
@@ -92,26 +90,18 @@ export default function Login() {
 
     try {
       const res = await api.post('/auth/login', { username, password });
-      const prefs = getPrefs();
-      const saved = getSavedAuth();
-      const alreadySaved = saved && saved.username === username;
-      if (prefs.neverAsk || alreadySaved) {
-        // No prompt — go straight in (saved credentials stay as they are).
-        completeLogin(res.data.user, res.data.token);
-      } else {
-        // First login on this device (or a different account) — offer to save
-        // the password before applying the session.
-        pendingLoginRef.current = {
-          user: res.data.user,
-          token: res.data.token,
-          username,
-          password,
-          displayName: `${res.data.user.firstName ?? ''} ${res.data.user.lastName ?? ''}`.trim() || username,
-        };
-        setSaveStep('password');
+      const displayName = `${res.data.user.firstName ?? ''} ${res.data.user.lastName ?? ''}`.trim() || username;
+      const alreadySetUp = hint?.username === res.data.user.username;
+      if (bioAvailable && !alreadySetUp && !getNeverAsk()) {
+        // Offer fingerprint sign-in. The token is stored now so the setup
+        // request is authenticated; the session itself starts when the offer closes.
+        localStorage.setItem('token', res.data.token);
+        pendingLoginRef.current = { user: res.data.user, token: res.data.token, displayName };
         setBioError('');
         setBioSuccess('');
-        setShowSaveDialog(true);
+        setShowPasskeyOffer(true);
+      } else {
+        completeLogin(res.data.user, res.data.token);
       }
     } catch (err: any) {
       setError(err.response?.data?.error || t('Invalid username or password'));
@@ -120,25 +110,13 @@ export default function Login() {
     }
   };
 
-  // ---- Save-password / biometric dialog handlers ----
+  // ---- "Use your fingerprint next time?" offer ----
 
   const finishPendingLogin = () => {
     const pending = pendingLoginRef.current;
     pendingLoginRef.current = null;
-    setShowSaveDialog(false);
+    setShowPasskeyOffer(false);
     if (pending) completeLogin(pending.user, pending.token);
-  };
-
-  const handleSavePassword = async () => {
-    const pending = pendingLoginRef.current;
-    if (!pending) return finishPendingLogin();
-    saveCredentials(pending.username, pending.password, pending.displayName);
-    setSavedAuth(getSavedAuth());
-    const available = await isBiometricAvailable().catch(() => false);
-    setBioAvailable(available);
-    setBioError('');
-    setBioSuccess('');
-    setSaveStep('biometric');
   };
 
   const handleNeverAsk = () => {
@@ -152,74 +130,45 @@ export default function Login() {
     setBioEnabling(true);
     setBioError('');
     try {
-      const credentialId = await createBiometricCredential(pending.username);
-      setBiometric(pending.username, credentialId);
-      setSavedAuth(getSavedAuth());
-      setBioSuccess(t('Biometric sign-in enabled! You can use it next time.'));
-      // Brief confirmation, then continue into the app.
+      await registerPasskey();
+      const next = { username: pending.user.username, displayName: pending.displayName };
+      setPasskeyHint(next);
+      setHint(next);
+      setBioSuccess(t('Fingerprint sign-in is ready. Use it next time.'));
       setTimeout(finishPendingLogin, 1200);
-    } catch {
-      setBioError(t('Biometric setup was cancelled or failed. You can try again or continue with your password.'));
+    } catch (err) {
+      const message = passkeyErrorMessage(err);
+      setBioError(message ? t(message) : t('Fingerprint setup was cancelled. You can try again or continue.'));
     } finally {
       setBioEnabling(false);
     }
   };
 
-  // ---- Quick sign-in (returning user with saved credentials) ----
-
-  const handleQuickSignIn = async () => {
-    const saved = getSavedAuth();
-    if (!saved) return;
-    setQuickLoading(true);
-    setError('');
-    try {
-      const res = await api.post('/auth/login', { username: saved.username, password: saved.password });
-      completeLogin(res.data.user, res.data.token);
-    } catch {
-      // Most likely the password changed server-side — drop the stale entry.
-      clearSavedAuth();
-      setSavedAuth(null);
-      setPassword('');
-      setError(t('Saved sign-in failed — your password may have changed. Please sign in manually.'));
-    } finally {
-      setQuickLoading(false);
-    }
-  };
+  // ---- Fingerprint sign-in ----
 
   const handleBiometricSignIn = async () => {
-    const saved = getSavedAuth();
-    if (!saved?.credentialId) return;
     setBioLoginLoading(true);
     setError('');
     try {
-      const verified = await verifyBiometric(saved.credentialId);
-      if (verified) {
-        const res = await api.post('/auth/login', { username: saved.username, password: saved.password });
-        completeLogin(res.data.user, res.data.token);
-      } else {
-        setError(t('Biometric verification failed. Please sign in with your password.'));
-      }
-    } catch {
-      setError(t('Biometric verification failed. Please sign in with your password.'));
+      const data = await signInWithPasskey();
+      const displayName = `${data.user.firstName ?? ''} ${data.user.lastName ?? ''}`.trim() || data.user.username;
+      setPasskeyHint({ username: data.user.username, displayName });
+      completeLogin(data.user, data.token);
+    } catch (err) {
+      const message = passkeyErrorMessage(err);
+      if (message) setError(t(message));
     } finally {
       setBioLoginLoading(false);
     }
   };
 
   const handleSwitchAccount = () => {
+    setPasskeyHint(null);
+    setHint(null);
     setUsername('');
     setPassword('');
     setError('');
     usernameInputRef.current?.focus();
-  };
-
-  const handleForgetSaved = () => {
-    if (confirm(t('Forget the saved sign-in on this device?'))) {
-      clearSavedAuth();
-      setSavedAuth(null);
-      setUsername('');
-      setPassword('');
-    }
   };
 
   const handleFixAdmin = async () => {
@@ -302,20 +251,21 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-700 via-blue-600 to-blue-800 p-4">
-      <div className="absolute top-4 right-4 z-10">
+    <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-gray-50 dark:bg-black p-4">
+      <div className="absolute top-[calc(env(safe-area-inset-top)+1rem)] right-[calc(env(safe-area-inset-right)+1rem)] z-10 flex items-center gap-1">
+        <ThemeToggleButton />
         <LanguageToggle />
       </div>
-      <div className="w-full max-w-md p-6 md:p-8 bg-white rounded-2xl shadow-2xl">
-        <div className="text-center mb-6">
+      <div className="w-full max-w-[420px] p-6 md:p-9 bg-white rounded-[28px] border border-black/5 shadow-[0_2px_4px_rgba(0,0,0,0.03),0_30px_80px_-30px_rgba(0,0,0,0.25)] animate-fade-in">
+        <div className="text-center mb-7">
           <div className="relative inline-block mb-4">
-            <img src={sccsLogo} alt={t('Logo')} className="w-20 h-20 md:w-24 md:h-24 object-cover rounded-full shadow-lg border-4 border-blue-100" />
-            <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-              <Lock className="w-4 h-4 text-white" />
+            <img src={sccsLogo} alt={t('Logo')} className="w-20 h-20 object-cover rounded-[22px] shadow-[0_8px_24px_-8px_rgba(0,0,0,0.25)]" />
+            <div className="absolute -bottom-1.5 -right-1.5 w-7 h-7 bg-white rounded-full flex items-center justify-center shadow-md">
+              <Lock className="w-3.5 h-3.5 text-gray-700" />
             </div>
           </div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900">{t('Discipline Tracker')}</h1>
-          <p className="text-gray-500 mt-1 text-sm">{t('Sign in to continue')}</p>
+          <h1 className="text-[1.75rem] font-bold tracking-tight text-gray-900">{t('Discipline Tracker')}</h1>
+          <p className="text-gray-500 mt-1">{t('Sign in to continue')}</p>
         </div>
 
         {error && (
@@ -324,67 +274,31 @@ export default function Login() {
           </div>
         )}
 
-        {/* Quick sign-in for returning users with saved credentials */}
-        {savedAuth && (
+        {/* Returning fingerprint user */}
+        {hint && bioAvailable && (
           <div className="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-xl" data-testid="quick-signin">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-sm shrink-0">
-                {savedAuth.displayName
-                  .split(' ')
-                  .map((part) => part[0])
-                  .join('')
-                  .slice(0, 2)
-                  .toUpperCase()}
+                {hint.displayName.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-gray-900">{t('Quick Sign-In')}</p>
-                <p className="text-xs text-gray-500 truncate">
-                  {savedAuth.displayName} · @{savedAuth.username}
-                </p>
+                <p className="text-sm font-semibold text-gray-900">{t('Welcome back')}</p>
+                <p className="text-xs text-gray-500 break-words">{hint.displayName} · @{hint.username}</p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={handleQuickSignIn}
-              disabled={quickLoading}
-              className="btn btn-primary w-full justify-center"
-            >
-              {quickLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-              {t('Continue as {name}', { name: savedAuth.displayName })}
+            <button type="button" onClick={handleBiometricSignIn} disabled={bioLoginLoading} className="btn btn-primary w-full justify-center">
+              {bioLoginLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fingerprint className="w-4 h-4" />}
+              {t('Sign in with fingerprint')}
             </button>
-            {savedAuth.biometricEnabled && (
-              <button
-                type="button"
-                onClick={handleBiometricSignIn}
-                disabled={bioLoginLoading}
-                className="btn btn-secondary w-full justify-center mt-2"
-              >
-                {bioLoginLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fingerprint className="w-4 h-4" />}
-                {t('Sign in with biometrics')}
-              </button>
-            )}
-            <div className="flex items-center justify-between mt-3">
-              <button
-                type="button"
-                onClick={handleSwitchAccount}
-                className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
-              >
-                {t('Use a different account')}
-              </button>
-              <button
-                type="button"
-                onClick={handleForgetSaved}
-                className="text-xs text-gray-500 hover:text-gray-700 hover:underline"
-              >
-                {t('Forget saved sign-in?')}
-              </button>
-            </div>
+            <button type="button" onClick={handleSwitchAccount} className="mt-3 text-xs text-blue-600 hover:text-blue-700 hover:underline">
+              {t('Use a different account')}
+            </button>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('Username')}</label>
+            <label className="form-label">{t('Username')}</label>
             <div className="relative">
               <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
@@ -400,7 +314,7 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('Password')}</label>
+            <label className="form-label">{t('Password')}</label>
             <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -428,115 +342,56 @@ export default function Login() {
           </div>
         </form>
 
+        {bioAvailable && !hint && (
+          <button type="button" onClick={handleBiometricSignIn} disabled={bioLoginLoading} className="btn btn-secondary w-full justify-center mt-3">
+            {bioLoginLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fingerprint className="w-4 h-4" />}
+            {t('Sign in with fingerprint')}
+          </button>
+        )}
+
         <button
           onClick={() => setShowFixModal(true)}
-          className="mt-4 w-full py-2 px-4 bg-red-600 hover:bg-red-700 rounded-lg text-sm text-white flex items-center justify-center gap-2"
+          className="mt-5 w-full py-2 px-4 rounded-full text-sm text-gray-500 hover:text-gray-900 hover:bg-[var(--fill-hover)] flex items-center justify-center gap-2 transition-colors"
         >
           <RefreshCw className="w-4 h-4" />
           {t('Fix Admin Access')}
         </button>
       </div>
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 pb-[env(safe-area-inset-bottom)]">
+        <a href="/welcome" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
+          {t('Discover what SCCS can do')} &rarr;
+        </a>
+        <InstallAppButton variant="link" />
+      </div>
 
-      {/* Save Password / Enable Biometrics Modal (after first login) */}
-      {showSaveDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm" data-testid="save-password-dialog">
-            {saveStep === 'password' ? (
-              <>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5 text-blue-600" />
-                    <h2 className="text-lg font-semibold">{t('Save your password?')}</h2>
-                  </div>
-                  <button
-                    onClick={finishPendingLogin}
-                    aria-label={t('Not Now')}
-                    className="p-2 hover:bg-gray-100 rounded-lg"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-                <p className="text-gray-500 text-sm mb-4">
-                  {t('Would you like to save your password on this device for faster sign-in next time?')}
-                </p>
-                <button
-                  onClick={handleSavePassword}
-                  className="btn btn-primary w-full justify-center py-3"
-                >
-                  <Save className="w-4 h-4" />
-                  {t('Save Password')}
-                </button>
-                <button
-                  onClick={finishPendingLogin}
-                  className="btn btn-secondary w-full justify-center py-3 mt-2"
-                >
-                  {t('Not Now')}
-                </button>
-                <button
-                  onClick={handleNeverAsk}
-                  className="mt-3 w-full text-xs text-gray-400 hover:text-gray-600 hover:underline"
-                >
-                  {t('Never Ask Again on this device')}
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Fingerprint className="w-5 h-5 text-blue-600" />
-                    <h2 className="text-lg font-semibold">{t('Enable biometric sign-in?')}</h2>
-                  </div>
-                  <button
-                    onClick={finishPendingLogin}
-                    aria-label={t('Skip for Now')}
-                    className="p-2 hover:bg-gray-100 rounded-lg"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-                <p className="text-gray-500 text-sm mb-4">
-                  {t('Sign in next time with your fingerprint, face, or device passkey — no password needed.')}
-                </p>
-                {bioSuccess && (
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-600 text-sm mb-4">
-                    {bioSuccess}
-                  </div>
-                )}
-                {bioError && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm mb-4">
-                    {bioError}
-                  </div>
-                )}
-                {!bioAvailable && !bioError && !bioSuccess && (
-                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 text-sm mb-4">
-                    {t('Biometric sign-in is not available on this device.')}
-                  </div>
-                )}
-                {bioAvailable ? (
-                  <button
-                    onClick={handleEnableBiometrics}
-                    disabled={bioEnabling}
-                    className="btn btn-primary w-full justify-center py-3"
-                  >
-                    {bioEnabling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fingerprint className="w-4 h-4" />}
-                    {t('Enable Biometrics')}
-                  </button>
-                ) : (
-                  <button
-                    onClick={finishPendingLogin}
-                    className="btn btn-primary w-full justify-center py-3"
-                  >
-                    {t('Continue Without Biometrics')}
-                  </button>
-                )}
-                <button
-                  onClick={finishPendingLogin}
-                  className="btn btn-secondary w-full justify-center py-3 mt-2"
-                >
-                  {t('Skip for Now')}
-                </button>
-              </>
-            )}
+      {/* After a password sign-in: offer fingerprint sign-in on this device */}
+      {showPasskeyOffer && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[24px] p-6 w-full max-w-sm shadow-2xl" role="dialog" aria-modal="true" aria-label={t('Use your fingerprint next time?')} data-testid="passkey-offer-dialog">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Fingerprint className="w-5 h-5 text-blue-600" />
+                <h2 className="text-lg font-semibold">{t('Use your fingerprint next time?')}</h2>
+              </div>
+              <button onClick={finishPendingLogin} aria-label={t('Close')} className="icon-btn">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-gray-500 text-sm mb-4">
+              {t('Sign in with your fingerprint or face instead of typing your password. Your fingerprint never leaves this device.')}
+            </p>
+            {bioSuccess && <div className="callout callout-info mb-4">{bioSuccess}</div>}
+            {bioError && <div className="callout callout-danger mb-4">{bioError}</div>}
+            <button onClick={handleEnableBiometrics} disabled={bioEnabling || !!bioSuccess} className="btn btn-primary w-full justify-center py-3">
+              {bioEnabling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fingerprint className="w-4 h-4" />}
+              {t('Use fingerprint')}
+            </button>
+            <button onClick={finishPendingLogin} className="btn btn-secondary w-full justify-center py-3 mt-2">
+              {t('Not now')}
+            </button>
+            <button onClick={handleNeverAsk} className="mt-3 w-full text-xs text-gray-500 hover:text-gray-700 hover:underline">
+              {t('Never ask again on this device')}
+            </button>
           </div>
         </div>
       )}

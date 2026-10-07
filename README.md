@@ -2,11 +2,21 @@
 
 Mobile-first disciplinary record tracking app for **Santa Cruz Christian School (SCCS)** — bilingual (English / Español), role-based, and aligned with the **PlusPortals SIS discipline code sets** used by the school.
 
-Version **2.0.0** — ported from the original Express/PostgreSQL + Vite stack to a single **Next.js 16** app (App Router API routes + Prisma/SQLite) that runs anywhere with one command. The original stack remains available in the git history.
+Version **2.1.0**: adds learning support plans with accommodations, PBIS recognition, explainable early-warning insights, a command palette, an Apple-style redesign and a product landing page with a HyperFrames film. Version 2.0.0 was ported from the original Express/PostgreSQL + Vite stack to a single **Next.js 16** app (App Router API routes + Prisma/SQLite) that runs anywhere with one command. The original stack remains available in the git history.
 
 ---
 
 ## Features
+
+### New in 2.1 (see [docs/powerschool-research.md](docs/powerschool-research.md))
+
+- **Learning Support** (`#/support`): IEP, 504, ELL, BIP, Gifted and Health plans with categorized accommodations, case manager and annual review dates. Plan badges show on the roster and student profile, and the incident form shows the student's plan and behavior guidance before a consequence is chosen.
+- **IDEA safeguard**: students with an IEP or 504 plan are flagged at 8 days of out-of-school removal and again at 10 days, when a manifestation determination review is required.
+- **Recognition** (`#/recognition`): two-tap PBIS recognitions, leaderboard, and the positive-to-corrective ratio.
+- **Insights** (`#/insights`): explainable early-warning scores plus the manifestation determination alert list.
+- **Command palette**: Ctrl/Cmd + K finds any student, screen or action.
+- **Redesign**: Apple-style design system (system/Geist type, one accent, glass navigation, floating tab bar on phones).
+- **Landing page** at `/welcome` with a 46-second product film rendered with [HyperFrames](https://github.com/heygen-com/hyperframes) (source in `marketing/demo-film`).
 
 - **Incident registration with PlusPortals SIS codes** — pick the infraction, location, action, penalty (auto-fills detention hours / ISS / OSS days) and served status, mirroring the PlusPortals discipline entry flow
 - **Five seeded code sets** (fully editable by admins on the *Violations* page → *PlusPortals SIS Code Sets*):
@@ -40,13 +50,14 @@ Version **2.0.0** — ported from the original Express/PostgreSQL + Vite stack t
 Prerequisite: [bun](https://bun.sh) (v1.2+). Node.js 20+ also works with npm/pnpm if you prefer.
 
 ```bash
+cp .env.example .env # needed for the admin account to be seeded
 bun install          # install dependencies (generates the Prisma client)
 bun run db:push      # create the SQLite database at db/sccs.db
 bun run db:seed      # seed code sets, demo roster, incidents and accounts
 bun run dev          # start at http://localhost:3000
 ```
 
-Optional: copy `.env.example` to `.env` to customize the admin credentials, JWT secret and version handshake. Every variable is optional — the app runs with safe defaults.
+Copy `.env.example` to `.env` (the seed creates the `admin` account from it) and customize the admin credentials, JWT secret and version handshake. Every variable is optional — the app runs with safe defaults.
 
 ### Demo accounts
 
@@ -75,7 +86,9 @@ src/
 prisma/
   schema.prisma   # 20-table schema (SQLite) — the db path is pinned here
   seed.ts         # idempotent seed: codes, demo data, accounts
-e2e/              # Playwright end-to-end suite (44 cases, mobile + desktop)
+e2e/              # Playwright end-to-end suite (mobile + desktop)
+marketing/        # HyperFrames source for the /welcome product film
+docs/             # PowerSchool research behind the 2.1 features
 public/           # PWA manifest, icons, service worker
 db/               # SQLite database file (created by db:push, not committed)
 ```
@@ -89,6 +102,8 @@ bun run dev &        # server on :3000
 bunx playwright test
 ```
 
+`e2e/features.spec.ts` covers the 2.1 features, the landing page and its film, and checks every screen for runtime errors and sideways scrolling on phone and desktop. If the bundled Playwright browser is not downloaded, point at an installed Chromium with `PW_CHROMIUM_PATH=/path/to/chromium`.
+
 ## Scripts
 
 | Script | Purpose |
@@ -99,11 +114,43 @@ bunx playwright test
 | `db:push` | Apply `prisma/schema.prisma` to the SQLite file |
 | `db:seed` | Seed code sets, demo data and accounts (idempotent) |
 
+## Loading the school roster
+
+Real student data never goes into this (public) repository: `db/roster*.csv` is git-ignored.
+
+1. Convert the school's spreadsheet (columns `UNIQUE ID`, `APID`, `GRADE LEVEL`, `LAST NAME`, `FIRST NAME`):
+   `node scripts/roster-from-xlsx.mjs "Secondary Student List.xlsx"` writes `db/roster.csv`.
+2. `bun prisma/seed.ts` then deletes every demo student (with their incidents, MTSS, plans and recognitions) and loads the roster. Unique IDs keep their leading zeros; the APID is stored and searchable.
+3. For Vercel, run the same script with `--base64` and save the output as the encrypted project environment variable `SCCS_ROSTER_B64`; the next deploy loads it.
+
+The E2E suite always seeds the demo dataset (`SCCS_ROSTER=demo`), so run `bun prisma/seed.ts` again after testing to restore the roster locally.
+
+## Deployment (Vercel + Supabase)
+
+Data lives in **Supabase Postgres** (project `sccs-student-os`), in a private `sccs` schema owned by the `sccs_app` role, so it is not reachable through Supabase's public REST API. Every save goes straight to that database and is shared by all users and devices; open screens refresh themselves when the app regains focus and every 30 seconds.
+
+Vercel project environment variables (all encrypted, never committed):
+
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Supabase transaction pooler (`:6543`, `?pgbouncer=true&connection_limit=1&schema=sccs`), used by the app |
+| `DIRECT_URL` | Supabase session pooler (`:5432`, `?schema=sccs`), used by `prisma db push` at build |
+| `JWT_SECRET` | Signs login sessions; the app refuses to run in production without it |
+| `SCCS_ROSTER_B64` | The school roster (see above); new students are added on deploy, nothing is deleted |
+| `RESEND_API_KEY` or `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`, plus `MAIL_FROM` | Email to coordinators when a referral is filed (optional; without it the referral still reaches their in-app inbox) |
+| `INITIAL_ADMIN_USERNAME` / `INITIAL_ADMIN_PASSWORD` | First admin account, created only when no admin exists |
+
+`scripts/vercel-build.sh` runs `prisma db push` (which refuses data-losing changes), tops up reference data and the roster, then builds. Locally, any Postgres works (see `.env.example`); the E2E suite seeds demo data into it.
+
+## Roles
+
+`admin` (everything), `coordinator` (everything an admin can do except manage admin accounts, plus the confidential Secondary Disciplinary Referrals inbox), `principal`, `counselor`, `teacher`, `staff`, `parent`, `student`.
+
 ## Production notes
 
-- Set a strong `JWT_SECRET` in `.env` — the built-in fallback is for development only
 - Change the initial admin password on first login
-- Back up `db/sccs.db` — it holds all incidents, contacts and MTSS records
+- Supabase free projects pause after a week without activity; upgrade or keep the app in use
+- Fingerprint sign-in (passkeys) is tied to the web address it was set up on: always open the app at the same address
 - Keep `APP_VERSION` and `NEXT_PUBLIC_APP_VERSION` in sync to control the update banner
 
 ## License

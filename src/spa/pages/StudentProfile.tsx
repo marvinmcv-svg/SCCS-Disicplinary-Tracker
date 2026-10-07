@@ -1,13 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, User, Calendar, Phone, Mail, MapPin, Clock, AlertTriangle, CheckCircle, Printer, ChevronRight, GraduationCap } from 'lucide-react';
+import { ArrowLeft, User, Calendar, Phone, Mail, MapPin, Clock, AlertTriangle, CheckCircle, Printer, ChevronRight, GraduationCap, Accessibility, Award, Plus, AlertOctagon } from 'lucide-react';
 import api from '../lib/api';
+import { useLiveRefresh } from '../lib/useLiveRefresh';
 import { Incident } from '../lib/api';
 import { useI18n } from '../i18n';
+import { useAuth } from '../App';
+import { useStudentSupport } from '../components/SupportAlert';
+import { PlanBadge, formatShortDate } from '../components/kit';
+import { AccommodationGroups, PLAN_LABELS } from './LearningSupport';
 
 interface Student {
   id: number;
   student_id: string;
+  apid?: string | null;
   last_name: string;
   first_name: string;
   grade: string;
@@ -46,8 +52,12 @@ interface StudentIncident extends Incident {
 }
 
 export default function StudentProfile() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const { user } = useAuth();
+  const isStaff = ['admin', 'coordinator', 'principal', 'counselor', 'teacher', 'staff'].includes(user?.role);
   const { id } = useParams<{ id: string }>();
+  const [supportVersion, setSupportVersion] = useState(0);
+  const support = useStudentSupport(isStaff ? id : null, supportVersion);
   const navigate = useNavigate();
   const [student, setStudent] = useState<Student | null>(null);
   const [incidents, setIncidents] = useState<StudentIncident[]>([]);
@@ -83,6 +93,7 @@ export default function StudentProfile() {
     }
   }, [id]);
 
+  useLiveRefresh(() => { loadData(); setSupportVersion((v) => v + 1); });
   useEffect(() => {
     loadData();
   }, [loadData]);
@@ -172,10 +183,10 @@ export default function StudentProfile() {
   const resolvedIncidents = incidents.filter(i => i.status === 'Resolved');
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto pb-24 md:pb-6">
+    <div className="max-w-5xl mx-auto pb-24 md:pb-6 animate-fade-in">
       <button
         onClick={() => navigate('/students')}
-        className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+        className="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-medium mb-4 no-print"
       >
         <ArrowLeft className="w-5 h-5" />
         {t('Back to Students')}
@@ -191,7 +202,7 @@ export default function StudentProfile() {
 
       {/* Student Header Card */}
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-6 print:shadow-none">
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6">
+        <div className="bg-white p-5 md:p-7">
           <div className="flex items-start gap-6">
             {/* Profile Picture or Grade-colored Avatar */}
             <div className="w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center text-2xl md:text-3xl font-bold overflow-hidden">
@@ -203,11 +214,11 @@ export default function StudentProfile() {
                 </div>
               )}
             </div>
-            <div className="flex-1 text-white">
-              <h1 className="text-2xl md:text-3xl font-bold">
+            <div className="flex-1 min-w-0 text-gray-900">
+              <h1 className="text-2xl md:text-[2rem] font-bold tracking-tight">
                 {student.last_name}, {student.first_name}
               </h1>
-              <div className="flex flex-wrap items-center gap-3 mt-2 text-blue-100">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-gray-500">
                 <span className="flex items-center gap-1">
                   <GraduationCap className="w-4 h-4" />
                   {t('Grade')} {student.grade}{student.section ? `-${student.section}` : ''}
@@ -226,8 +237,11 @@ export default function StudentProfile() {
                   <User className="w-4 h-4" />
                   {t('ID')}: {student.student_id}
                 </span>
+                {student.apid && (
+                  <span className="flex items-center gap-1">APID: {student.apid}</span>
+                )}
               </div>
-              <div className="flex items-center gap-2 mt-3">
+              <div className="flex flex-wrap items-center gap-2 mt-3">
                 {mtss ? (
                   <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${getMtssTierColor(mtss.tier)}`}>
                     MTSS {getMtssTierLabel(mtss.tier)}
@@ -237,10 +251,11 @@ export default function StudentProfile() {
                     MTSS {t('Not Enrolled')}
                   </span>
                 )}
+                {support?.active_plan_types.map((type) => <PlanBadge key={type} type={type} />)}
                 <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
-                  student.conduct_status === 'Good Standing' ? 'bg-green-200 text-green-800' :
-                  student.conduct_status === 'Warning' ? 'bg-yellow-200 text-yellow-800' :
-                  student.conduct_status === 'Probation' ? 'bg-red-200 text-red-800' : 'bg-blue-200 text-blue-800'
+                  student.conduct_status === 'Good Standing' ? 'bg-green-100 text-green-800' :
+                  student.conduct_status === 'Warning' ? 'bg-yellow-100 text-yellow-800' :
+                  student.conduct_status === 'Probation' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
                 }`}>
                   {t(student.conduct_status || 'Unknown')}
                 </span>
@@ -250,7 +265,7 @@ export default function StudentProfile() {
         </div>
 
         {/* Quick Info Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-gray-100 bg-gray-50">
+        <div className="grid grid-cols-2 md:grid-cols-4 border-t border-black/5 bg-[var(--surface-2)]">
           <div className="flex items-center gap-3 p-4">
             <User className="w-5 h-5 text-gray-400" />
             <div>
@@ -269,7 +284,7 @@ export default function StudentProfile() {
             <Mail className="w-5 h-5 text-gray-400" />
             <div>
               <p className="text-xs text-gray-500">{t('Parent Email')}</p>
-              <p className="text-sm font-medium text-gray-900 truncate">{student.parent_email || '-'}</p>
+              <p className="text-sm font-medium text-gray-900 break-all">{student.parent_email || '-'}</p>
             </div>
           </div>
           <div className="flex items-center gap-3 p-4">
@@ -283,7 +298,7 @@ export default function StudentProfile() {
             <User className="w-5 h-5 text-gray-400" />
             <div>
               <p className="text-xs text-gray-500">{t('Parent/Guardian')}</p>
-              <p className="text-sm font-medium text-gray-900 truncate">{student.parent_name || '-'}</p>
+              <p className="text-sm font-medium text-gray-900 break-words">{student.parent_name || '-'}</p>
             </div>
           </div>
           <div className="flex items-center gap-3 p-4">
@@ -309,6 +324,73 @@ export default function StudentProfile() {
           </div>
         </div>
       </div>
+
+      {/* Quick actions */}
+      {isStaff && (
+        <div className="flex flex-wrap gap-2 mb-6 no-print">
+          <button className="btn btn-primary" onClick={() => navigate('/incidents', { state: { openNew: true, studentId: student.id } })}>
+            <Plus className="w-4 h-4" /> {t('Log incident')}
+          </button>
+          <button className="btn btn-secondary" onClick={() => navigate(`/recognition?new=1&student=${student.id}`)}>
+            <Award className="w-4 h-4" /> {t('Recognize')}
+          </button>
+        </div>
+      )}
+
+      {/* Learning support plans + accommodations */}
+      {support && support.plans.some((p) => p.status === 'Active' || p.status === 'Under Review') && (
+        <section className="bg-white rounded-2xl shadow-sm p-6 mb-6" data-testid="profile-support">
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Accessibility className="w-5 h-5 text-blue-600" />
+              {t('Learning Support')}
+            </h2>
+            <Link to={`/support?student=${student.id}`} className="text-sm font-medium text-blue-600">{t('Open plan')}</Link>
+          </div>
+          {support.mdr && support.mdr.status !== 'ok' && (
+            <div className="callout callout-danger mb-4">
+              <AlertOctagon className="w-5 h-5 shrink-0 mt-0.5" />
+              <p className="text-sm">
+                <strong>{support.mdr.status === 'required' ? t('Manifestation determination review required') : t('Approaching the 10-day removal limit')}</strong>{' '}
+                {t('{days} of {limit} removal days used this school year.', { days: support.removal_days_ytd, limit: support.mdr.threshold })}
+              </p>
+            </div>
+          )}
+          <div className="space-y-5">
+            {support.plans.filter((p) => p.status === 'Active' || p.status === 'Under Review').map((p) => (
+              <div key={p.id}>
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <PlanBadge type={p.plan_type} />
+                  <span className="font-medium text-gray-900">{p.primary_need ?? t(PLAN_LABELS[p.plan_type])}</span>
+                  <span className="text-sm text-gray-500">{t('Case manager')}: {p.case_manager ?? '-'} · {t('Review')} {formatShortDate(p.review_date, lang)}</span>
+                </div>
+                {p.behavior_considerations && <p className="text-sm text-gray-600 mb-3">{p.behavior_considerations}</p>}
+                <AccommodationGroups items={p.accommodations} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Positive recognition */}
+      {support && support.recognitions.length > 0 && (
+        <section className="bg-white rounded-2xl shadow-sm p-6 mb-6" data-testid="profile-recognition">
+          <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
+            <Award className="w-5 h-5 text-green-600" />
+            {t('Recognition')}
+            <span className="text-sm font-normal text-gray-500">{t('{n} points recently', { n: support.recognition_points })}</span>
+          </h2>
+          <ul className="space-y-3">
+            {support.recognitions.slice(0, 5).map((r) => (
+              <li key={r.id} className="flex items-start gap-3 text-sm">
+                <span className="value-chip shrink-0">{t(r.category)}</span>
+                <span className="flex-1 text-gray-700">{r.note || t('Recognized')}<span className="text-gray-500"> · {r.awarded_by}</span></span>
+                <span className="text-gray-500 shrink-0">{formatShortDate(r.date, lang)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* Incident Summary Cards */}
       <div className="grid grid-cols-3 gap-4 mb-6">

@@ -36,6 +36,9 @@
  * The database path comes from prisma/schema.prisma (single source of truth).
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
+import zlib from 'node:zlib';
 import bcrypt from 'bcryptjs';
 import { db } from '../src/lib/db';
 
@@ -899,7 +902,7 @@ async function seedAlerts(): Promise<void> {
 async function seedDefaultSettings(): Promise<void> {
   const settings: [string, string][] = [
     ['school_name', 'SCCS'],
-    ['academic_year', '2025-2026'],
+    ['academic_year', '2026-2027'],
     ['max_points', '100'],
     ['passing_threshold', '60'],
   ];
@@ -907,10 +910,10 @@ async function seedDefaultSettings(): Promise<void> {
     await db.settings.upsert({
       where: { key },
       create: { key, value },
-      update: { value },
+      update: {}, // never overwrite what the school has changed in Settings
     });
   }
-  console.log('✓ settings upserted (4 keys)');
+  console.log('✓ settings present (4 keys)');
 }
 
 // ---------------------------------------------------------------------------
@@ -1969,8 +1972,324 @@ async function verify(): Promise<void> {
 // Main
 // ---------------------------------------------------------------------------
 
+
+// ---------------------------------------------------------------------------
+// Learning support plans (IEP / 504 / ELL / BIP / Gifted / Health) and PBIS
+// recognitions for the demo roster. Uses its OWN PRNG so adding this data
+// never shifts the deterministic incident/MTSS distribution above.
+// ---------------------------------------------------------------------------
+const PLAN_NEEDS: Record<string, readonly string[]> = {
+  IEP: [
+    'Specific Learning Disability (Dyslexia)', 'Specific Learning Disability (Dyscalculia)',
+    'Speech or Language Impairment', 'Autism Spectrum Disorder',
+    'Other Health Impairment (ADHD)', 'Emotional Disturbance',
+  ],
+  '504': ['ADHD', 'Generalized Anxiety Disorder', 'Type 1 Diabetes', 'Dysgraphia', 'Hearing Impairment'],
+  ELL: ['English Learner (WIDA level 2)', 'English Learner (WIDA level 3)', 'English Learner (WIDA level 4)'],
+  BIP: ['Behavior Intervention Plan (task avoidance)', 'Behavior Intervention Plan (peer conflict)'],
+  Gifted: ['Gifted & Talented (Mathematics)', 'Gifted & Talented (Language Arts)'],
+  Health: ['Severe Food Allergy (Epinephrine on file)', 'Asthma Action Plan', 'Seizure Action Plan'],
+};
+
+const ACCOMMODATION_BANK: Record<string, [string, string][]> = {
+  IEP: [
+    ['Timing', 'Extended time (1.5x) on tests and quizzes'],
+    ['Setting', 'Preferential seating near instruction, away from doors'],
+    ['Presentation', 'Text-to-speech for reading passages'],
+    ['Presentation', 'Chunked directions with a written checklist'],
+    ['Response', 'May respond orally or dictate written answers'],
+    ['Setting', 'Testing in a small-group, reduced-distraction room'],
+    ['Assistive Technology', 'Access to audiobooks and speech-to-text'],
+    ['Behavioral', 'Break pass: up to two 5-minute breaks per class'],
+    ['Timing', 'Reduced homework load: core problems only'],
+  ],
+  '504': [
+    ['Timing', 'Extended time (1.5x) on tests'],
+    ['Behavioral', 'Movement breaks and fidget tools allowed'],
+    ['Setting', 'Seating away from high-traffic areas'],
+    ['Response', 'Use of laptop for written work'],
+    ['Presentation', 'Copy of class notes provided'],
+    ['Setting', 'Unrestricted access to water, snacks and restroom'],
+    ['Behavioral', 'Private check-in before tests to reduce anxiety'],
+  ],
+  ELL: [
+    ['Presentation', 'Bilingual glossary allowed on assessments'],
+    ['Presentation', 'Visual supports and sentence frames'],
+    ['Timing', 'Extended time on reading-heavy tasks'],
+    ['Response', 'May answer in first language, then translate with support'],
+  ],
+  BIP: [
+    ['Behavioral', 'Check-in / check-out with counselor daily'],
+    ['Behavioral', 'Positive reinforcement chart reviewed each period'],
+    ['Behavioral', 'Calm-down space available with adult supervision'],
+    ['Setting', 'Seat near a positive peer model'],
+  ],
+  Gifted: [
+    ['Presentation', 'Compacted curriculum and enrichment extensions'],
+    ['Response', 'Independent project options in place of practice sets'],
+  ],
+  Health: [
+    ['Setting', 'Emergency medication kept in classroom and nurse office'],
+    ['Timing', 'Excused for health-office visits without penalty'],
+  ],
+};
+
+const BEHAVIOR_NOTES: Record<string, readonly string[]> = {
+  IEP: [
+    'Responds best to private redirection. Avoid public correction; offer a break pass before escalating.',
+    'Processing delays: allow 10 seconds of wait time and repeat directions once, calmly, before any consequence.',
+    'Sensory overload in loud spaces can look like defiance. Offer headphones or a quiet space first.',
+  ],
+  '504': [
+    'Impulsivity is part of the documented disability. Use a nonverbal cue before a verbal warning.',
+    'Anxiety may present as refusal. Check in privately before treating it as noncompliance.',
+  ],
+  BIP: [
+    'Follow the BIP: planned ignoring for minor attention-seeking, praise replacement behaviour within 5 seconds.',
+    'Triggers: unstructured transitions and peer teasing. Pre-correct before transitions.',
+  ],
+};
+
+async function seedLearningSupport(): Promise<void> {
+  const r = mulberry32(5_042_026);
+  const rp = <T,>(arr: readonly T[]): T => arr[Math.floor(r() * arr.length)];
+  const demo = await db.students.findMany({
+    where: { student_id: { gte: DEMO_ID_MIN, lte: DEMO_ID_MAX } },
+    orderBy: { student_id: 'asc' },
+    select: { id: true, student_id: true, grade: true },
+  });
+  const ids = demo.map((s) => s.id);
+  for (const part of chunk(ids, 300)) {
+    await db.recognitions.deleteMany({ where: { student_id: { in: part } } });
+    await db.supportPlans.deleteMany({ where: { student_id: { in: part } } });
+  }
+
+  // Students with the most suspension days are overrepresented among students
+  // with disabilities in real data; give the top few an IEP so the IDEA
+  // manifestation-determination alert has realistic demo cases.
+  const yearStart = (() => {
+    const t = toUtc(TODAY);
+    const y = t.getUTCMonth() >= 7 ? t.getUTCFullYear() : t.getUTCFullYear() - 1;
+    return `${y}-08-01`;
+  })();
+  const oss = await db.incidents.groupBy({
+    by: ['student_id'],
+    where: { student_id: { in: ids }, date: { gte: yearStart } },
+    _sum: { days_oss: true },
+  });
+  const heavy = oss
+    .filter((o) => (o._sum.days_oss ?? 0) >= 6)
+    .sort((a, b) => (b._sum.days_oss ?? 0) - (a._sum.days_oss ?? 0))
+    .slice(0, 3)
+    .map((o) => o.student_id);
+
+  const plans: { student_id: number; type: string }[] = [];
+  // S-2026-002 (first demo student) always has an IEP + BIP: stable fixture for tests.
+  if (demo[0]) plans.push({ student_id: demo[0].id, type: 'IEP' }, { student_id: demo[0].id, type: 'BIP' });
+  for (const id of heavy) if (id !== demo[0]?.id) plans.push({ student_id: id, type: 'IEP' });
+  for (const s of demo.slice(1)) {
+    if (heavy.includes(s.id)) continue;
+    const roll = r();
+    if (roll < 0.06) plans.push({ student_id: s.id, type: 'IEP' });
+    else if (roll < 0.10) plans.push({ student_id: s.id, type: '504' });
+    else if (roll < 0.16) plans.push({ student_id: s.id, type: 'ELL' });
+    else if (roll < 0.19 && s.grade >= 3) plans.push({ student_id: s.id, type: 'Gifted' });
+    else if (roll < 0.21) plans.push({ student_id: s.id, type: 'Health' });
+    if (roll < 0.06 && r() < 0.3) plans.push({ student_id: s.id, type: 'BIP' });
+  }
+
+  for (const p of plans) {
+    const start = addDays(TODAY, -Math.floor(30 + r() * 300));
+    const review = addDays(start, 365);
+    const bank = ACCOMMODATION_BANK[p.type];
+    const count = Math.min(bank.length, p.type === 'IEP' ? 5 : p.type === '504' ? 4 : 2 + Math.floor(r() * 2));
+    const chosen = [...bank].sort(() => r() - 0.5).slice(0, count);
+    await db.supportPlans.create({
+      data: {
+        student_id: p.student_id,
+        plan_type: p.type,
+        primary_need: rp(PLAN_NEEDS[p.type]),
+        case_manager: rp(COUNSELORS),
+        start_date: start,
+        review_date: review,
+        status: review < addDays(TODAY, 30) ? 'Under Review' : 'Active',
+        behavior_considerations: BEHAVIOR_NOTES[p.type] ? rp(BEHAVIOR_NOTES[p.type]) : null,
+        parent_consent: true,
+        notes: null,
+        accommodations: {
+          create: chosen.map(([category, description]) => ({
+            category,
+            description,
+            applies_to: description.includes('test') ? 'Assessments' : 'All classes',
+          })),
+        },
+      },
+    });
+  }
+  console.log(`Inserted ${plans.length} learning support plans`);
+
+  // PBIS recognitions over the last ~60 school days.
+  const CATEGORIES = ['Respect', 'Responsibility', 'Integrity', 'Kindness', 'Leadership', 'Excellence'] as const;
+  const NOTES: Record<string, readonly string[]> = {
+    Respect: ['Listened carefully and waited their turn in discussion', 'Showed courtesy to a substitute teacher'],
+    Responsibility: ['Turned in every assignment on time this week', 'Cleaned up the lab station without being asked'],
+    Integrity: ['Returned a lost wallet to the front office', 'Owned a mistake and made it right'],
+    Kindness: ['Included a new student at lunch', 'Helped a classmate who was struggling'],
+    Leadership: ['Led their group calmly through the project', 'Organized the class recycling team'],
+    Excellence: ['Big improvement on the unit test', 'Outstanding effort in the science fair'],
+  };
+  const days = schoolDays(addDays(TODAY, -90), TODAY);
+  const recs: { student_id: number; category: string; points: number; note: string; awarded_by: string; date: string }[] = [];
+  for (let i = 0; i < 720 && days.length; i++) {
+    const s = demo[Math.floor(r() * demo.length)];
+    const category = rp(CATEGORIES);
+    recs.push({
+      student_id: s.id,
+      category,
+      points: r() < 0.75 ? 1 : r() < 0.8 ? 2 : 3,
+      note: rp(NOTES[category]),
+      awarded_by: rp(TEACHERS),
+      date: days[Math.floor(Math.pow(r(), 0.7) * days.length)],
+    });
+  }
+  for (const part of chunk(recs, 200)) await db.recognitions.createMany({ data: part });
+  console.log(`Inserted ${recs.length} PBIS recognitions`);
+}
+
+// ---------------------------------------------------------------------------
+// Real roster (replaces every demo student)
+// ---------------------------------------------------------------------------
+// The school's roster is private and never committed (db/roster*.csv is
+// git-ignored). It comes from SCCS_ROSTER_B64 (gzip + base64 of the CSV, set
+// as an encrypted Vercel environment variable) or from db/roster.csv locally;
+// build either with scripts/roster-from-xlsx.mjs. SCCS_ROSTER=demo forces the
+// demo dataset (the E2E suite uses it); SCCS_ROSTER=none leaves students alone.
+type RosterRow = { student_id: string; apid: string | null; grade: number; last_name: string; first_name: string };
+
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ',') { row.push(cell); cell = ''; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(cell); cell = '';
+      if (row.some((c) => c !== '')) rows.push(row);
+      row = [];
+    } else cell += ch;
+  }
+  row.push(cell);
+  if (row.some((c) => c !== '')) rows.push(row);
+  return rows;
+}
+
+function loadRoster(): RosterRow[] | null {
+  if (process.env.SCCS_ROSTER === 'demo') return null;
+  let csv: string | null = null;
+  if (process.env.SCCS_ROSTER_B64) {
+    csv = zlib.gunzipSync(Buffer.from(process.env.SCCS_ROSTER_B64, 'base64')).toString('utf8');
+  } else {
+    const file = path.resolve(__dirname, '../db/roster.csv');
+    if (fs.existsSync(file)) csv = fs.readFileSync(file, 'utf8');
+  }
+  if (!csv) return null;
+  const [header, ...rows] = parseCsv(csv);
+  const at = (name: string) => {
+    const i = header.indexOf(name);
+    if (i < 0) throw new Error(`roster: missing column ${name}`);
+    return i;
+  };
+  const [cId, cApid, cGrade, cLast, cFirst] = ['student_id', 'apid', 'grade', 'last_name', 'first_name'].map(at);
+  const seen = new Set<string>();
+  return rows.map((r) => {
+    const row: RosterRow = {
+      student_id: r[cId].trim(),
+      apid: r[cApid]?.trim() || null,
+      grade: parseInt(r[cGrade], 10),
+      last_name: r[cLast].trim(),
+      first_name: r[cFirst].trim(),
+    };
+    if (!row.student_id || !row.last_name || !row.first_name || Number.isNaN(row.grade)) throw new Error(`roster: incomplete row ${r.join(',')}`);
+    if (seen.has(row.student_id)) throw new Error(`roster: duplicate student id ${row.student_id}`);
+    seen.add(row.student_id);
+    return row;
+  });
+}
+
+/** Deletes every student and everything attached to one. */
+async function wipeAllStudents(): Promise<void> {
+  const incidentIds = (await db.incidents.findMany({ select: { id: true } })).map((i) => i.id);
+  for (const ids of chunk(incidentIds, 500)) {
+    await db.incidentStatusLogs.deleteMany({ where: { incident_id: { in: ids } } });
+    await db.parentContacts.deleteMany({ where: { incident_id: { in: ids } } });
+    await db.incidentEvidence.deleteMany({ where: { incident_id: { in: ids } } });
+  }
+  const removed = {
+    incidents: (await db.incidents.deleteMany({})).count,
+    mtss: (await db.mtssInterventions.deleteMany({})).count,
+    accommodations: (await db.accommodations.deleteMany({})).count,
+    plans: (await db.supportPlans.deleteMany({})).count,
+    recognitions: (await db.recognitions.deleteMany({})).count,
+    parentLinks: (await db.parentStudentLinks.deleteMany({})).count,
+    students: (await db.students.deleteMany({})).count,
+  };
+  console.log('• removed students and their records:', removed);
+}
+
+/**
+ * Brings the students table in line with the school roster without touching
+ * anything staff have recorded since. The database is persistent (Supabase),
+ * so this runs on every deploy: demo students are removed once, new roster
+ * students are added, and names/grades/APIDs are refreshed by Unique ID.
+ * Students missing from a newer roster are kept (their history matters).
+ */
+async function seedRealRoster(roster: RosterRow[]): Promise<void> {
+  if (await db.students.findFirst({ where: { student_id: { startsWith: 'S-' } } })) {
+    await wipeAllStudents();
+  }
+
+  const existing = new Map(
+    (await db.students.findMany({ select: { student_id: true, apid: true, grade: true, last_name: true, first_name: true } }))
+      .map((s) => [s.student_id, s]),
+  );
+  const toCreate = roster.filter((r) => !existing.has(r.student_id));
+  for (const batch of chunk(toCreate, 200)) {
+    await db.students.createMany({
+      data: batch.map((r) => ({
+        student_id: r.student_id,
+        apid: r.apid,
+        grade: r.grade,
+        last_name: r.last_name,
+        first_name: r.first_name,
+      })),
+    });
+  }
+  let updated = 0;
+  for (const r of roster) {
+    const cur = existing.get(r.student_id);
+    if (!cur) continue;
+    if (cur.apid !== r.apid || cur.grade !== r.grade || cur.last_name !== r.last_name || cur.first_name !== r.first_name) {
+      await db.students.update({
+        where: { student_id: r.student_id },
+        data: { apid: r.apid, grade: r.grade, last_name: r.last_name, first_name: r.first_name },
+      });
+      updated++;
+    }
+  }
+  const count = await db.students.count();
+  console.log(`• roster: ${toCreate.length} added, ${updated} updated, ${count} students in the database`);
+}
+
 async function main(): Promise<void> {
-  console.log(`SCCS seed — target database: ${process.env.DATABASE_URL ?? '(from .env)'}`);
+  console.log(`SCCS seed — target database: ${(process.env.DATABASE_URL ?? '(unset)').replace(/:[^:@/]*@/, ':***@')}`);
   console.log(`Today (UTC): ${TODAY}\n`);
 
   // Reference data + admin first (never re-touched once seeded).
@@ -1981,11 +2300,37 @@ async function main(): Promise<void> {
   await seedDefaultSettings();
   const adminId = await createDefaultAdmin();
 
+  // Production deploys without a roster set SCCS_ROSTER=none: reference data
+  // and accounts only, and never the demo students.
+  if (process.env.SCCS_ROSTER === 'none') {
+    await seedAdvisorAccounts();
+    console.log('\n✅ Seed complete (reference data only; students untouched).');
+    return;
+  }
+
+  const roster = loadRoster();
+  if (roster) {
+    await seedRealRoster(roster);
+    await seedAdvisorAccounts();
+    console.log('\n✅ Seed complete with the school roster (no demo data).');
+    return;
+  }
+
+  // Switching a database from the real roster back to demo data (E2E runs):
+  // roster ids are all digits, demo ids look like S-2026-002.
+  if (await db.students.count({ where: { NOT: { student_id: { startsWith: 'S-' } } } }) > 0
+      && (await db.students.findFirst({ where: { student_id: { startsWith: '0' } } }))) {
+    await wipeAllStudents();
+  }
+
   // Demo dataset (idempotent: wipes + regenerates S-2026-002…S-2026-601 rows).
   await seedDemoData(adminId);
 
   // Rewrite legacy free-text locations (pre-code-set rows) to SIS location codes.
   await migrateLegacyLocations();
+
+  // Learning support plans + PBIS recognitions for the demo roster.
+  await seedLearningSupport();
 
   // Accounts + links (counselor/teacher accounts match the freshly seeded roster).
   await seedTestAccounts();

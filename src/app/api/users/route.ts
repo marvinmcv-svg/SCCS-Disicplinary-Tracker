@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
-import { withAuth } from '@/lib/sccs-auth';
+import { withAuth, isAdminLike, guardAdminAccounts } from '@/lib/sccs-auth';
 import { userCreateSchema, parseBody } from '@/lib/sccs-validation';
 
 export const dynamic = 'force-dynamic';
@@ -31,7 +31,7 @@ const USER_SELECT = {
 // GET — list users with computed stats (admin only).
 export const GET = withAuth(async (_req, user) => {
   try {
-    if (user.role !== 'admin') {
+    if (!isAdminLike(user.role)) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
@@ -84,12 +84,14 @@ export const POST = withAuth(async (req, user) => {
       return NextResponse.json(parsed.response, { status: 400 });
     }
 
-    if (user.role !== 'admin') {
+    if (!isAdminLike(user.role)) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
     const { username, password, role, first_name, last_name, email, phone, classroom, department, advisory } =
       parsed.data;
+    const denied = await guardAdminAccounts(user, null, role);
+    if (denied) return denied;
     if (!username || !password) {
       return NextResponse.json({ error: 'Username and password required' }, { status: 400 });
     }

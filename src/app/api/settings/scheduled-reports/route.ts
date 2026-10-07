@@ -2,7 +2,7 @@
 // (GET) and 1464 (PUT, admin only).
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { withAuth } from '@/lib/sccs-auth';
+import { withAuth, isAdminLike } from '@/lib/sccs-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,7 +26,7 @@ export const GET = withAuth(async () => {
 // like the original).
 export const PUT = withAuth(async (req, user) => {
   try {
-    if (user.role !== 'admin') {
+    if (!isAdminLike(user.role)) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     const body = (await req.json().catch(() => ({}))) as { enabled?: unknown; email?: unknown } | null;

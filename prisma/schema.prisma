@@ -1,4 +1,4 @@
-// SCCS Discipline Tracker — Prisma schema (SQLite port of the original PostgreSQL schema)
+// SCCS Discipline Tracker — Prisma schema (PostgreSQL on Supabase)
 // Field names are intentionally snake_case so API JSON responses match the
 // original Express/pg row shapes consumed by the cloned frontend.
 
@@ -7,13 +7,13 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  // Single source of truth for the database location. A literal URL (no env
-  // indirection) is baked into the generated client, the CLI and every
-  // script, so they can never diverge. Relative SQLite paths resolve against
-  // this schema file's directory, so "file:../db/sccs.db" points at
-  // <project root>/db/sccs.db on any machine.
-  url      = "file:../db/sccs.db"
+  provider  = "postgresql"
+  // Supabase Postgres. DATABASE_URL is the pooled (transaction mode) URL the
+  // app uses at runtime; DIRECT_URL is the session-mode URL for schema
+  // changes. Both carry ?schema=sccs: the tables live outside Supabase's
+  // public API schema, so they are never reachable through the REST API.
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Users {
@@ -45,6 +45,7 @@ model Users {
 model Students {
   id             Int     @id @default(autoincrement())
   student_id     String  @unique
+  apid           String? // school SIS/AP id from the official roster
   last_name      String
   first_name     String
   grade          Int     @default(9)
@@ -66,6 +67,8 @@ model Students {
 
   incidents      Incidents[]
   mtss           MtssInterventions[]
+  support_plans  SupportPlans[]
+  recognitions   Recognitions[]
 
   @@map("students")
 }
@@ -335,4 +338,122 @@ model ParentStudentLinks {
 
   @@unique([parent_user_id, student_id])
   @@map("parent_student_links")
+}
+
+// Learning support plans (IEP / 504 / ELL / BIP / Gifted / Health) — the
+// SIS "special programs" record. Plans carry the accommodations every staff
+// member must honour and behaviour considerations surfaced when an incident
+// is logged for the student (so discipline stays IDEA/504-compliant).
+model SupportPlans {
+  id                      Int      @id @default(autoincrement())
+  student_id              Int
+  plan_type               String // 'IEP' | '504' | 'ELL' | 'BIP' | 'Gifted' | 'Health'
+  primary_need            String?
+  case_manager            String?
+  start_date              String
+  review_date             String?
+  status                  String   @default("Active") // Active | Under Review | Expired | Closed
+  behavior_considerations String?
+  parent_consent          Boolean  @default(true)
+  notes                   String?
+  created_at              DateTime @default(now())
+  updated_at              DateTime @default(now()) @updatedAt
+
+  student                 Students @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  accommodations          Accommodations[]
+
+  @@index([student_id])
+  @@map("support_plans")
+}
+
+model Accommodations {
+  id          Int      @id @default(autoincrement())
+  plan_id     Int
+  category    String // Presentation | Response | Setting | Timing | Behavioral | Assistive Technology
+  description String
+  applies_to  String   @default("All classes")
+  active      Boolean  @default(true)
+  created_at  DateTime @default(now())
+
+  plan        SupportPlans @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+
+  @@index([plan_id])
+  @@map("accommodations")
+}
+
+// Positive behaviour recognitions (PBIS). Tracked separately from conduct
+// points so the corrective ledger stays auditable; dashboards report the
+// positive-to-corrective ratio (PBIS target is 4:1 or better).
+model Recognitions {
+  id         Int      @id @default(autoincrement())
+  student_id Int
+  category   String // Respect | Responsibility | Integrity | Kindness | Leadership | Excellence
+  points     Int      @default(1)
+  note       String?
+  awarded_by String?
+  date       String
+  created_at DateTime @default(now())
+
+  student    Students @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@index([student_id])
+  @@index([date])
+  @@map("recognitions")
+}
+
+// Secondary Disciplinary Referral: filed by any staff member, readable only by
+// coordinators. Students are picked from the roster (student_ids) and the
+// names are copied in at filing time so the record stays readable.
+model DisciplinaryReferrals {
+  id                Int       @id @default(autoincrement())
+  student_ids       Int[]
+  student_names     String
+  incident_date     String?
+  strengths         String
+  situation         String
+  strategies_used   String
+  suggestions       String
+  status            String    @default("New") // New | In review | Closed
+  coordinator_notes String?
+  submitted_by      Int
+  submitted_by_name String
+  reviewed_by       Int?
+  reviewed_at       DateTime?
+  email_status      String?   // sent | not_configured | failed
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  @@index([status])
+  @@index([created_at])
+  @@map("disciplinary_referrals")
+}
+
+// Fingerprint / Face ID / Windows Hello sign-in (WebAuthn passkeys). The
+// public key is stored server-side; nothing secret is kept on the device.
+model Passkeys {
+  id            Int       @id @default(autoincrement())
+  user_id       Int
+  credential_id String    @unique
+  public_key    Bytes
+  counter       BigInt    @default(0)
+  transports    String?
+  rp_id         String
+  device_label  String?
+  created_at    DateTime  @default(now())
+  last_used_at  DateTime?
+
+  @@index([user_id])
+  @@map("passkeys")
+}
+
+// One-time WebAuthn challenges (serverless instances share no memory).
+model AuthChallenges {
+  id         String   @id
+  challenge  String
+  user_id    Int?
+  kind       String   // register | login
+  expires_at DateTime
+  created_at DateTime @default(now())
+
+  @@map("auth_challenges")
 }
