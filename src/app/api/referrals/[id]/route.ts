@@ -1,4 +1,6 @@
-// /api/referrals/[id] — read or update one referral (coordinators only).
+// /api/referrals/[id] — coordinators read and update any referral; the staff
+// member who filed it can read it (without the coordinators' notes), nobody
+// else can.
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
@@ -15,15 +17,18 @@ const updateSchema = z.object({
 });
 
 export const GET = withAuth<Ctx>(async (_req, user, ctx) => {
-  if (!canViewReferrals(user)) return forbidden('Referrals are visible to coordinators only');
   const id = Number.parseInt((await ctx.params).id, 10);
-  const referral = await db.disciplinaryReferrals.findUnique({ where: { id } });
-  if (!referral) return NextResponse.json({ error: 'Referral not found' }, { status: 404 });
-  return NextResponse.json(referral);
+  const referral = Number.isNaN(id) ? null : await db.disciplinaryReferrals.findUnique({ where: { id } });
+  const coordinator = canViewReferrals(user);
+  // Someone else's referral answers 404, not 403, so its existence is not revealed.
+  if (!referral || (!coordinator && referral.submitted_by !== user.userId)) {
+    return NextResponse.json({ error: 'Referral not found' }, { status: 404 });
+  }
+  return NextResponse.json(coordinator ? referral : { ...referral, coordinator_notes: null });
 });
 
 export const PUT = withAuth<Ctx>(async (req: NextRequest, user, ctx) => {
-  if (!canViewReferrals(user)) return forbidden('Referrals are visible to coordinators only');
+  if (!canViewReferrals(user)) return forbidden('Only coordinators can edit referrals');
   const id = Number.parseInt((await ctx.params).id, 10);
   const parsed = parseBody(updateSchema, await req.json().catch(() => null));
   if (!parsed.ok) return NextResponse.json(parsed.response, { status: 400 });

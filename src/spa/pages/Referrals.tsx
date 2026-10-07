@@ -72,22 +72,20 @@ export default function Referrals() {
         title={t('Secondary Disciplinary Referral')}
         subtitle={isCoordinator
           ? t('Referrals filed by staff. Only coordinators can see them.')
-          : t('Tell the coordinators what happened. Only coordinators can read referrals.')}
+          : t('Tell the coordinators what happened. You can see the referrals you filed; only coordinators see everyone\'s.')}
       />
-      {isCoordinator && (
-        <div className="mb-5">
-          <Segmented
-            label={t('Referral view')}
-            value={tab}
-            onChange={setTab}
-            options={[
-              { value: 'inbox', label: t('Inbox') },
-              { value: 'new', label: t('New referral') },
-            ]}
-          />
-        </div>
-      )}
-      {isCoordinator && tab === 'inbox' ? <ReferralInbox /> : <ReferralForm onFiled={() => isCoordinator && setTab('inbox')} />}
+      <div className="mb-5">
+        <Segmented
+          label={t('Referral view')}
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'inbox', label: isCoordinator ? t('Inbox') : t('My referrals') },
+            { value: 'new', label: t('New referral') },
+          ]}
+        />
+      </div>
+      {tab === 'inbox' ? <ReferralInbox readOnly={!isCoordinator} /> : <ReferralForm onFiled={() => setTab('inbox')} />}
     </div>
   );
 }
@@ -226,9 +224,10 @@ function ReferralForm({ onFiled }: { onFiled: () => void }) {
 }
 
 // ---------------------------------------------------------------------------
-// Inbox (coordinators)
+// Inbox: coordinators see and edit every referral; other staff see only the
+// ones they filed, read-only (the server enforces both).
 // ---------------------------------------------------------------------------
-function ReferralInbox() {
+function ReferralInbox({ readOnly = false }: { readOnly?: boolean }) {
   const { t, lang } = useI18n();
   const [params, setParams] = useSearchParams();
   const [status, setStatus] = useState<'New' | 'In review' | 'Closed' | 'all'>('all');
@@ -275,7 +274,7 @@ function ReferralInbox() {
         ) : items.length === 0 ? (
           <div className="text-center py-14 text-gray-500">
             <Inbox className="w-10 h-10 mx-auto mb-2 text-gray-400" />
-            <p>{t('No referrals here yet')}</p>
+            <p>{readOnly ? t('You have not filed any referrals yet') : t('No referrals here yet')}</p>
           </div>
         ) : (
           <ul className="list-inset">
@@ -304,6 +303,7 @@ function ReferralInbox() {
       {selected && (
         <ReferralDetail
           referral={selected}
+          readOnly={readOnly}
           onClose={close}
           onSaved={(r) => { setSelected(r); load(); }}
         />
@@ -312,7 +312,7 @@ function ReferralInbox() {
   );
 }
 
-function ReferralDetail({ referral, onClose, onSaved }: { referral: Referral; onClose: () => void; onSaved: (r: Referral) => void }) {
+function ReferralDetail({ referral, readOnly, onClose, onSaved }: { referral: Referral; readOnly: boolean; onClose: () => void; onSaved: (r: Referral) => void }) {
   const { t, lang } = useI18n();
   const [status, setStatus] = useState(referral.status);
   const [notes, setNotes] = useState(referral.coordinator_notes ?? '');
@@ -344,7 +344,9 @@ function ReferralDetail({ referral, onClose, onSaved }: { referral: Referral; on
       footer={(
         <>
           <button className="btn btn-secondary flex-1" onClick={onClose}>{t('Close')}</button>
-          <button className="btn btn-primary flex-1" onClick={save} disabled={saving}>{saving ? t('Saving...') : t('Save')}</button>
+          {!readOnly && (
+            <button className="btn btn-primary flex-1" onClick={save} disabled={saving}>{saving ? t('Saving...') : t('Save')}</button>
+          )}
         </>
       )}
     >
@@ -362,6 +364,12 @@ function ReferralDetail({ referral, onClose, onSaved }: { referral: Referral; on
             <p className="mt-1 text-[15px] text-gray-900 whitespace-pre-wrap leading-relaxed">{referral[q.key]}</p>
           </section>
         ))}
+        {readOnly ? (
+          <div className="border-t border-gray-200 pt-5 flex items-center gap-3">
+            <span className="form-label mb-0">{t('Status')}</span>
+            <span className={`badge ${STATUS_BADGE[referral.status]}`}>{t(referral.status)}</span>
+          </div>
+        ) : (
         <div className="border-t border-gray-200 pt-5 space-y-4">
           <div>
             <span className="form-label">{t('Status')}</span>
@@ -382,6 +390,7 @@ function ReferralDetail({ referral, onClose, onSaved }: { referral: Referral; on
           </div>
           {error && <div className="callout callout-danger">{error}</div>}
         </div>
+        )}
       </div>
     </Sheet>
   );

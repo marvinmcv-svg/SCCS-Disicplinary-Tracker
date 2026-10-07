@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import api from '../lib/api';
 import { useLiveRefresh } from '../lib/useLiveRefresh';
-import { parentEmailMailto } from '../lib/parentEmail';
+import { parentEmailGmailUrl, parentEmailMailto, prefersMailApp } from '../lib/parentEmail';
 import { useAuth } from '../App';
 import { useI18n } from '../i18n';
 import * as XLSX from 'xlsx';
@@ -402,8 +402,13 @@ export default function IncidentDetail() {
 
   const handleSendToParent = () => {
     if (!incident) return;
-    // Spanish first, then English (see lib/parentEmail.ts).
-    window.location.href = parentEmailMailto(incident);
+    // Spanish first, then English (see lib/parentEmail.ts). Phones open their
+    // mail app; on a computer, Gmail compose opens in a new tab.
+    if (prefersMailApp()) {
+      window.location.href = parentEmailMailto(incident);
+    } else {
+      window.open(parentEmailGmailUrl(incident), '_blank', 'noopener,noreferrer');
+    }
   };
 
   const handleExportPDF = () => {

@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { Prisma } from '@prisma/client';
 import { db } from '@/lib/db';
-import { withAuth, canManageStudents, adminOnly, forbidden } from '@/lib/sccs-auth';
+import { withAuth, canManageStudents, forbidden } from '@/lib/sccs-auth';
 import { toIntOrNull } from '../../_lib/api-utils';
 
 export const dynamic = 'force-dynamic';
@@ -62,10 +62,11 @@ export const PUT = withAuth<Ctx>(async (req, user, ctx) => {
   }
 });
 
-// DELETE — admin only.
+// DELETE ("Complete" on the MTSS screen) — whoever manages interventions:
+// counselors, coordinators and admins. Teachers can only read them.
 export const DELETE = withAuth<Ctx>(async (_req, user, ctx) => {
   try {
-    if (!adminOnly(user)) return forbidden();
+    if (!canManageStudents(user)) return forbidden();
 
     const { id } = await ctx.params;
     await db.mtssInterventions.deleteMany({ where: { id: Number.parseInt(id, 10) } });

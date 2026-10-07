@@ -90,6 +90,25 @@ export function buildParentEmail(i: ParentEmailIncident): { to: string; subject:
   };
 }
 
+/**
+ * Gmail's compose window, prefilled. Without an account number in the path
+ * Gmail opens it in the browser's current Google account (the one last
+ * signed in), and asks to sign in if there is none.
+ */
+export function parentEmailGmailUrl(i: ParentEmailIncident): string {
+  const { to, subject, body } = buildParentEmail(i);
+  // encodeURIComponent (spaces as %20, not "+") so every mail client reads it the same way.
+  const q = (k: string, v: string) => `${k}=${encodeURIComponent(v)}`;
+  return `https://mail.google.com/mail/?${[q('view', 'cm'), q('fs', '1'), q('to', to), q('su', subject), q('body', body)].join('&')}`;
+}
+
+/** Phones and tablets hand mailto: links to their mail app; desktops often have none set up. */
+export function prefersMailApp(): boolean {
+  const ua = navigator.userAgent;
+  const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (ua.includes('Macintosh') && navigator.maxTouchPoints > 1);
+  return mobile || window.matchMedia('(pointer: coarse)').matches;
+}
+
 export function parentEmailMailto(i: ParentEmailIncident): string {
   const { to, subject, body } = buildParentEmail(i);
   return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;

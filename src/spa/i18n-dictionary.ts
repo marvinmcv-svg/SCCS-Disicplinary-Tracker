@@ -976,4 +976,8 @@ export const dictionary: Record<string, string> = {
   'Last used {date}': 'Último uso: {date}',
   'Everything an admin can do, plus disciplinary referrals': 'Todo lo que puede hacer un administrador, más las remisiones disciplinarias',
   'Only an admin can give the admin role': 'Solo un administrador puede asignar el rol de administrador',
+  '{n} students': '{n} estudiantes',
+  'My referrals': 'Mis remisiones',
+  'You have not filed any referrals yet': 'Todavía no ha enviado ninguna remisión',
+  'Tell the coordinators what happened. You can see the referrals you filed; only coordinators see everyone\'s.': 'Cuéntele a los coordinadores lo que pasó. Puede ver las remisiones que usted envió; solo los coordinadores ven las de todos.',
 };

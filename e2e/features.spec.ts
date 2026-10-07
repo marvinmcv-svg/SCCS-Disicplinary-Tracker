@@ -173,7 +173,7 @@ test('learning support: plan badges on the roster and the student profile', asyn
   const s = await fixtureStudent(page, token);
   await page.goto('/#/students');
   await page.getByPlaceholder(/Search by name or ID/i).fill('S-2026-002');
-  const row = page.locator('tbody tr').first();
+  const row = page.getByTestId('student-row').first();
   await expect(row.locator('.plan-chip', { hasText: 'IEP' })).toBeVisible({ timeout: 20_000 });
   await expect(row.locator('.plan-chip', { hasText: 'BIP' })).toBeVisible();
 

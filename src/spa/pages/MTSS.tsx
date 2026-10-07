@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Plus, Search, X, HeartHandshake, ChevronDown, ChevronUp, Calendar, Target, FileText, Download, Link2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
+import { useAuth } from '../App';
 import { useLiveRefresh } from '../lib/useLiveRefresh';
 import { useI18n } from '../i18n';
 import { jsPDF } from 'jspdf';
@@ -68,6 +69,10 @@ const allAdvisors = ['Mr Adachi', 'Mr Cohello', 'MrDiPascuale', 'Mr Kane', 'Mr O
 
 export default function MTSS() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  // Counselors (and coordinators/admins) create and manage interventions;
+  // everyone else, teachers included, can read them. Mirrors canManageStudents.
+  const canManage = ['admin', 'coordinator', 'counselor'].includes(user?.role);
   const { t } = useI18n();
   const [students, setStudents] = useState<Student[]>([]);
   const [interventions, setInterventions] = useState<Intervention[]>([]);
@@ -330,10 +335,12 @@ export default function MTSS() {
             <Download className="w-5 h-5" />
             {t('Export PDF')}
           </button>
-          <button onClick={openModal} className="btn btn-success">
-            <Plus className="w-5 h-5" />
-            {t('New Intervention')}
-          </button>
+          {canManage && (
+            <button onClick={openModal} className="btn btn-success">
+              <Plus className="w-5 h-5" />
+              {t('New Intervention')}
+            </button>
+          )}
         </div>
       </div>
 
@@ -478,8 +485,12 @@ export default function MTSS() {
                               <Link2 className="w-4 h-4" /> {t('Incident')}
                             </button>
                           )}
-                          <button type="button" onClick={() => openEditModal(intervention)} className="text-sm font-medium text-blue-600">{t('Edit')}</button>
-                          <button type="button" onClick={() => handleDelete(intervention.id)} className="text-sm font-medium text-red-600">{t('Complete')}</button>
+                          {canManage && (
+                            <>
+                              <button type="button" onClick={() => openEditModal(intervention)} className="text-sm font-medium text-blue-600">{t('Edit')}</button>
+                              <button type="button" onClick={() => handleDelete(intervention.id)} className="text-sm font-medium text-red-600">{t('Complete')}</button>
+                            </>
+                          )}
                         </div>
                       </li>
                     ))}
@@ -542,18 +553,22 @@ export default function MTSS() {
                                   <Link2 className="w-4 h-4" />
                                 </span>
                               )}
-                              <button
-                                onClick={() => handleDelete(intervention.id)}
-                                className="text-sm text-red-600 hover:text-red-700"
-                              >
-                                {t('Complete')}
-                              </button>
-                              <button
-                                onClick={() => openEditModal(intervention)}
-                                className="text-sm text-blue-600 hover:text-blue-700"
-                              >
-                                {t('Edit')}
-                              </button>
+                              {canManage && (
+                                <>
+                                  <button
+                                    onClick={() => handleDelete(intervention.id)}
+                                    className="text-sm text-red-600 hover:text-red-700"
+                                  >
+                                    {t('Complete')}
+                                  </button>
+                                  <button
+                                    onClick={() => openEditModal(intervention)}
+                                    className="text-sm text-blue-600 hover:text-blue-700"
+                                  >
+                                    {t('Edit')}
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>

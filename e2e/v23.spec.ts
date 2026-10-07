@@ -1,5 +1,5 @@
 import { test, expect, Page, APIRequestContext } from '@playwright/test';
-import { buildParentEmail } from '../src/spa/lib/parentEmail';
+import { buildParentEmail, parentEmailGmailUrl } from '../src/spa/lib/parentEmail';
 
 /**
  * v2.3: coordinator role, Secondary Disciplinary Referrals (coordinator-only),
@@ -94,8 +94,9 @@ test('a teacher files a referral; only coordinators can read it', async ({ page,
 
   await openAs(page, teacher, '/referrals');
   await expect(page.getByRole('heading', { name: 'Secondary Disciplinary Referral' })).toBeVisible();
-  // Teachers get the form, never the inbox.
+  // Teachers get the form and their own list, never the coordinators' inbox.
   await expect(page.getByRole('button', { name: 'Inbox' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'My referrals' })).toBeVisible();
 
   const students: any[] = await (await request.get('/api/students', auth(admin.token))).json();
   const secondary = students.find((s) => Number(s.grade) >= 6);
@@ -109,11 +110,17 @@ test('a teacher files a referral; only coordinators can read it', async ({ page,
   await page.getByRole('button', { name: 'Send to coordinators' }).click();
   await expect(page.getByTestId('referral-receipt')).toContainText(/Referral #\d+ sent/);
 
-  // API: teacher and admin are refused; the coordinator sees it.
-  expect((await request.get('/api/referrals', auth(teacher.token))).status()).toBe(403);
-  expect((await request.get('/api/referrals', auth(admin.token))).status()).toBe(403);
+  // API: the coordinator sees it; the teacher sees only their own; other
+  // staff (even admins) never see it.
   const list: any[] = await (await request.get('/api/referrals', auth(coord.token))).json();
   const mine = list.find((r) => r.situation.startsWith(stamp));
+  const teacherList: any[] = await (await request.get('/api/referrals', auth(teacher.token))).json();
+  expect(teacherList.some((r) => r.id === mine.id)).toBeTruthy();
+  expect(teacherList.every((r) => r.submitted_by === teacher.user.id)).toBeTruthy();
+  const adminList: any[] = await (await request.get('/api/referrals', auth(admin.token))).json();
+  expect(adminList.some((r) => r.id === mine.id)).toBeFalsy();
+  expect((await request.get(`/api/referrals/${mine.id}`, auth(admin.token))).status()).toBe(404);
+  expect((await request.put(`/api/referrals/${mine.id}`, { ...auth(teacher.token), data: { status: 'Closed' } })).status()).toBe(403);
   expect(mine).toBeTruthy();
   expect(mine.status).toBe('New');
   expect(mine.submitted_by_name).toMatch(/Carlos/);
@@ -130,6 +137,26 @@ test('a teacher files a referral; only coordinators can read it', async ({ page,
   await detail.getByLabel('Coordinator notes').fill('Met with the student on Friday.');
   await detail.getByRole('button', { name: 'Save' }).click();
   await expect.poll(async () => (await (await request.get(`/api/referrals/${mine.id}`, auth(coord.token))).json()).status).toBe('In review');
+
+  // The teacher reads their referral (status included, coordinator notes not) and cannot edit it.
+  await openAs(page, teacher, `/referrals?id=${mine.id}`);
+  await page.getByRole('button', { name: 'My referrals' }).click();
+  const own = page.getByTestId('referral-detail');
+  await expect(own).toContainText(stamp);
+  await expect(own).toContainText('In review');
+  await expect(own).not.toContainText('Met with the student on Friday.');
+  await expect(own.getByRole('button', { name: 'Save' })).toHaveCount(0);
+});
+
+test('teachers can read MTSS interventions but not create or change them', async ({ page, request }) => {
+  const teacher = await token(request, TEACHER);
+  expect((await request.get('/api/mtss', auth(teacher.token))).ok()).toBeTruthy();
+  const create = await request.post('/api/mtss', { ...auth(teacher.token), data: { student_id: 1, tier: 2, intervention: 'Check-In/Check-Out (CICO)' } });
+  expect(create.status()).toBe(403);
+  await openAs(page, teacher, '/mtss');
+  await expect(page.getByRole('heading', { name: 'MTSS Interventions' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'New Intervention' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Complete' })).toHaveCount(0);
 });
 
 // ---------------------------------------------------------------------------
@@ -162,6 +189,28 @@ test('the parent email is in Spanish first, then English', () => {
   expect(email.body).toContain('Consecuencia: Detención');
   expect(email.body).toContain('Location: HALL — Hallway');
   expect(email.body).toContain('Consequence: Detention');
+
+  // Desktop: Gmail compose in the browser's signed-in Google account, prefilled.
+  const gmail = new URL(parentEmailGmailUrl({ first_name: 'Ana', last_name: 'Pérez', date: '2026-10-05', parent_email: 'maria@example.com' }));
+  expect(gmail.origin + gmail.pathname).toBe('https://mail.google.com/mail/');
+  expect(gmail.searchParams.get('view')).toBe('cm');
+  expect(gmail.searchParams.get('to')).toBe('maria@example.com');
+  expect(gmail.searchParams.get('body')?.startsWith('Estimada familia:')).toBeTruthy();
+});
+
+test('Send to Parent on a computer opens Gmail in a new tab', async ({ page, request, context }, info) => {
+  test.skip(info.project.name !== 'desktop', 'phones hand the message to their mail app');
+  const admin = await token(request, ADMIN);
+  const incidents: any[] = await (await request.get('/api/incidents', auth(admin.token))).json();
+  await openAs(page, admin, `/incidents/${incidents[0].id}`);
+  // Answer Gmail's request offline so the test does not depend on google.com.
+  await context.route('https://mail.google.com/**', (route) => route.fulfill({ status: 200, body: 'gmail' }));
+  const [popup] = await Promise.all([
+    context.waitForEvent('page'),
+    page.getByRole('button', { name: 'Send to Parent' }).click(),
+  ]);
+  expect(popup.url()).toContain('https://mail.google.com/mail/?view=cm');
+  expect(decodeURIComponent(popup.url())).toContain('Notificación de incidente');
 });
 
 // ---------------------------------------------------------------------------

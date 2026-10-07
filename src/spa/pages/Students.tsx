@@ -321,6 +321,20 @@ export default function Students() {
     return matchesSearch && matchesGradeFilter(s, filterGrade);
   });
 
+  // Grades and sections that actually exist (the real roster is grades 6-12,
+  // mostly without sections), and the roster grouped by grade year.
+  const gradesPresent = [...new Set(students.map((s) => Number(s.grade)))].filter((g) => !Number.isNaN(g)).sort((a, b) => a - b);
+  const sectionsByGrade = (g: number) =>
+    [...new Set(students.filter((s) => Number(s.grade) === g && s.section).map((s) => String(s.section).toUpperCase()))].sort();
+  const gradeGroups = gradesPresent
+    .map((g) => ({
+      grade: g,
+      students: filteredStudents
+        .filter((s) => Number(s.grade) === g)
+        .sort((a, b) => a.last_name.localeCompare(b.last_name) || a.first_name.localeCompare(b.first_name)),
+    }))
+    .filter((group) => group.students.length > 0);
+
   return (
     <div className="space-y-4 md:space-y-6 animate-fade-in pb-20 md:pb-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -369,12 +383,13 @@ export default function Students() {
               className="select min-w-[140px]"
             >
               <option value="all">{t('All Grades')}</option>
-              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(g => (
-                // Keyed Fragment: the mapped element itself must carry the key,
-                // otherwise React cannot match the two options to their array slot.
+              {gradesPresent.map(g => (
+                // Keyed Fragment: the mapped element itself must carry the key.
                 <Fragment key={g}>
-                  <option value={`${g}A`}>{g === 0 ? t('Pre-K/KA') : t('Grade {g}A', { g })}</option>
-                  <option value={`${g}B`}>{g === 0 ? t('Pre-K/KB') : t('Grade {g}B', { g })}</option>
+                  <option value={`${g}`}>{g === 0 ? t('Pre-K/K') : t('Grade {g}', { g })}</option>
+                  {sectionsByGrade(g).map((sec) => (
+                    <option key={sec} value={`${g}${sec}`}>{g === 0 ? `${t('Pre-K/K')} ${sec}` : `${t('Grade {g}', { g })}${sec}`}</option>
+                  ))}
                 </Fragment>
               ))}
             </select>
@@ -407,9 +422,16 @@ export default function Students() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hide-mobile">{t('Status')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredStudents.map((student) => (
-                  <tr key={student.id} className="hover:bg-gray-50">
+              {gradeGroups.map((group) => (
+              <tbody key={group.grade} className="divide-y divide-gray-100" data-testid={`grade-group-${group.grade}`}>
+                <tr className="bg-gray-50">
+                  <th colSpan={6} scope="colgroup" className="text-left px-4 py-2 text-sm font-semibold text-gray-900">
+                    {group.grade === 0 ? t('Pre-K/K') : t('Grade {g}', { g: group.grade })}
+                    <span className="ml-2 font-normal text-gray-500">{t('{n} students', { n: group.students.length })}</span>
+                  </th>
+                </tr>
+                {group.students.map((student) => (
+                  <tr key={student.id} className="hover:bg-gray-50" data-testid="student-row">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center overflow-hidden text-sm font-bold ${getGradeColor(student.grade)}`}>
@@ -447,6 +469,7 @@ export default function Students() {
                   </tr>
                 ))}
               </tbody>
+              ))}
             </table>
           </div>
         ) : (

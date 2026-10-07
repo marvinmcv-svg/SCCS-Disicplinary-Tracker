@@ -146,14 +146,15 @@ test('students roster loads with search', async ({ page }) => {
 
   const search = page.getByPlaceholder(/Search by name or ID/i);
   await expect(search).toBeVisible({ timeout: 20_000 });
-  await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 20_000 });
-  const initialRows = await page.locator('tbody tr').count();
+  const rows = page.getByTestId('student-row');
+  await expect(rows.first()).toBeVisible({ timeout: 20_000 });
+  const initialRows = await rows.count();
   expect(initialRows).toBeGreaterThan(0);
 
   // search narrows the roster
   await search.fill('Adams');
-  await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
-  const visible = await page.locator('tbody tr').count();
+  await expect(rows.first()).toBeVisible({ timeout: 15_000 });
+  const visible = await rows.count();
   expect(visible).toBeGreaterThan(0);
   expect(visible).toBeLessThan(initialRows);
 });

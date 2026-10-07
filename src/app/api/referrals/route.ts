@@ -1,5 +1,6 @@
 // /api/referrals — Secondary Disciplinary Referrals.
-// GET: coordinators only (the referral narratives are confidential).
+// GET: coordinators see every referral; any other staff member sees only the
+// referrals they filed themselves (read-only).
 // POST: any staff member files a referral; every active coordinator with an
 // email address is notified (see src/lib/mailer.ts).
 import { NextRequest, NextResponse } from 'next/server';
@@ -23,14 +24,19 @@ const referralSchema = z.object({
 });
 
 export const GET = withAuth(async (req: NextRequest, user) => {
-  if (!canViewReferrals(user)) return forbidden('Referrals are visible to coordinators only');
+  const coordinator = canViewReferrals(user);
+  if (!coordinator && !canFileReferrals(user)) return forbidden('Referrals are visible to coordinators only');
   const status = req.nextUrl.searchParams.get('status');
   const referrals = await db.disciplinaryReferrals.findMany({
-    where: status && status !== 'all' ? { status } : undefined,
+    where: {
+      ...(status && status !== 'all' ? { status } : {}),
+      ...(coordinator ? {} : { submitted_by: user.userId }),
+    },
     orderBy: { created_at: 'desc' },
     take: 500,
   });
-  return NextResponse.json(referrals);
+  // The filer sees their own referral, not the coordinators' notes on it.
+  return NextResponse.json(coordinator ? referrals : referrals.map((r) => ({ ...r, coordinator_notes: null })));
 });
 
 export const POST = withAuth(async (req: NextRequest, user) => {
