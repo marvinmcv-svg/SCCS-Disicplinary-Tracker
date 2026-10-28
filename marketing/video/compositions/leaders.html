@@ -1,0 +1,81 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; font-family: Inter, sans-serif; }
+    #leaders-ground { position: absolute; inset: 0; background: #F3F5FA; }
+    #leaders-text { position: absolute; left: 120px; top: 0; bottom: 0; width: 560px;
+      display: flex; flex-direction: column; justify-content: center; gap: 28px; }
+    #leaders-h { font-weight: 900; font-size: 64px; line-height: 1.05; letter-spacing: -0.025em; color: #0F1B4C; }
+    #leaders-h .w { display: inline-block; }
+    #leaders-p { font-weight: 400; font-size: 34px; line-height: 1.3; color: #46526E; }
+    .leaders-win { position: absolute; left: 748px; top: 196px; width: 1056px; height: 696px;
+      background: #fff; border-radius: 18px; box-shadow: 0 30px 60px rgba(15,27,76,0.18); overflow: hidden; }
+    .leaders-bar { height: 36px; background: #E8ECF5; display: flex; align-items: center; gap: 8px; padding-left: 16px; }
+    .leaders-bar i { width: 12px; height: 12px; border-radius: 6px; background: #C3CADB; display: block; }
+    .leaders-vp { position: relative; width: 1056px; height: 660px; overflow: hidden; }
+    .leaders-cam { position: absolute; left: 0; top: 0; width: 1056px; height: 660px; }
+    .leaders-cam img { position: absolute; left: 0; top: 0; width: 1056px; height: 660px; }
+    .leaders-ring { position: absolute; border-style: solid; border-color: #DC2626; border-radius: 10px; }
+    .leaders-lab { position: absolute; white-space: nowrap; }
+    .leaders-lab span { display: inline-block; background: #0F1B4C; color: #fff; font-weight: 700; font-size: 28px;
+      padding: 12px 18px; border-radius: 10px; box-shadow: 0 8px 20px rgba(15,27,76,0.25); }
+    .leaders-phone { position: absolute; width: 404px; height: 847px; background: #0F1B4C; border-radius: 44px; padding: 12px; }
+    .leaders-phone img { width: 380px; height: 823px; border-radius: 32px; display: block; }
+    .leaders-phone.small { width: 340px; height: 734px; border-radius: 40px; padding: 10px; }
+    .leaders-phone.small img { width: 320px; height: 714px; border-radius: 30px; }
+
+  </style>
+  <div id="root" data-composition-id="leaders" data-width="1920" data-height="1080">
+    <div id="leaders-ground"></div>
+    <div id="leaders-text">
+      <h1 id="leaders-h"><span class="w" id="leaders-w0">Spot</span> <span class="w" id="leaders-w1">patterns</span> <span class="w" id="leaders-w2" style="color:#DC2626">early</span></h1>
+      <p id="leaders-p">Live dashboards by date, grade and category. Reports in one click.</p>
+    </div>
+    <div class="leaders-win" id="leaders-win">
+      <div class="leaders-bar"><i></i><i></i><i></i></div>
+      <div class="leaders-vp">
+        <div class="leaders-cam" id="leaders-cam0" style="z-index:1">
+          <img src="assets/screens/dashboard.png" alt="" />
+          <div class="leaders-ring" id="leaders-r000" style="left:217.7px;top:212.6px;width:808.2px;height:30.9px;border-width:3.03px;opacity:0"></div>
+          <div class="leaders-ring" id="leaders-r010" style="left:877.7px;top:340.2px;width:92.5px;height:48.5px;border-width:3.03px;opacity:0"></div>
+        </div>
+        <div class="leaders-cam" id="leaders-cam1" style="z-index:2;opacity:0">
+          <img src="assets/screens/report.png" alt="" />
+          <div class="leaders-ring" id="leaders-r100" style="left:777.2px;top:142.9px;width:81.7px;height:44.3px;border-width:3.5px;opacity:0"></div>
+          <div class="leaders-ring" id="leaders-r110" style="left:218.2px;top:268.8px;width:399.6px;height:449.5px;border-width:2.76px;opacity:0"></div>
+        </div>
+      </div>
+    </div>
+    <div class="leaders-lab" style="left:865px;top:524px"><span id="leaders-l000" style="opacity:0">Today, week, month, quarter</span></div>
+    <div class="leaders-lab" style="left:1319px;top:521px"><span id="leaders-l010" style="opacity:0">Filter by grade</span></div>
+    <div class="leaders-lab" style="left:1494px;top:429px"><span id="leaders-l100" style="opacity:0">Print, PDF or Excel</span></div>
+    <div class="leaders-lab" style="left:1447px;top:652px"><span id="leaders-l110" style="opacity:0">The month, by category</span></div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo(["#leaders-w0", "#leaders-w1", "#leaders-w2"], { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.13, stagger: 0.067, ease: "power2.out" }, 0.25);
+    tl.fromTo("#leaders-p", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power2.out" }, 0.55);
+    tl.to("#leaders-text", { x: -50, opacity: 0, filter: "blur(8px)", duration: 0.25, ease: "power3.in" }, 11.70);
+    tl.fromTo("#leaders-win", { x: 60, opacity: 0, filter: "blur(10px)" }, { x: 0, opacity: 1, filter: "blur(0px)", duration: 0.5, ease: "expo.out" }, 0.1);
+    gsap.set("#leaders-cam0", { transformOrigin: "0 0" });
+    tl.to("#leaders-cam0", { scale: 1.1565, x: -165.3, y: 0.0, duration: 0.8, ease: "power2.inOut" }, 1.00);
+    tl.fromTo("#leaders-r000", { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.3, ease: "expo.out" }, 1.80);
+    tl.fromTo("#leaders-l000", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power2.out" }, 1.90);
+    tl.to(["#leaders-r000", "#leaders-l000"], { opacity: 0, duration: 0.15, ease: "power2.in" }, 3.60);
+    tl.to("#leaders-cam0", { scale: 1.1565, x: -165.3, y: -103.3, duration: 0.8, ease: "power2.inOut" }, 3.80);
+    tl.fromTo("#leaders-r010", { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.3, ease: "expo.out" }, 4.60);
+    tl.fromTo("#leaders-l010", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power2.out" }, 4.70);
+    tl.to(["#leaders-r010", "#leaders-l010"], { opacity: 0, duration: 0.15, ease: "power2.in" }, 6.40);
+    gsap.set("#leaders-cam1", { transformOrigin: "0 0" });
+    tl.to("#leaders-cam0", { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power2.in" }, 6.60);
+    tl.fromTo("#leaders-cam1", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power2.out" }, 6.70);
+    tl.fromTo("#leaders-r100", { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.3, ease: "expo.out" }, 7.00);
+    tl.fromTo("#leaders-l100", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power2.out" }, 7.10);
+    tl.to(["#leaders-r100", "#leaders-l100"], { opacity: 0, duration: 0.15, ease: "power2.in" }, 8.80);
+    tl.to("#leaders-cam1", { scale: 1.2692, x: -2.5, y: -177.7, duration: 0.8, ease: "power2.inOut" }, 9.00);
+    tl.fromTo("#leaders-r110", { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.3, ease: "expo.out" }, 9.80);
+    tl.fromTo("#leaders-l110", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power2.out" }, 9.90);
+    tl.to(["#leaders-r110", "#leaders-l110"], { opacity: 0, duration: 0.15, ease: "power2.in" }, 11.50);
+    tl.to("#leaders-win", { x: -50, opacity: 0, filter: "blur(8px)", duration: 0.25, ease: "power3.in" }, 11.70);
+    window.__timelines["leaders"] = tl;
+  </script>
+</template>

@@ -85,6 +85,11 @@ Without Docker: `bun run build`, then `bun run start` from the project root (it 
 
 **Email is not connected yet.** *Notify parent* tells staff to contact the parent directly, and password-reset codes are written to the server log for an administrator to hand over.
 
+## Landing page & product tour
+
+- `landing/` is a static, bilingual landing page with a 1:44 product-tour video; deploy it on its own (Vercel: Root Directory `landing`). See `landing/README.md`.
+- `marketing/video/` is the HyperFrames source of that video (real app screens, one scene per feature, `SPEC.md` for the look and timing).
+
 ## Project structure
 
 ```

@@ -27,3 +27,7 @@ playwright-report/
 # misc
 .DS_Store
 *.tsbuildinfo
+
+# HyperFrames local studio state, snapshots and renders
+marketing/video/.hyperframes/
+marketing/video/renders/

@@ -1,0 +1,40 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; font-family: Inter, sans-serif; }
+    #family-ground { position: absolute; inset: 0; background: #F3F5FA; }
+    #family-text { position: absolute; left: 120px; top: 0; bottom: 0; width: 560px;
+      display: flex; flex-direction: column; justify-content: center; gap: 28px; }
+    #family-h { font-weight: 900; font-size: 64px; line-height: 1.05; letter-spacing: -0.025em; color: #0F1B4C; }
+    #family-h .w { display: inline-block; }
+    #family-p { font-weight: 400; font-size: 34px; line-height: 1.3; color: #46526E; }
+    .family-phone { position: absolute; top: 140px; width: 340px; height: 734px; background: #0F1B4C; border-radius: 40px; padding: 10px; }
+    .family-phone img { width: 320px; height: 714px; border-radius: 30px; display: block; }
+    .family-lab { position: absolute; top: 900px; white-space: nowrap; }
+    .family-lab span { display: inline-block; background: #0F1B4C; color: #fff; font-weight: 700; font-size: 28px;
+      padding: 12px 18px; border-radius: 10px; box-shadow: 0 8px 20px rgba(15, 27, 76, 0.25); }
+  </style>
+  <div id="root" data-composition-id="family" data-width="1920" data-height="1080">
+    <div id="family-ground"></div>
+    <div id="family-text">
+      <h1 id="family-h"><span class="w" id="family-w0">Families</span> <span class="w" id="family-w1">stay</span> <span class="w" id="family-w2" style="color:#DC2626">informed</span></h1>
+      <p id="family-p">Parents see their own child's record, and only their child's. A link must be verified first.</p>
+    </div>
+    <div class="family-phone" id="family-phone0" style="left:820px"><img src="assets/screens/m-parent-home.png" alt="" /></div>
+    <div class="family-phone" id="family-phone1" style="left:1300px"><img src="assets/screens/m-parent-child.png" alt="" /></div>
+    <div class="family-lab" style="left:812px"><span id="family-l0">Their child's incidents</span></div>
+    <div class="family-lab" style="left:1300px"><span id="family-l1">Profile and MTSS plan</span></div>
+    <div class="family-lab" style="left:1010px;top:56px"><span id="family-l2" style="background:#DC2626">Other families stay private</span></div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo(["#family-w0", "#family-w1", "#family-w2"], { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.13, stagger: 0.067, ease: "power2.out" }, 0.25);
+    tl.fromTo("#family-p", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power2.out" }, 0.6);
+    tl.fromTo("#family-phone0", { y: 80, opacity: 0, filter: "blur(10px)" }, { y: 0, opacity: 1, filter: "blur(0px)", duration: 0.6, ease: "expo.out" }, 0.4);
+    tl.fromTo("#family-phone1", { y: 80, opacity: 0, filter: "blur(10px)" }, { y: 0, opacity: 1, filter: "blur(0px)", duration: 0.6, ease: "expo.out" }, 2.6);
+    tl.fromTo("#family-l0", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power2.out" }, 1.2);
+    tl.fromTo("#family-l1", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power2.out" }, 3.3);
+    tl.fromTo("#family-l2", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power2.out" }, 5.0);
+    tl.to(["#family-text", "#family-phone0", "#family-phone1", "#family-l0", "#family-l1", "#family-l2"], { x: -50, opacity: 0, filter: "blur(8px)", duration: 0.25, ease: "power3.in" }, 7.7);
+    window.__timelines["family"] = tl;
+  </script>
+</template>

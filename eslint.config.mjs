@@ -52,7 +52,7 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
     "react-hooks/immutability": "off",
   },
 }, {
-  ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills", "sccs/**", "test-results/**", "playwright-report/**"]
+  ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills", "sccs/**", "test-results/**", "playwright-report/**", "marketing/**", "landing/**"]
 }];
 
 export default eslintConfig;

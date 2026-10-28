@@ -1,0 +1,42 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; font-family: Inter, sans-serif; }
+    #roles-ground { position: absolute; inset: 0; background: #F3F5FA; }
+    #roles-text { position: absolute; left: 120px; top: 0; bottom: 0; width: 560px;
+      display: flex; flex-direction: column; justify-content: center; gap: 28px; }
+    #roles-h { font-weight: 900; font-size: 64px; line-height: 1.05; letter-spacing: -0.025em; color: #0F1B4C; }
+    #roles-h .w { display: inline-block; }
+    #roles-p { font-weight: 400; font-size: 34px; line-height: 1.3; color: #46526E; }
+    #roles-table { position: absolute; left: 760px; top: 170px; width: 1060px; background: #fff; border-radius: 18px;
+      box-shadow: 0 30px 60px rgba(15, 27, 76, 0.12); padding: 8px 40px; }
+    .roles-row { display: flex; align-items: center; height: 116px; border-bottom: 2px solid #E3E8F2; }
+    .roles-row:last-child { border-bottom: 0; }
+    .roles-row b { width: 250px; flex: none; font-weight: 900; font-size: 38px; color: #0F1B4C; letter-spacing: -0.02em; }
+    .roles-row span { font-weight: 400; font-size: 32px; color: #46526E; }
+    .roles-row.family b { color: #1D4ED8; }
+  </style>
+  <div id="root" data-composition-id="roles" data-width="1920" data-height="1080">
+    <div id="roles-ground"></div>
+    <div id="roles-text">
+      <h1 id="roles-h"><span class="w" id="roles-w0">The</span> <span class="w" id="roles-w1">right</span> <span class="w" id="roles-w2">access</span> <span class="w" id="roles-w3">for</span> <span class="w" id="roles-w4" style="color:#DC2626">every</span> <span class="w" id="roles-w5">role</span></h1>
+      <p id="roles-p">Everyone sees exactly what their job needs, and nothing more.</p>
+    </div>
+    <div id="roles-table">
+      <div class="roles-row" id="roles-r0"><b>Admin</b><span>Users, code sets and settings</span></div>
+      <div class="roles-row" id="roles-r1"><b>Principal</b><span>All incidents, escalations, reports</span></div>
+      <div class="roles-row" id="roles-r2"><b>Counselor</b><span>Student records and MTSS plans</span></div>
+      <div class="roles-row" id="roles-r3"><b>Teacher</b><span>Records referrals for their students</span></div>
+      <div class="roles-row family" id="roles-r4"><b>Parent</b><span>Their own child, once verified</span></div>
+      <div class="roles-row family" id="roles-r5"><b>Student</b><span>Their own record only</span></div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo(["#roles-w0", "#roles-w1", "#roles-w2", "#roles-w3", "#roles-w4", "#roles-w5"], { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.13, stagger: 0.067, ease: "power2.out" }, 0.25);
+    tl.fromTo("#roles-p", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power2.out" }, 0.75);
+    tl.fromTo("#roles-table", { x: 60, opacity: 0, filter: "blur(10px)" }, { x: 0, opacity: 1, filter: "blur(0px)", duration: 0.5, ease: "expo.out" }, 0.1);
+    tl.fromTo(["#roles-r0", "#roles-r1", "#roles-r2", "#roles-r3", "#roles-r4", "#roles-r5"], { opacity: 0.12, filter: "blur(4px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.25, stagger: 0.75, ease: "power2.out" }, 0.9);
+    tl.to(["#roles-text", "#roles-table"], { x: -50, opacity: 0, filter: "blur(8px)", duration: 0.25, ease: "power3.in" }, 7.9);
+    window.__timelines["roles"] = tl;
+  </script>
+</template>

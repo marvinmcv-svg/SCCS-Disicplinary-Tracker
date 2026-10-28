@@ -1,0 +1,30 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; font-family: Inter, sans-serif; }
+    #end-ground { position: absolute; inset: 0; background: #F3F5FA; }
+    #end-flood { position: absolute; inset: 0; background: #1D4ED8; }
+    #end-logo { position: absolute; left: 860px; top: 190px; width: 200px; height: 200px; border-radius: 30px; background: #fff;
+      box-shadow: 0 24px 48px rgba(15, 27, 76, 0.3); }
+    #end-logo img { width: 200px; height: 200px; display: block; border-radius: 30px; }
+    #end-line { position: absolute; left: 160px; right: 160px; top: 440px; text-align: center; color: #fff;
+      font-weight: 900; font-size: 88px; letter-spacing: -0.03em; line-height: 1.05; }
+    #end-line span { display: inline-block; }
+    #end-sub { position: absolute; left: 160px; right: 160px; top: 690px; text-align: center; color: #DCE6FF;
+      font-weight: 400; font-size: 38px; }
+  </style>
+  <div id="root" data-composition-id="end" data-width="1920" data-height="1080">
+    <div id="end-ground"></div>
+    <div id="end-flood"></div>
+    <div id="end-logo"><img src="assets/sccs-logo.png" alt="SCCS" /></div>
+    <div id="end-line"><span id="end-w0">Every referral.</span> <span id="end-w1">Every student.</span><br /><span id="end-w2">One place.</span></div>
+    <div id="end-sub">SCCS Discipline Tracker · English &amp; Español · Any device</div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo("#end-flood", { clipPath: "circle(0% at 960px 290px)" }, { clipPath: "circle(150% at 960px 290px)", duration: 0.5, ease: "power2.inOut" }, 0);
+    tl.fromTo("#end-logo", { scale: 0.6, opacity: 0, filter: "blur(10px)" }, { scale: 1, opacity: 1, filter: "blur(0px)", duration: 0.6, ease: "expo.out" }, 0.2);
+    tl.fromTo(["#end-w0", "#end-w1", "#end-w2"], { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, stagger: 0.45, ease: "power2.out" }, 0.7);
+    tl.fromTo("#end-sub", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power2.out" }, 2.1);
+    window.__timelines["end"] = tl;
+  </script>
+</template>
