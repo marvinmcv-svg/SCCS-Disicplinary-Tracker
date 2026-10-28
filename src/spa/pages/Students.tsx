@@ -4,6 +4,7 @@ import api from '../lib/api';
 import * as XLSX from 'xlsx';
 import { getGradeColor, getInitials, matchesGradeFilter } from '../lib/gradeUtils';
 import { useI18n } from '../i18n';
+import { usePermissions } from '../lib/roles';
 
 interface Student {
   id: number;
@@ -28,6 +29,7 @@ interface Student {
 }
 
 export default function Students() {
+  const { canManageStudents } = usePermissions();
   const { t } = useI18n();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
@@ -325,17 +327,21 @@ export default function Students() {
               <span className="font-medium">{t('Saved!')}</span>
             </span>
           )}
-          <button
-            onClick={() => setShowUploadModal(true)}
-            className="btn bg-green-600 text-white hover:bg-green-700"
-          >
-            <FileSpreadsheet className="w-5 h-5" />
-            {t('Import Excel')}
-          </button>
-          <button onClick={() => openModal()} className="btn btn-primary">
-            <Plus className="w-5 h-5" />
-            {t('Add Student')}
-          </button>
+          {canManageStudents && (
+            <>
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="btn bg-green-600 text-white hover:bg-green-700"
+              >
+                <FileSpreadsheet className="w-5 h-5" />
+                {t('Import Excel')}
+              </button>
+              <button onClick={() => openModal()} className="btn btn-primary">
+                <Plus className="w-5 h-5" />
+                {t('Add Student')}
+              </button>
+            </>
+          )}
         </div>
       </div>
 

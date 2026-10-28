@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
-import { withAuth } from '@/lib/sccs-auth';
+import { withAuth, isFamilyAccount } from '@/lib/sccs-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,11 +29,12 @@ const USER_SELECT = {
 } as const;
 
 // GET — one user + computed stats (any authenticated caller, like the original).
-export const GET = withAuth<Ctx>(async (_req, _user, ctx) => {
+export const GET = withAuth<Ctx>(async (_req, caller, ctx) => {
   try {
     const { id } = await ctx.params;
     const numericId = Number.parseInt(id, 10);
-    if (Number.isNaN(numericId)) {
+    // Family accounts may only open their own profile.
+    if (Number.isNaN(numericId) || (isFamilyAccount(caller) && caller.userId !== numericId)) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 

@@ -2,7 +2,7 @@
 // 400 (PUT) and 429 (DELETE).
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { withAuth, canManageStudents, adminOnly, forbidden } from '@/lib/sccs-auth';
+import { withAuth, canManageStudents, adminOnly, forbidden, canSeeStudent } from '@/lib/sccs-auth';
 import { studentSchema, parseBody } from '@/lib/sccs-validation';
 
 export const dynamic = 'force-dynamic';
@@ -10,11 +10,11 @@ export const dynamic = 'force-dynamic';
 type Ctx = { params: Promise<{ id: string }> };
 
 // GET — a single student; res.json(null) when not found (queryOne semantics).
-export const GET = withAuth<Ctx>(async (_req, _user, ctx) => {
+export const GET = withAuth<Ctx>(async (_req, user, ctx) => {
   try {
     const { id } = await ctx.params;
     const numericId = Number.parseInt(id, 10);
-    if (Number.isNaN(numericId)) {
+    if (Number.isNaN(numericId) || !(await canSeeStudent(user, numericId))) {
       return NextResponse.json(null);
     }
     const student = await db.students.findUnique({ where: { id: numericId } });

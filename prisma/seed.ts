@@ -1052,6 +1052,20 @@ async function seedTestAccounts(): Promise<void> {
 }
 
 /**
+ * Order students so the family test accounts land on records worth showing:
+ * those with an MTSS plan first, then by incident count (stable by id).
+ */
+async function demoShowcaseOrder<T extends { id: number }>(students: T[]): Promise<T[]> {
+  const incidents = await db.incidents.groupBy({ by: ['student_id'], _count: { _all: true } });
+  const counts = new Map(incidents.map((r) => [r.student_id, r._count._all]));
+  const withMtss = new Set(
+    (await db.mtssInterventions.findMany({ select: { student_id: true } })).map((m) => m.student_id),
+  );
+  const score = (id: number) => (withMtss.has(id) ? 1000 : 0) + (counts.get(id) ?? 0);
+  return [...students].sort((a, b) => score(b.id) - score(a.id) || a.id - b.id);
+}
+
+/**
  * Link the parent test accounts to real students.
  *   parent  → verified link to a student with a parent email on file
  *   parent2 → verified link to a DIFFERENT student (cross-access testing)
@@ -1059,7 +1073,9 @@ async function seedTestAccounts(): Promise<void> {
  */
 async function linkParentTestAccounts(): Promise<void> {
   try {
-    const all = await db.students.findMany({ orderBy: { id: 'asc' }, select: { id: true, parent_email: true } });
+    const all = await demoShowcaseOrder(
+      await db.students.findMany({ orderBy: { id: 'asc' }, select: { id: true, parent_email: true } }),
+    );
     const studentsWithEmail = all.filter((s) => (s.parent_email ?? '').trim() !== '').slice(0, 2);
     if (studentsWithEmail.length < 2) return;
 
@@ -1100,7 +1116,9 @@ async function linkStudentTestAccount(): Promise<void> {
   try {
     const studentUser = await db.users.findFirst({ where: { username: 'student', role: 'student' } });
     if (!studentUser) return;
-    const someStudent = await db.students.findFirst({ orderBy: { id: 'asc' } });
+    const [someStudent] = await demoShowcaseOrder(
+      await db.students.findMany({ orderBy: { id: 'asc' }, select: { id: true } }),
+    );
     if (!someStudent) return;
     await db.parentStudentLinks.upsert({
       where: { parent_user_id_student_id: { parent_user_id: studentUser.id, student_id: someStudent.id } },

@@ -3,17 +3,17 @@
 // name is NULL, so that behavior is preserved here).
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { withAuth } from '@/lib/sccs-auth';
+import { withAuth, canSeeIncident } from '@/lib/sccs-auth';
 
 export const dynamic = 'force-dynamic';
 
 type Ctx = { params: Promise<{ id: string }> };
 
-export const GET = withAuth<Ctx>(async (_req, _user, ctx) => {
+export const GET = withAuth<Ctx>(async (_req, user, ctx) => {
   try {
     const { id } = await ctx.params;
     const numericId = Number.parseInt(id, 10);
-    if (Number.isNaN(numericId)) {
+    if (Number.isNaN(numericId) || !(await canSeeIncident(user, numericId))) {
       return NextResponse.json([]);
     }
 

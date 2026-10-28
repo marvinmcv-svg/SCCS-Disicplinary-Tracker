@@ -3,6 +3,7 @@ import { Plus, Search, X, AlertCircle, CheckCircle, Clock, Loader, Check, Trash2
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../lib/api';
 import { useI18n } from '../i18n';
+import { usePermissions } from '../lib/roles';
 import * as XLSX from 'xlsx';
 
 interface Student {
@@ -113,6 +114,7 @@ const DATE_PRESETS = [
 ];
 
 export default function Incidents() {
+  const { canRecordIncidents } = usePermissions();
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useI18n();
@@ -514,9 +516,11 @@ export default function Incidents() {
           <button onClick={handleExportExcel} className="btn btn-secondary">
             <Download className="w-5 h-5" />{t('Export')}
           </button>
-          <button onClick={openModal} className="btn btn-primary">
-            <Plus className="w-5 h-5" />{t('New Incident')}
-          </button>
+          {canRecordIncidents && (
+            <button onClick={openModal} className="btn btn-primary">
+              <Plus className="w-5 h-5" />{t('New Incident')}
+            </button>
+          )}
         </div>
       </div>
 
@@ -641,7 +645,9 @@ export default function Incidents() {
           <div className="text-center py-12 text-gray-400">
             <AlertCircle className="w-12 h-12 mx-auto mb-2" />
             <p>{t('No incidents found')}</p>
-            <button onClick={openModal} className="btn btn-primary mt-4"><Plus className="w-5 h-5" />{t('Record First Incident')}</button>
+            {canRecordIncidents && (
+              <button onClick={openModal} className="btn btn-primary mt-4"><Plus className="w-5 h-5" />{t('Record First Incident')}</button>
+            )}
           </div>
         )}
       </div>

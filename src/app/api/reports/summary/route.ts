@@ -4,12 +4,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { Prisma } from '@prisma/client';
 import { db } from '@/lib/db';
-import { withAuth } from '@/lib/sccs-auth';
+import { withAuth, familyStudentIds } from '@/lib/sccs-auth';
 import { groupCounts } from '../../_lib/api-utils';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = withAuth(async (req) => {
+export const GET = withAuth(async (req, user) => {
   try {
     const sp = req.nextUrl.searchParams;
     const startDate = sp.get('start_date');
@@ -18,6 +18,8 @@ export const GET = withAuth(async (req) => {
     const category = sp.get('category');
 
     const where: Prisma.IncidentsWhereInput = {};
+    const familyIds = await familyStudentIds(user);
+    if (familyIds) where.student_id = { in: familyIds };
     if (startDate || endDate) {
       where.date = {
         ...(startDate ? { gte: startDate } : {}),

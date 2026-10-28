@@ -11,6 +11,7 @@ const sccsLogo = '/sccs.png';
 import api from '../lib/api';
 import { useI18n } from '../i18n';
 import LanguageToggle from './LanguageToggle';
+import { usePermissions } from '../lib/roles';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
@@ -21,6 +22,7 @@ const navItems = [
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const { isFamily, isAdmin } = usePermissions();
   const navigate = useNavigate();
   const { t, lang } = useI18n();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -141,45 +143,51 @@ export default function Layout() {
               <span className="text-sm font-medium">{t(item.label)}</span>
             </NavLink>
           ))}
-          <NavLink
-            to="/violations"
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-3 rounded-lg mb-1 transition-colors ${
-                isActive
-                ? 'bg-white/20 text-white'
-                : 'text-white/70 hover:bg-white/10 hover:text-white'
-              }`
-            }
-          >
-            <BookOpen className="w-5 h-5 flex-shrink-0" />
-            <span className="text-sm font-medium">{t('Violations')}</span>
-          </NavLink>
-          <NavLink
-            to="/users"
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-3 rounded-lg mb-1 transition-colors ${
-                isActive
-                ? 'bg-white/20 text-white'
-                : 'text-white/70 hover:bg-white/10 hover:text-white'
-              }`
-            }
-          >
-            <Shield className="w-5 h-5 flex-shrink-0" />
-            <span className="text-sm font-medium">{t('Users')}</span>
-          </NavLink>
-          <NavLink
-            to="/settings"
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-3 rounded-lg mb-1 transition-colors ${
-                isActive
-                ? 'bg-white/20 text-white'
-                : 'text-white/70 hover:bg-white/10 hover:text-white'
-              }`
-            }
-          >
-            <Settings className="w-5 h-5 flex-shrink-0" />
-            <span className="text-sm font-medium">{t('Settings')}</span>
-          </NavLink>
+          {!isFamily && (
+            <NavLink
+              to="/violations"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-3 rounded-lg mb-1 transition-colors ${
+                  isActive
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/70 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <BookOpen className="w-5 h-5 flex-shrink-0" />
+              <span className="text-sm font-medium">{t('Violations')}</span>
+            </NavLink>
+          )}
+          {isAdmin && (
+            <NavLink
+              to="/users"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-3 rounded-lg mb-1 transition-colors ${
+                  isActive
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/70 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <Shield className="w-5 h-5 flex-shrink-0" />
+              <span className="text-sm font-medium">{t('Users')}</span>
+            </NavLink>
+          )}
+          {isAdmin && (
+            <NavLink
+              to="/settings"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-3 rounded-lg mb-1 transition-colors ${
+                  isActive
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/70 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <Settings className="w-5 h-5 flex-shrink-0" />
+              <span className="text-sm font-medium">{t('Settings')}</span>
+            </NavLink>
+          )}
         </nav>
 
         <div className="p-4 border-t border-white/10">
@@ -241,48 +249,54 @@ export default function Layout() {
               <span className="text-base font-medium">{t(item.label)}</span>
             </NavLink>
           ))}
-          <NavLink
-            to="/violations"
-            onClick={closeMobileMenu}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors ${
-                isActive
-                ? 'bg-white/20 text-white'
-                : 'text-white/70 hover:bg-white/10 hover:text-white'
-              }`
-            }
-          >
-            <BookOpen className="w-6 h-6 flex-shrink-0" />
-            <span className="text-base font-medium">{t('Violations')}</span>
-          </NavLink>
-          <NavLink
-            to="/users"
-            onClick={closeMobileMenu}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors ${
-                isActive
-                ? 'bg-white/20 text-white'
-                : 'text-white/70 hover:bg-white/10 hover:text-white'
-              }`
-            }
-          >
-            <Shield className="w-6 h-6 flex-shrink-0" />
-            <span className="text-base font-medium">{t('Users')}</span>
-          </NavLink>
-          <NavLink
-            to="/settings"
-            onClick={closeMobileMenu}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors ${
-                isActive
-                ? 'bg-white/20 text-white'
-                : 'text-white/70 hover:bg-white/10 hover:text-white'
-              }`
-            }
-          >
-            <Settings className="w-6 h-6 flex-shrink-0" />
-            <span className="text-base font-medium">{t('Settings')}</span>
-          </NavLink>
+          {!isFamily && (
+            <NavLink
+              to="/violations"
+              onClick={closeMobileMenu}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors ${
+                  isActive
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/70 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <BookOpen className="w-6 h-6 flex-shrink-0" />
+              <span className="text-base font-medium">{t('Violations')}</span>
+            </NavLink>
+          )}
+          {isAdmin && (
+            <NavLink
+              to="/users"
+              onClick={closeMobileMenu}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors ${
+                  isActive
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/70 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <Shield className="w-6 h-6 flex-shrink-0" />
+              <span className="text-base font-medium">{t('Users')}</span>
+            </NavLink>
+          )}
+          {isAdmin && (
+            <NavLink
+              to="/settings"
+              onClick={closeMobileMenu}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors ${
+                  isActive
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/70 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <Settings className="w-6 h-6 flex-shrink-0" />
+              <span className="text-base font-medium">{t('Settings')}</span>
+            </NavLink>
+          )}
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">

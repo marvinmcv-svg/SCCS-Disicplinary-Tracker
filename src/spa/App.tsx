@@ -18,6 +18,7 @@ import UserProfile from './pages/UserProfile';
 import Reports from './pages/Reports';
 import Layout from './components/Layout';
 import api from './lib/api';
+import { usePermissions } from './lib/roles';
 import { I18nProvider, useI18n } from './i18n';
 
 interface AuthContextType {
@@ -135,7 +136,15 @@ function SessionTimeoutWarning({
 }
 
 function App() {
-  const [user, setUser] = useState<any>(null);
+  // Read the saved user synchronously so role checks (RoleGate) are right on
+  // the very first render after a page refresh.
+  const [user, setUser] = useState<any>(() => {
+    try {
+      return localStorage.getItem('token') ? JSON.parse(localStorage.getItem('user') || 'null') : null;
+    } catch {
+      return null;
+    }
+  });
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [showSessionWarning, setShowSessionWarning] = useState(false);
   const [warningCountdown, setWarningCountdown] = useState(WARNING_DURATION);
@@ -308,18 +317,25 @@ function App() {
               <Route path="students/:id" element={<StudentProfile />} />
               <Route path="incidents" element={<Incidents />} />
               <Route path="incidents/:id" element={<IncidentDetail />} />
-              <Route path="violations" element={<Violations />} />
-              <Route path="reports" element={<Reports />} />
+              <Route path="violations" element={<RoleGate allow="staff"><Violations /></RoleGate>} />
+              <Route path="reports" element={<RoleGate allow="staff"><Reports /></RoleGate>} />
               <Route path="mtss" element={<MTSS />} />
-              <Route path="users" element={<Users />} />
+              <Route path="users" element={<RoleGate allow="admin"><Users /></RoleGate>} />
               <Route path="users/:id" element={<UserProfile />} />
-              <Route path="settings" element={<Settings />} />
+              <Route path="settings" element={<RoleGate allow="admin"><Settings /></RoleGate>} />
             </Route>
           </Routes>
         </HashRouter>
       </I18nProvider>
     </AuthContext.Provider>
   );
+}
+
+/** Sends roles that cannot use a page back to the dashboard (the API also refuses them). */
+function RoleGate({ allow, children }: { allow: 'staff' | 'admin'; children: React.ReactElement }) {
+  const { isFamily, isAdmin } = usePermissions();
+  const allowed = allow === 'admin' ? isAdmin : !isFamily;
+  return allowed ? children : <Navigate to="/" replace />;
 }
 
 export default App;

@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { Prisma } from '@prisma/client';
 import { db } from '@/lib/db';
-import { withAuth, canRecordIncidents, forbidden } from '@/lib/sccs-auth';
+import { withAuth, canRecordIncidents, forbidden, familyStudentIds } from '@/lib/sccs-auth';
 import { incidentSchema, parseBody } from '@/lib/sccs-validation';
 import { flattenIncident } from '@/lib/sccs-serialize';
 import { stripIncidentRefs } from '../_lib/api-utils';
@@ -17,6 +17,8 @@ export const GET = withAuth(async (_req, user) => {
     const userRole = user.role || 'user'; // default to most-restricted
 
     const where: Prisma.IncidentsWhereInput = {};
+    const familyIds = await familyStudentIds(user);
+    if (familyIds) where.student_id = { in: familyIds };
     if (userRole === 'teacher' || userRole === 'counselor') {
       // Look up the current user's full name + assigned advisory room.
       const currentUserData = await db.users.findUnique({

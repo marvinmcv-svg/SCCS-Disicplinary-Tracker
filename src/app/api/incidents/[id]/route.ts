@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { Prisma } from '@prisma/client';
 import { db } from '@/lib/db';
-import { withAuth, canRecordIncidents, adminOnly, forbidden } from '@/lib/sccs-auth';
+import { withAuth, canRecordIncidents, adminOnly, forbidden, canSeeIncident } from '@/lib/sccs-auth';
 import { incidentUpdateSchema, parseBody } from '@/lib/sccs-validation';
 import { flattenIncident } from '@/lib/sccs-serialize';
 import { stripIncidentRefs } from '../../_lib/api-utils';
@@ -14,11 +14,11 @@ type Ctx = { params: Promise<{ id: string }> };
 
 // GET — flattened incident with the student's grade too; res.json(null) when
 // the row does not exist (queryOne semantics).
-export const GET = withAuth<Ctx>(async (_req, _user, ctx) => {
+export const GET = withAuth<Ctx>(async (_req, user, ctx) => {
   try {
     const { id } = await ctx.params;
     const numericId = Number.parseInt(id, 10);
-    if (Number.isNaN(numericId)) {
+    if (Number.isNaN(numericId) || !(await canSeeIncident(user, numericId))) {
       return NextResponse.json(null);
     }
     const row = await db.incidents.findUnique({

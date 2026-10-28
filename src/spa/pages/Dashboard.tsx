@@ -8,6 +8,7 @@ import {
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts';
 import api from '../lib/api';
 import { useI18n } from '../i18n';
+import { usePermissions } from '../lib/roles';
 // Public asset (served from /public in both Vite and the sandbox) instead of a
 // bundled import, so the logo works under either build system.
 const sccsLogo = '/sccs.png';
@@ -65,6 +66,7 @@ const StatCard = ({ title, value, icon: Icon, color, onClick, change, clickLabel
 );
 
 export default function Dashboard() {
+  const { isFamily, canRecordIncidents } = usePermissions();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { t, lang } = useI18n();
@@ -377,13 +379,15 @@ export default function Dashboard() {
 
       {/* Quick Actions */}
       <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 md:overflow-visible md:flex-wrap">
-        <button
-          onClick={() => navigate('/incidents')}
-          className="flex-shrink-0 bg-red-500 text-white rounded-2xl px-4 py-3 flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
-        >
-          <Plus className="w-5 h-5" />
-          <span className="font-semibold">{t('+ New Incident')}</span>
-        </button>
+        {canRecordIncidents && (
+          <button
+            onClick={() => navigate('/incidents')}
+            className="flex-shrink-0 bg-red-500 text-white rounded-2xl px-4 py-3 flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
+          >
+            <Plus className="w-5 h-5" />
+            <span className="font-semibold">{t('+ New Incident')}</span>
+          </button>
+        )}
         <button
           onClick={() => navigateToIncidents('status', 'Open')}
           className="flex-shrink-0 bg-yellow-500 text-white rounded-2xl px-4 py-3 flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
@@ -391,13 +395,15 @@ export default function Dashboard() {
           <Clock className="w-5 h-5" />
           <span className="font-semibold">{t('View Pending')}</span>
         </button>
-        <button
-          onClick={() => navigate('/reports')}
-          className="flex-shrink-0 bg-white rounded-2xl px-4 py-3 flex items-center gap-2 shadow-md border border-gray-100 active:scale-95 transition-transform"
-        >
-          <FileText className="w-5 h-5 text-blue-600" />
-          <span className="font-semibold text-gray-700">{t('Run Report')}</span>
-        </button>
+        {!isFamily && (
+          <button
+            onClick={() => navigate('/reports')}
+            className="flex-shrink-0 bg-white rounded-2xl px-4 py-3 flex items-center gap-2 shadow-md border border-gray-100 active:scale-95 transition-transform"
+          >
+            <FileText className="w-5 h-5 text-blue-600" />
+            <span className="font-semibold text-gray-700">{t('Run Report')}</span>
+          </button>
+        )}
       </div>
 
       {/* Category Chart with Filters */}

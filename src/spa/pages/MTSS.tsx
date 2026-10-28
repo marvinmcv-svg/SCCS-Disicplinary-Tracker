@@ -3,6 +3,7 @@ import { Plus, Search, X, HeartHandshake, ChevronDown, ChevronUp, Calendar, Targ
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { useI18n } from '../i18n';
+import { usePermissions } from '../lib/roles';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -66,6 +67,7 @@ const interventionTypes = [
 const allAdvisors = ['Mr Adachi', 'Mr Cohello', 'MrDiPascuale', 'Mr Kane', 'Mr Ortiz', 'Ms Aguirre', 'Ms Camacho', 'Ms Fernandez', 'Ms Guaristi', 'Ms Hopp', 'Ms Meneses', 'Ms Molina', 'Ms Palacios', 'Ms Rios', 'Ms Robinson', 'Ms Skelly', 'Ms Tello', 'Ms Tomelic', 'Ms Zuazo', 'Mr Coronado', 'Mr Herbert', 'Mr Kreller', 'Mr Odekerken', 'Mr Soliz'];
 
 export default function MTSS() {
+  const { canManageStudents } = usePermissions();
   const navigate = useNavigate();
   const { t } = useI18n();
   const [students, setStudents] = useState<Student[]>([]);
@@ -328,10 +330,12 @@ export default function MTSS() {
             <Download className="w-5 h-5" />
             {t('Export PDF')}
           </button>
-          <button onClick={openModal} className="btn btn-success">
-            <Plus className="w-5 h-5" />
-            {t('New Intervention')}
-          </button>
+          {canManageStudents && (
+            <button onClick={openModal} className="btn btn-success">
+              <Plus className="w-5 h-5" />
+              {t('New Intervention')}
+            </button>
+          )}
         </div>
       </div>
 

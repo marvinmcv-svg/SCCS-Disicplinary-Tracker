@@ -78,3 +78,34 @@ export const forbidden = (msg = 'You do not have permission to perform this acti
 export async function getUserRow(userId: number) {
   return db.users.findUnique({ where: { id: userId } });
 }
+
+// ---------------------------------------------------------------------------
+// Family-account scoping — parents and students may only read the students
+// they are verified-linked to in parent_student_links ('user', the default
+// role, is treated the same way: most restricted).
+// ---------------------------------------------------------------------------
+export const isFamilyAccount = (user: AuthUser) => requireRole(user, 'parent', 'student', 'user');
+
+/** Student row ids a family account may see; null for staff (not restricted here). */
+export async function familyStudentIds(user: AuthUser): Promise<number[] | null> {
+  if (!isFamilyAccount(user)) return null;
+  const links = await db.parentStudentLinks.findMany({
+    where: { parent_user_id: user.userId, verified: true },
+    select: { student_id: true },
+  });
+  return links.map((l) => l.student_id);
+}
+
+/** True when the caller may read this student's records. */
+export async function canSeeStudent(user: AuthUser, studentId: number): Promise<boolean> {
+  const ids = await familyStudentIds(user);
+  return ids === null || ids.includes(studentId);
+}
+
+/** True when the caller may read this incident (and its logs / evidence). */
+export async function canSeeIncident(user: AuthUser, incidentId: number): Promise<boolean> {
+  const ids = await familyStudentIds(user);
+  if (ids === null) return true;
+  const row = await db.incidents.findUnique({ where: { id: incidentId }, select: { student_id: true } });
+  return !!row && ids.includes(row.student_id);
+}

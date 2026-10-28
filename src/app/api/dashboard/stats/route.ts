@@ -2,14 +2,17 @@
 // { total, pending (Open), resolved (Resolved), byCategory, recentIncidents }
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { withAuth } from '@/lib/sccs-auth';
+import { withAuth, familyStudentIds } from '@/lib/sccs-auth';
 import { groupCounts } from '../../_lib/api-utils';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = withAuth(async () => {
+export const GET = withAuth(async (_req, user) => {
   try {
+    const familyIds = await familyStudentIds(user);
+    const where = familyIds ? { student_id: { in: familyIds } } : {};
     const rows = await db.incidents.findMany({
+      where,
       select: { status: true, violation: { select: { category: true } } },
     });
 
@@ -22,6 +25,7 @@ export const GET = withAuth(async () => {
     );
 
     const recentRows = await db.incidents.findMany({
+      where,
       orderBy: [{ date: 'desc' }, { id: 'desc' }],
       take: 5,
       select: {

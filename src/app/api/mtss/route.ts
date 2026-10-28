@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { Prisma } from '@prisma/client';
 import { db } from '@/lib/db';
-import { withAuth, canManageStudents, forbidden } from '@/lib/sccs-auth';
+import { withAuth, canManageStudents, forbidden, familyStudentIds } from '@/lib/sccs-auth';
 import { mtssSchema, parseBody } from '@/lib/sccs-validation';
 import { flattenMtss } from '@/lib/sccs-serialize';
 import { stripMtssRef, todayStr, datePlusDaysStr } from '../_lib/api-utils';
@@ -10,7 +10,7 @@ import { stripMtssRef, todayStr, datePlusDaysStr } from '../_lib/api-utils';
 export const dynamic = 'force-dynamic';
 
 // GET — joined student names, tier_history parsed back from JSON text.
-export const GET = withAuth(async (req) => {
+export const GET = withAuth(async (req, user) => {
   try {
     const sp = req.nextUrl.searchParams;
     const advisor = sp.get('advisor');
@@ -18,6 +18,8 @@ export const GET = withAuth(async (req) => {
     const reviewSoon = sp.get('review_soon');
 
     const where: Prisma.MtssInterventionsWhereInput = {};
+    const familyIds = await familyStudentIds(user);
+    if (familyIds) where.student_id = { in: familyIds };
     if (advisor) where.advisor = advisor;
     if (tier) {
       const tierNum = Number.parseInt(tier, 10);

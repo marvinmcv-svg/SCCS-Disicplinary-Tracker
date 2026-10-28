@@ -1,4 +1,4 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect, Page, APIRequestContext } from '@playwright/test';
 
 /**
  * SCCS Discipline Tracker — E2E golden-path suite.
@@ -560,4 +560,57 @@ test('desktop: sidebar navigation reaches every section', async ({ page }) => {
     await page.waitForTimeout(400);
     await expect(page.locator('main')).toBeVisible();
   }
+});
+
+// ---------------------------------------------------------------------------
+// Family-account privacy: parents/students read only their linked student.
+// ---------------------------------------------------------------------------
+async function apiToken(request: APIRequestContext, username: string, password: string) {
+  const res = await request.post('/api/auth/login', { data: { username, password } });
+  expect(res.ok()).toBeTruthy();
+  return (await res.json()).token as string;
+}
+
+test('parent API access is limited to their own linked child', async ({ request }) => {
+  const admin = { Authorization: `Bearer ${await apiToken(request, ADMIN.username, ADMIN.password)}` };
+  const parent = { Authorization: `Bearer ${await apiToken(request, 'parent', 'Parent!2026')}` };
+
+  const students = await (await request.get('/api/students', { headers: parent })).json();
+  expect(students).toHaveLength(1);
+  const childId = students[0].id;
+
+  const incidents = await (await request.get('/api/incidents', { headers: parent })).json();
+  expect(incidents.length).toBeGreaterThan(0);
+  expect(incidents.every((i: { student_id: number }) => i.student_id === childId)).toBeTruthy();
+
+  const stats = await (await request.get('/api/dashboard/stats', { headers: parent })).json();
+  expect(stats.total).toBe(incidents.length);
+
+  // Another family's records stay hidden, even by direct id.
+  const all = await (await request.get('/api/incidents', { headers: admin })).json();
+  const other = all.find((i: { student_id: number }) => i.student_id !== childId);
+  expect(await (await request.get(`/api/incidents/${other.id}`, { headers: parent })).json()).toBeNull();
+  expect(await (await request.get(`/api/students/${other.student_id}`, { headers: parent })).json()).toBeNull();
+  expect((await request.get('/api/users/1', { headers: parent })).status()).toBe(404);
+});
+
+test('unverified parent link grants no access', async ({ request }) => {
+  const pending = { Authorization: `Bearer ${await apiToken(request, 'pendingparent', 'Pending!2026')}` };
+  expect(await (await request.get('/api/students', { headers: pending })).json()).toHaveLength(0);
+  expect(await (await request.get('/api/incidents', { headers: pending })).json()).toHaveLength(0);
+});
+
+test('parent menu hides staff-only pages', async ({ page }) => {
+  await login(page, 'parent', 'Parent!2026');
+  if (await isMobile(page)) {
+    await page.locator('header button').first().click();
+    await page.waitForTimeout(400);
+  }
+  const nav = page.locator('aside:visible');
+  await expect(nav.getByText('Incidents', { exact: true })).toBeVisible();
+  for (const label of ['Users', 'Settings', 'Violations']) {
+    await expect(nav.getByText(label, { exact: true })).toHaveCount(0);
+  }
+  await page.goto('/#/users');
+  await expect(page.getByRole('heading', { name: 'Welcome Back!' })).toBeVisible({ timeout: 15_000 });
 });

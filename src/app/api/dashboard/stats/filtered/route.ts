@@ -10,12 +10,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { Prisma } from '@prisma/client';
 import { db } from '@/lib/db';
-import { withAuth } from '@/lib/sccs-auth';
+import { withAuth, familyStudentIds } from '@/lib/sccs-auth';
 import { groupCounts, mondayOfWeek } from '../../../_lib/api-utils';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = withAuth(async (req) => {
+export const GET = withAuth(async (req, user) => {
   try {
     const sp = req.nextUrl.searchParams;
     const startDate = sp.get('startDate');
@@ -26,6 +26,8 @@ export const GET = withAuth(async (req) => {
 
     // WHERE 1=1 AND date filters AND grade AND category AND status
     const where: Prisma.IncidentsWhereInput = {};
+    const familyIds = await familyStudentIds(user);
+    if (familyIds) where.student_id = { in: familyIds };
     if (startDate || endDate) {
       where.date = {
         ...(startDate ? { gte: startDate } : {}),
@@ -90,6 +92,7 @@ export const GET = withAuth(async (req) => {
     const trendWhere: Prisma.IncidentsWhereInput = {
       date: { gte: new Date(Date.now() - 12 * 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10) },
     };
+    if (familyIds) trendWhere.student_id = { in: familyIds };
     if (grade && grade !== 'all') trendWhere.student = { grade: Number(grade) };
     if (category && category !== 'all') trendWhere.violation = { category };
 

@@ -2,18 +2,18 @@
 // (GET) and 1355 (POST).
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { withAuth, canRecordIncidents, forbidden } from '@/lib/sccs-auth';
+import { withAuth, canRecordIncidents, forbidden, canSeeIncident } from '@/lib/sccs-auth';
 
 export const dynamic = 'force-dynamic';
 
 type Ctx = { params: Promise<{ id: string }> };
 
 // GET — evidence rows joined with the uploader's name.
-export const GET = withAuth<Ctx>(async (_req, _user, ctx) => {
+export const GET = withAuth<Ctx>(async (_req, user, ctx) => {
   try {
     const { id } = await ctx.params;
     const numericId = Number.parseInt(id, 10);
-    if (Number.isNaN(numericId)) {
+    if (Number.isNaN(numericId) || !(await canSeeIncident(user, numericId))) {
       return NextResponse.json([]);
     }
 

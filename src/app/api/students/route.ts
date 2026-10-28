@@ -1,15 +1,17 @@
 // /api/students — port of sccs/server/routes/index.ts:358 (GET) and 376 (POST).
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { withAuth, canManageStudents, forbidden } from '@/lib/sccs-auth';
+import { withAuth, canManageStudents, forbidden, familyStudentIds } from '@/lib/sccs-auth';
 import { studentSchema, parseBody } from '@/lib/sccs-validation';
 
 export const dynamic = 'force-dynamic';
 
 // GET /api/students — every student, ordered by name.
-export const GET = withAuth(async () => {
+export const GET = withAuth(async (_req, user) => {
   try {
+    const familyIds = await familyStudentIds(user);
     const students = await db.students.findMany({
+      where: familyIds ? { id: { in: familyIds } } : {},
       orderBy: [{ last_name: 'asc' }, { first_name: 'asc' }],
     });
     return NextResponse.json(students);
