@@ -64,6 +64,13 @@ Optional: copy `.env.example` to `.env` to customize the admin credentials, JWT 
 
 > **Users created by an admin on the Users dashboard are permanent** — they live in `db/sccs.db` and are never touched by re-seeding (only `e2e-*` test artifacts get pruned).
 
+## Deploying
+
+- Run the server from the project root (`bun run build`, then `bun run start`): the app opens `<project root>/db/sccs.db`.
+- SQLite needs a **persistent disk**. Use a host with a volume (Railway, Render, Fly.io, a VPS) and mount it at `<project root>/db`. Serverless hosts such as Vercel have no writable persistent disk and will lose data.
+- Set a long random `JWT_SECRET` and a strong `INITIAL_ADMIN_PASSWORD` before the first seed.
+- Before entering real students, seed with `SCCS_SEED_DEMO_DATA=false`, `SCCS_SEED_TEST_ACCOUNTS=false` and `SCCS_SEED_ADVISOR_ACCOUNTS=false` (see `.env.example`).
+
 ## Project structure
 
 ```

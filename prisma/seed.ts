@@ -1982,7 +1982,13 @@ async function main(): Promise<void> {
   const adminId = await createDefaultAdmin();
 
   // Demo dataset (idempotent: wipes + regenerates S-2026-002…S-2026-601 rows).
-  await seedDemoData(adminId);
+  // Set SCCS_SEED_DEMO_DATA=false on a live school database so a re-seed can
+  // never delete real students that happen to use those IDs.
+  if (process.env.SCCS_SEED_DEMO_DATA === 'false') {
+    console.log('— Demo dataset skipped (SCCS_SEED_DEMO_DATA=false)');
+  } else {
+    await seedDemoData(adminId);
+  }
 
   // Rewrite legacy free-text locations (pre-code-set rows) to SIS location codes.
   await migrateLegacyLocations();
