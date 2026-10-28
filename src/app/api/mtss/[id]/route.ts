@@ -35,7 +35,7 @@ export const PUT = withAuth<Ctx>(async (req, user, ctx) => {
     } = body;
     const { id } = await ctx.params;
 
-    const data: Prisma.MtssInterventionsUpdateManyInput = {
+    const data: Prisma.MtssInterventionsUncheckedUpdateManyInput = {
       student_id: toIntOrNull(student_id) ?? undefined,
       tier: toIntOrNull(tier) ?? undefined,
       intervention: (intervention ?? undefined) as string | undefined,

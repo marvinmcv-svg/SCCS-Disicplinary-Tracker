@@ -58,6 +58,7 @@ interface Violation {
   description: string | null;
   points_deduction: number;
   default_consequence: string | null;
+  max_oss_days: number;
 }
 
 interface UserType {

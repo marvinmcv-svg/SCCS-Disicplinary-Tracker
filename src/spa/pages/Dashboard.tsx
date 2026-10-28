@@ -29,6 +29,41 @@ interface Stats {
 type DateRange = 'all' | 'today' | 'week' | 'month' | 'quarter' | 'custom';
 type ChartView = 'bar' | 'line';
 
+const getChangeIcon = (current: number, previous: number) => {
+  const change = current - previous;
+  if (change > 0) return <TrendingUp className="w-3 h-3" />;
+  if (change < 0) return <TrendingDown className="w-3 h-3" />;
+  return <Minus className="w-3 h-3" />;
+};
+
+// Stat card component (module scope so it is not re-created — and remounted — on every render)
+const StatCard = ({ title, value, icon: Icon, color, onClick, change, clickLabel }: {
+  title: string;
+  value: number;
+  icon: any;
+  color: string;
+  onClick?: () => void;
+  change?: number;
+  clickLabel?: string;
+}) => (
+  <button
+    onClick={onClick}
+    className={`bg-white/20 backdrop-blur rounded-xl p-3 text-center ${onClick ? 'cursor-pointer hover:bg-white/30 active:scale-95 transition-all' : ''}`}
+  >
+    <div className="flex items-center justify-center gap-1">
+      <Icon className={`w-4 h-4 ${color}`} />
+      <span className="text-xs text-blue-100">{title}</span>
+    </div>
+    <p className="text-2xl font-bold mt-1">{value}</p>
+    {change !== undefined && change !== 0 && (
+      <div className={`flex items-center justify-center gap-0.5 text-xs mt-1 ${change > 0 ? 'text-green-300' : 'text-red-300'}`}>
+        {getChangeIcon(value, value - change)} <span>{Math.abs(change)}%</span>
+      </div>
+    )}
+    {clickLabel && <span className="text-xs text-blue-200 mt-1 block">{clickLabel}</span>}
+  </button>
+);
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -189,13 +224,6 @@ export default function Dashboard() {
     return Math.round(((current - previous) / previous) * 100);
   };
 
-  const getChangeIcon = (current: number, previous: number) => {
-    const change = current - previous;
-    if (change > 0) return <TrendingUp className="w-3 h-3" />;
-    if (change < 0) return <TrendingDown className="w-3 h-3" />;
-    return <Minus className="w-3 h-3" />;
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Open': return 'badge-danger';
@@ -255,34 +283,6 @@ export default function Dashboard() {
   const clearStatusFilter = () => {
     setSelectedStatus('all');
   };
-
-  // Stat card component
-  const StatCard = ({ title, value, icon: Icon, color, onClick, change, clickLabel }: {
-    title: string;
-    value: number;
-    icon: any;
-    color: string;
-    onClick?: () => void;
-    change?: number;
-    clickLabel?: string;
-  }) => (
-    <button
-      onClick={onClick}
-      className={`bg-white/20 backdrop-blur rounded-xl p-3 text-center ${onClick ? 'cursor-pointer hover:bg-white/30 active:scale-95 transition-all' : ''}`}
-    >
-      <div className="flex items-center justify-center gap-1">
-        <Icon className={`w-4 h-4 ${color}`} />
-        <span className="text-xs text-blue-100">{title}</span>
-      </div>
-      <p className="text-2xl font-bold mt-1">{value}</p>
-      {change !== undefined && change !== 0 && (
-        <div className={`flex items-center justify-center gap-0.5 text-xs mt-1 ${change > 0 ? 'text-green-300' : 'text-red-300'}`}>
-          {getChangeIcon(value, value - change)} <span>{Math.abs(change)}%</span>
-        </div>
-      )}
-      {clickLabel && <span className="text-xs text-blue-200 mt-1 block">{clickLabel}</span>}
-    </button>
-  );
 
   // Loading skeleton
   if (loading && stats.total === 0) {

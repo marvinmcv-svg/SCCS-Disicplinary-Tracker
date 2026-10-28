@@ -32,23 +32,33 @@ export const PUT = withAuth<Ctx>(async (req, user, ctx) => {
       progressive_consequences,
     } = body;
 
-    // updateMany keeps the original's blind UPDATE semantics.
-    await db.violations.updateMany({
+    // Required columns are only written when a usable value arrives — a
+    // blank number field or a cleared category used to send null and fail
+    // the whole save. Nullable text columns may still be cleared.
+    const text = (v: unknown) =>
+      typeof v === 'string' && v.trim() !== '' ? v : undefined;
+    const int = (v: unknown) => toIntOrNull(v) ?? undefined;
+    const bool = (v: unknown) => toBoolOrNull(v) ?? undefined;
+
+    const { count } = await db.violations.updateMany({
       where: { id: Number.parseInt(id, 10) },
       data: {
-        category: (category ?? null) as string | null,
-        violation_type: (violation_type ?? null) as string | null,
+        category: text(category),
+        violation_type: text(violation_type),
         description: (description ?? null) as string | null,
-        points_deduction: toIntOrNull(points_deduction),
+        points_deduction: int(points_deduction),
         default_consequence: (default_consequence ?? null) as string | null,
-        min_oss_days: toIntOrNull(min_oss_days),
-        max_oss_days: toIntOrNull(max_oss_days),
-        severity: (severity ?? null) as string | null,
-        mandatory_parent_contact: toBoolOrNull(mandatory_parent_contact),
-        mandatory_admin_review: toBoolOrNull(mandatory_admin_review),
+        min_oss_days: int(min_oss_days),
+        max_oss_days: int(max_oss_days),
+        severity: text(severity),
+        mandatory_parent_contact: bool(mandatory_parent_contact),
+        mandatory_admin_review: bool(mandatory_admin_review),
         progressive_consequences: JSON.stringify(progressive_consequences || []),
       },
     });
+    if (count === 0) {
+      return NextResponse.json({ error: 'Violation not found' }, { status: 404 });
+    }
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 400 });

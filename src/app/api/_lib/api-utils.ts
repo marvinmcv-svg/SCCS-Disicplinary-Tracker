@@ -37,7 +37,9 @@ type FlattenedMtss = ReturnType<typeof flattenMtss>;
 
 /** flattenMtss leaves `student` as an undefined key — remove it, and parse the
  *  tier_history JSON-text column the way the original JSONB join returned it. */
-export function stripMtssRef(row: FlattenedMtss): Omit<FlattenedMtss, 'student'> {
+export function stripMtssRef(
+  row: FlattenedMtss,
+): Omit<FlattenedMtss, 'student' | 'tier_history'> & { tier_history: unknown } {
   const clone = { ...row };
   delete (clone as Partial<FlattenedMtss>).student;
   return { ...clone, tier_history: parseJsonColumn<unknown>(clone.tier_history) };

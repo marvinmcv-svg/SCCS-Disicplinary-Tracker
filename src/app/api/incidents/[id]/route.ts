@@ -52,7 +52,7 @@ export const PUT = withAuth<Ctx>(async (req, user, ctx) => {
     }
 
     // Build the update object ONLY from present keys.
-    const data: Prisma.IncidentsUpdateManyInput = {};
+    const data: Prisma.IncidentsUncheckedUpdateManyInput = {};
 
     if (d.status !== undefined) {
       // Log status change

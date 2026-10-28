@@ -526,7 +526,7 @@ test('language toggle switches the whole UI to Spanish', async ({ page }) => {
   const dialog = page.getByTestId('save-password-dialog');
   try {
     await dialog.waitFor({ state: 'visible', timeout: 5_000 });
-    await dialog.getByText('Ahora no', { exact: true, ignoreCase: true }).click();
+    await dialog.getByText('Ahora no', { exact: true }).click();
   } catch { /* optional */ }
   await expect(page.getByRole('heading', { name: /Bienvenido/i })).toBeVisible({ timeout: 20_000 });
 });
@@ -542,7 +542,7 @@ test('logout returns to the login screen', async ({ page }) => {
 });
 
 test('mobile: bottom navigation switches between core pages', async ({ page }) => {
-  test.skip(!(page.viewportSize()?.width ?? 0) < 768, 'mobile-only navigation test');
+  test.skip((page.viewportSize()?.width ?? 0) >= 768, 'mobile-only navigation test');
   await login(page);
   const bottomNav = page.locator('nav.fixed.bottom-0');
   await expect(bottomNav).toBeVisible();

@@ -347,7 +347,7 @@ export default function Reports() {
         body: reportData.rows,
         theme: 'striped',
         didDrawPage: (data) => {
-          yPos = data.cursor.y;
+          yPos = data.cursor?.y ?? yPos;
         }
       });
     }
