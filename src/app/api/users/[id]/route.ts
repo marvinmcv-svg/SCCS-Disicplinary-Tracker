@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
 import { withAuth, isAdminLike, guardAdminAccounts } from '@/lib/sccs-auth';
+import { passwordProblem } from '@/lib/sccs-passwords';
 
 export const dynamic = 'force-dynamic';
 
@@ -130,27 +131,17 @@ export const PUT = withAuth<Ctx>(async (req, user, ctx) => {
       }
     }
 
-    // Password validation if changing (same rules as reset-password)
+    // Your own password changes through /api/auth/change-password, which asks
+    // for the current one. A password set here by an admin is temporary.
+    if (newPassword && user.userId === numericId) {
+      return NextResponse.json(
+        { error: 'Change your own password from the Change Password form' },
+        { status: 400 },
+      );
+    }
     if (newPassword) {
-      const newPasswordStr = String(newPassword);
-      if (newPasswordStr.length < 8) {
-        return NextResponse.json(
-          { error: 'Password must be at least 8 characters' },
-          { status: 400 },
-        );
-      }
-      if (!/\d/.test(newPasswordStr)) {
-        return NextResponse.json(
-          { error: 'Password must contain at least one number' },
-          { status: 400 },
-        );
-      }
-      if (!/[!@#$%^&*(),.?":{}|<>]/.test(newPasswordStr)) {
-        return NextResponse.json(
-          { error: 'Password must contain at least one special character' },
-          { status: 400 },
-        );
-      }
+      const problem = passwordProblem(String(newPassword));
+      if (problem) return NextResponse.json({ error: problem }, { status: 400 });
     }
 
     const hashedPassword = newPassword ? bcrypt.hashSync(String(newPassword), 10) : null;
@@ -166,7 +157,9 @@ export const PUT = withAuth<Ctx>(async (req, user, ctx) => {
         phone: (phone ?? '') as string,
         classroom: (classroom ?? '') as string,
         profile_picture: (profile_picture ?? '') as string,
-        ...(hashedPassword ? { password: hashedPassword } : {}),
+        ...(hashedPassword
+          ? { password: hashedPassword, must_change_password: true, password_changed_at: new Date() }
+          : {}),
         department: (department || null) as string | null,
         advisory: (advisory || null) as string | null,
         is_active: is_active !== undefined ? Boolean(is_active) : true,

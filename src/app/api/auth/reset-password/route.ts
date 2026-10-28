@@ -1,11 +1,13 @@
 // POST /api/auth/reset-password — port of sccs/server/routes/index.ts:313.
 //
 // Consumes a password-reset token (see forgot-password). Password policy is
-// the original's: at least 8 characters, one number and one special character.
+// the original's (at least 8 characters, one number and one special
+// character), and none of the publicly known seeded passwords.
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
 import { checkRateLimit, clientIp } from '@/lib/sccs-rate-limit';
+import { passwordProblem } from '@/lib/sccs-passwords';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,22 +42,8 @@ export async function POST(req: NextRequest) {
 
     const newPasswordStr = String(newPassword);
 
-    // Password validation
-    if (newPasswordStr.length < 8) {
-      return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
-    }
-    if (!/\d/.test(newPasswordStr)) {
-      return NextResponse.json(
-        { error: 'Password must contain at least one number' },
-        { status: 400 },
-      );
-    }
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(newPasswordStr)) {
-      return NextResponse.json(
-        { error: 'Password must contain at least one special character' },
-        { status: 400 },
-      );
-    }
+    const problem = passwordProblem(newPasswordStr);
+    if (problem) return NextResponse.json({ error: problem }, { status: 400 });
 
     // Find valid token (unused, unexpired)
     const resetToken = await db.passwordResetTokens.findFirst({
@@ -71,7 +59,8 @@ export async function POST(req: NextRequest) {
     const hashedPassword = bcrypt.hashSync(newPasswordStr, 10);
     await db.users.updateMany({
       where: { id: resetToken.user_id },
-      data: { password: hashedPassword },
+      // The user chose this password, and older sessions end.
+      data: { password: hashedPassword, must_change_password: false, password_changed_at: new Date() },
     });
     // Record the new hash in the password history audit trail.
     try {

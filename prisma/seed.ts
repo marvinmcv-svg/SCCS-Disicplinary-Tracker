@@ -40,6 +40,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import bcrypt from 'bcryptjs';
+import { PUBLISHED_PASSWORDS } from '../src/lib/sccs-passwords';
 import { db } from '../src/lib/db';
 
 // ---------------------------------------------------------------------------
@@ -1128,7 +1129,7 @@ const ADVISOR_STAFF = [
   'Ms Zuazo', 'Mr Coronado', 'Mr Herbert', 'Mr Kreller', 'Mr Odekerken', 'Mr Soliz',
 ] as const;
 
-async function seedAdvisorAccounts(): Promise<void> {
+async function seedAdvisorAccounts({ temporaryPassword = false } = {}): Promise<void> {
   if (process.env.SCCS_SEED_ADVISOR_ACCOUNTS === 'false') return;
 
   const password = process.env.ADVISOR_ACCOUNT_PASSWORD || 'Teacher!2026';
@@ -1172,6 +1173,9 @@ async function seedAdvisorAccounts(): Promise<void> {
           last_name: last,
           advisory,
           is_active: true,
+          // Outside the demo the seeded password is shared, so it is only a
+          // first-sign-in password.
+          must_change_password: temporaryPassword,
         },
       });
       await db.passwordHistory.create({ data: { user_id: created.id, password_hash: hash } });
@@ -2288,6 +2292,64 @@ async function seedRealRoster(roster: RosterRow[]): Promise<void> {
   console.log(`• roster: ${toCreate.length} added, ${updated} updated, ${count} students in the database`);
 }
 
+/**
+ * The seeded passwords are public (they are in this repository's history), so
+ * on a real school database no account may keep one:
+ *   - the demo accounts (fake people) are deactivated while they still use
+ *     theirs;
+ *   - real staff accounts (admins, CarlosP, DanielC, the advisors) must choose
+ *     a new password at their next sign-in.
+ * Accounts whose password was already changed are left alone. Never runs on
+ * the demo dataset, where the published logins are the point.
+ */
+const DEMO_ACCOUNT_PASSWORDS: Record<string, string> = {
+  principal: 'Principal!2026',
+  staff: 'Staff!2026',
+  parent: 'Parent!2026',
+  parent2: 'Parent2!2026',
+  pendingparent: 'Pending!2026',
+  student: 'Student!2026',
+  counselor: 'Counselor!2026',
+  teacher: 'Teacher!2026',
+};
+
+async function lockDownPublishedPasswords(): Promise<void> {
+  const advisorUsernames = new Set<string>(ADVISOR_STAFF.map((name) => name.replace(/\s+/g, '')));
+  const staffPasswords: Record<string, string> = { CarlosP: 'Carlos123456!', DanielC: 'Daniel123456!' };
+  for (const u of advisorUsernames) staffPasswords[u] = 'Teacher!2026';
+
+  const users = await db.users.findMany({
+    where: {
+      is_active: true,
+      OR: [
+        { role: 'admin' },
+        { username: { in: [...Object.keys(DEMO_ACCOUNT_PASSWORDS), ...Object.keys(staffPasswords)] } },
+      ],
+    },
+    select: { id: true, username: true, role: true, password: true, must_change_password: true },
+  });
+
+  let deactivated = 0;
+  let flagged = 0;
+  for (const u of users) {
+    const demoPassword = DEMO_ACCOUNT_PASSWORDS[u.username];
+    if (demoPassword && bcrypt.compareSync(demoPassword, u.password)) {
+      await db.users.update({ where: { id: u.id }, data: { is_active: false } });
+      deactivated++;
+      continue;
+    }
+    if (u.must_change_password) continue;
+    const candidates = u.role === 'admin' ? ['admin123'] : [];
+    if (staffPasswords[u.username]) candidates.push(staffPasswords[u.username]);
+    if (candidates.some((p) => PUBLISHED_PASSWORDS.includes(p) && bcrypt.compareSync(p, u.password))) {
+      await db.users.update({ where: { id: u.id }, data: { must_change_password: true } });
+      flagged++;
+    }
+  }
+  if (deactivated > 0) console.log(`✓ deactivated ${deactivated} demo account(s) still on their published password`);
+  if (flagged > 0) console.log(`✓ ${flagged} account(s) on a published password must choose a new one at next sign-in`);
+}
+
 async function main(): Promise<void> {
   console.log(`SCCS seed — target database: ${(process.env.DATABASE_URL ?? '(unset)').replace(/:[^:@/]*@/, ':***@')}`);
   console.log(`Today (UTC): ${TODAY}\n`);
@@ -2303,7 +2365,8 @@ async function main(): Promise<void> {
   // Production deploys without a roster set SCCS_ROSTER=none: reference data
   // and accounts only, and never the demo students.
   if (process.env.SCCS_ROSTER === 'none') {
-    await seedAdvisorAccounts();
+    await seedAdvisorAccounts({ temporaryPassword: true });
+    await lockDownPublishedPasswords();
     console.log('\n✅ Seed complete (reference data only; students untouched).');
     return;
   }
@@ -2311,7 +2374,8 @@ async function main(): Promise<void> {
   const roster = loadRoster();
   if (roster) {
     await seedRealRoster(roster);
-    await seedAdvisorAccounts();
+    await seedAdvisorAccounts({ temporaryPassword: true });
+    await lockDownPublishedPasswords();
     console.log('\n✅ Seed complete with the school roster (no demo data).');
     return;
   }

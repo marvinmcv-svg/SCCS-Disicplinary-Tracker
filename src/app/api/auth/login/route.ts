@@ -3,6 +3,9 @@
 // Login throttling, in two layers (failures only — successes never count):
 //   - per-IP:     150 failures / 15 min (catches username spraying)
 //   - per-account: 10 failures / 15 min (stops a targeted attack)
+// The in-memory buckets only see one server instance, so the per-account limit
+// is also kept on the users row (failed_login_attempts / locked_until), which
+// every instance shares.
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
@@ -64,6 +67,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
+    if (user.locked_until && user.locked_until > new Date()) {
+      return NextResponse.json({ error: ACCOUNT_LIMIT_MESSAGE }, { status: 429 });
+    }
+
     console.log('User found, checking password...');
 
     let passwordMatch = false;
@@ -78,6 +85,14 @@ export async function POST(req: NextRequest) {
       console.log('Password mismatch for user:', username);
       recordFailure(ipKey, LOGIN_WINDOW_MS);
       recordFailure(accountKey, LOGIN_WINDOW_MS);
+      const attempts = user.failed_login_attempts + 1;
+      const lock = attempts >= ACCOUNT_LOGIN_LIMIT;
+      await db.users.update({
+        where: { id: user.id },
+        data: lock
+          ? { failed_login_attempts: 0, locked_until: new Date(Date.now() + LOGIN_WINDOW_MS) }
+          : { failed_login_attempts: attempts },
+      });
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
@@ -87,7 +102,10 @@ export async function POST(req: NextRequest) {
 
     const token = signToken(user.id, user.role);
     // Keep last_login fresh for the "Currently Online" indicator.
-    await db.users.update({ where: { id: user.id }, data: { last_login: new Date() } });
+    await db.users.update({
+      where: { id: user.id },
+      data: { last_login: new Date(), failed_login_attempts: 0, locked_until: null },
+    });
     console.log('Login successful for user:', username);
 
     return NextResponse.json({
@@ -98,6 +116,7 @@ export async function POST(req: NextRequest) {
         role: user.role,
         firstName: user.first_name,
         lastName: user.last_name,
+        mustChangePassword: user.must_change_password,
       },
     });
   } catch (error) {

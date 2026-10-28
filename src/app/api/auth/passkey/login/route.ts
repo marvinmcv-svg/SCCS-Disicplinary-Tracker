@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     await db.users.update({ where: { id: user.id }, data: { last_login: new Date() } });
     return NextResponse.json({
       token: signToken(user.id, user.role),
-      user: { id: user.id, username: user.username, role: user.role, firstName: user.first_name, lastName: user.last_name },
+      user: { id: user.id, username: user.username, role: user.role, firstName: user.first_name, lastName: user.last_name, mustChangePassword: user.must_change_password },
     });
   } catch {
     return NextResponse.json({ error: FAILED }, { status: 401 });

@@ -19,14 +19,28 @@ async function token(request: APIRequestContext, who: { username: string; passwo
 
 const auth = (t: string) => ({ headers: { Authorization: `Bearer ${t}` } });
 
-/** Creates the coordinator test account once per run (the seed prunes e2e-* users). */
+/**
+ * Creates the coordinator test account once per run (the seed prunes e2e-*
+ * users). An admin-set password is temporary, so the account replaces it with
+ * its own, as a real user would at first sign-in.
+ */
 async function ensureCoordinator(request: APIRequestContext) {
   const admin = await token(request, ADMIN);
+  const temporary = 'Temp!2026x';
   const res = await request.post('/api/users', {
     ...auth(admin.token),
-    data: { ...COORD, role: 'coordinator', first_name: 'Cora', last_name: 'Coordinator', email: 'coordinator@example.edu' },
+    data: { ...COORD, password: temporary, role: 'coordinator', first_name: 'Cora', last_name: 'Coordinator', email: 'coordinator@example.edu' },
   });
   expect([200, 201, 400]).toContain(res.status());
+  if (res.ok()) {
+    const first = await token(request, { username: COORD.username, password: temporary });
+    expect(first.user.mustChangePassword).toBe(true);
+    const changed = await request.post('/api/auth/change-password', {
+      ...auth(first.token),
+      data: { currentPassword: temporary, newPassword: COORD.password },
+    });
+    expect(changed.ok()).toBeTruthy();
+  }
   return token(request, COORD);
 }
 

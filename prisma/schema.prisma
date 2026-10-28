@@ -38,6 +38,10 @@ model Users {
   locked_until          DateTime?
   terms_accepted_at     DateTime?
   password_changed_at   DateTime  @default(now())
+  // Set when the account's password is a temporary or published one (seeded
+  // defaults, admin resets). Until it is changed, the API answers only the
+  // password-change endpoint.
+  must_change_password  Boolean   @default(false)
 
   @@map("users")
 }

@@ -1,9 +1,11 @@
 // PUT /api/users/[id]/password — port of sccs/server/routes/index.ts:1032.
-// Admin only; validates like reset-password.
+// Admin only; validates like reset-password. The user must replace the
+// password at their next sign-in.
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
 import { withAuth, isAdminLike, guardAdminAccounts } from '@/lib/sccs-auth';
+import { passwordProblem } from '@/lib/sccs-passwords';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,25 +25,16 @@ export const PUT = withAuth<Ctx>(async (req, user, ctx) => {
       return NextResponse.json({ error: 'Password required' }, { status: 400 });
     }
 
-    // Stronger password validation
     const passwordStr = String(password);
-    if (passwordStr.length < 8) {
-      return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
-    }
-    if (!/\d/.test(passwordStr)) {
-      return NextResponse.json({ error: 'Password must contain at least one number' }, { status: 400 });
-    }
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(passwordStr)) {
-      return NextResponse.json(
-        { error: 'Password must contain at least one special character' },
-        { status: 400 },
-      );
-    }
+    const problem = passwordProblem(passwordStr);
+    if (problem) return NextResponse.json({ error: problem }, { status: 400 });
 
     const hashedPassword = bcrypt.hashSync(passwordStr, 10);
     await db.users.updateMany({
       where: { id: Number.parseInt(id, 10) },
-      data: { password: hashedPassword },
+      // An admin-chosen password is temporary: the user replaces it at their
+      // next sign-in, and sessions opened with the old one end.
+      data: { password: hashedPassword, must_change_password: true, password_changed_at: new Date() },
     });
     return NextResponse.json({ success: true });
   } catch (error) {

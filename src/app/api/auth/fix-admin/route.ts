@@ -75,6 +75,10 @@ export async function POST(req: NextRequest) {
         is_active: true,
         failed_login_attempts: 0,
         locked_until: null,
+        // The recovery secret is shared: choose a personal password next, and
+        // end any session opened with the old one.
+        must_change_password: true,
+        password_changed_at: new Date(),
       },
     });
     // Keep the password-history audit trail honest for the reset.

@@ -61,19 +61,11 @@ Copy `.env.example` to `.env` (the seed creates the `admin` account from it) and
 
 ### Demo accounts
 
-| Username | Password | Role |
-|---|---|---|
-| `admin` | `admin123` | Admin (set via `INITIAL_ADMIN_*` in `.env`) |
-| `CarlosP` | `Carlos123456!` | Teacher (permanent SCCS account) |
-| `DanielC` | `Daniel123456!` | Teacher (permanent SCCS account) |
-| `teacher` | `Teacher!2026` | Teacher (demo) |
-| `counselor` | `Counselor!2026` | Counselor (demo) |
-| `principal` | `Principal!2026` | Principal (demo) |
-| `staff` | `Staff!2026` | Staff (demo) |
-| `parent` | `Parent!2026` | Parent (demo) |
-| `student` | `Student!2026` | Student (demo) |
+The local demo dataset seeds one account per role (admin, teacher, counselor, principal, staff, parent, student); their logins are in `prisma/seed.ts` and the admin comes from `INITIAL_ADMIN_*` in `.env`.
 
-> **Users created by an admin on the Users dashboard are permanent** — they live in `db/sccs.db` and are never touched by re-seeding (only `e2e-*` test artifacts get pruned).
+Those seeded passwords are public, so on a real school database (a roster is loaded) the seed never lets an account keep one: demo accounts still on theirs are deactivated, and staff accounts (admins, the advisors, CarlosP, DanielC) must choose a new password at their next sign-in. Passwords an admin sets on the Users dashboard are temporary in the same way.
+
+> **Users created by an admin on the Users dashboard are permanent**: re-seeding never touches them (only `e2e-*` test artifacts get pruned).
 
 ## Project structure
 
@@ -146,9 +138,12 @@ Vercel project environment variables (all encrypted, never committed):
 
 `admin` (everything), `coordinator` (everything an admin can do except manage admin accounts, plus the confidential Secondary Disciplinary Referrals inbox), `principal`, `counselor`, `teacher`, `staff`, `parent`, `student`.
 
+Parents and students are limited to `/api/family`, which returns only the students linked to their account through a verified parent link; every other endpoint answers 403 for them.
+
 ## Production notes
 
-- Change the initial admin password on first login
+- The app makes the initial admin, and any account on a seeded or admin-set password, choose a new password at first sign-in
+- Set `ADVISOR_ACCOUNT_PASSWORD` to a private value before advisor accounts are created; without it they start on a published password (still temporary)
 - Supabase free projects pause after a week without activity; upgrade or keep the app in use
 - Fingerprint sign-in (passkeys) is tied to the web address it was set up on: always open the app at the same address
 - Keep `APP_VERSION` and `NEXT_PUBLIC_APP_VERSION` in sync to control the update banner

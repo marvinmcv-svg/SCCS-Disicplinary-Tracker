@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Upload, User, Mail, Phone, MapPin, Shield, Clock, Check, X, Lock, AlertTriangle, Power, Users as UsersIcon, FileText } from 'lucide-react';
 import api from '../lib/api';
 import { useAuth } from '../App';
+import ChangePasswordForm from '../components/ChangePasswordForm';
 import { useI18n } from '../i18n';
 
 interface UserProfile {
@@ -56,7 +57,8 @@ const departmentOptions = [
 export default function UserProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, login } = useAuth();
+  const [passwordChanged, setPasswordChanged] = useState(false);
   const { t } = useI18n();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [activityLogs, setActivityLogs] = useState<ActivityLogEntry[]>([]);
@@ -704,8 +706,9 @@ export default function UserProfile() {
             </div>
           )}
 
-          {/* Password Change Section */}
-          {canEdit && (
+          {/* Temporary password set by an admin (your own password changes
+              in the Change Password card below, which asks for the current one) */}
+          {isAdmin && !isOwnProfile && (
             <div className="pt-4 border-t">
               <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
                 <Lock className="w-4 h-4" />
@@ -752,7 +755,10 @@ export default function UserProfile() {
               {passwordError && (
                 <p className="text-red-500 text-sm mt-2">{passwordError}</p>
               )}
-              <p className="text-gray-500 text-xs mt-2">{t('Leave password fields empty to keep current password')}</p>
+              <p className="text-gray-500 text-xs mt-2">
+                {t('Leave password fields empty to keep current password')}{' '}
+                {t('The user must choose a new password at their next sign-in.')}
+              </p>
             </div>
           )}
 
@@ -826,6 +832,28 @@ export default function UserProfile() {
           )}
         </form>
       </div>
+
+      {isOwnProfile && (
+        <div className="bg-white rounded-2xl shadow-sm p-6 mt-4">
+          <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+            <Lock className="w-4 h-4" />
+            {t('Change Password')}
+          </h3>
+          {passwordChanged && (
+            <p className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm mb-4">
+              {t('Password changed. Other devices have been signed out.')}
+            </p>
+          )}
+          <div className="max-w-md">
+            <ChangePasswordForm
+              onChanged={(token) => {
+                login(currentUser, token);
+                setPasswordChanged(true);
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Activity Log Section */}
       {isAdmin && activityLogs.length > 0 && (

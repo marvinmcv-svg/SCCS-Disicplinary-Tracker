@@ -241,6 +241,9 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (error.response?.status === 403 && error.response?.data?.code === 'PASSWORD_CHANGE_REQUIRED') {
+      window.dispatchEvent(new CustomEvent('sccs:password-change-required'));
+    }
     if (error.response?.status === 401) {
       // Tag first: everything downstream (page catch blocks, unhandled
       // rejection reporting) can tell this 401 apart from a real error.

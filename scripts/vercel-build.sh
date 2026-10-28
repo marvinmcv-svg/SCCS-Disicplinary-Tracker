@@ -20,7 +20,8 @@ bunx prisma db push
 if [ -z "${SCCS_ROSTER_B64:-}" ]; then export SCCS_ROSTER=none; fi
 
 # Set INITIAL_ADMIN_USERNAME / INITIAL_ADMIN_PASSWORD as project env vars to
-# choose the first admin login. It is only created when no admin exists yet.
-INITIAL_ADMIN_USERNAME="${INITIAL_ADMIN_USERNAME:-admin}" INITIAL_ADMIN_PASSWORD="${INITIAL_ADMIN_PASSWORD:-admin123}" bun prisma/seed.ts
+# choose the first admin login. It is only created when no admin exists yet,
+# and there is no default: a password written here would be public.
+bun prisma/seed.ts
 
 next build

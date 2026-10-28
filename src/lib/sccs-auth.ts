@@ -22,30 +22,79 @@ export interface AuthUser {
   role: string;
 }
 
-/** Verify the Authorization: Bearer token on a request. Returns null when invalid. */
-export function getAuthUser(req: NextRequest): AuthUser | null {
+interface TokenClaims extends AuthUser {
+  /** Issued-at, in seconds. */
+  iat?: number;
+}
+
+function verifyToken(req: NextRequest): TokenClaims | null {
   const header = req.headers.get('authorization') || '';
   const token = header.split(' ')[1];
   if (!token) return null;
   try {
-    const decoded = jwt.verify(token, jwtSecret()) as { userId: number; role: string; exp?: number };
+    const decoded = jwt.verify(token, jwtSecret()) as { userId: number; role: string; iat?: number };
     if (typeof decoded?.userId !== 'number' || typeof decoded?.role !== 'string') return null;
-    return { userId: decoded.userId, role: decoded.role };
+    return { userId: decoded.userId, role: decoded.role, iat: decoded.iat };
   } catch {
     return null;
   }
 }
 
-/** Wrap a handler so it runs only with a valid JWT; replies 401 otherwise. */
+/** Verify the Authorization: Bearer token on a request. Returns null when invalid. */
+export function getAuthUser(req: NextRequest): AuthUser | null {
+  const claims = verifyToken(req);
+  return claims ? { userId: claims.userId, role: claims.role } : null;
+}
+
+/**
+ * Families (parents and students) see only their own children's records, via
+ * /api/family. Every other endpoint is staff-only, so a new staff screen can
+ * never leak the school's records to a family account by forgetting a check.
+ */
+export const FAMILY_ROLES: readonly string[] = ['parent', 'student'];
+export const isFamilyRole = (role: string | null | undefined) => FAMILY_ROLES.includes(role ?? '');
+
+const FAMILY_PATHS = [/^\/api\/family(\/|$)/, /^\/api\/auth\//];
+
+/** Endpoints still answered while the account must choose a new password. */
+const PASSWORD_CHANGE_PATHS = [/^\/api\/auth\//];
+
+/**
+ * Wrap a handler so it runs only for a valid JWT whose account is still
+ * active; replies 401 otherwise. The role comes from the database, not the
+ * token, so a role change or deactivation applies to the next request, and a
+ * password change signs out every session issued before it.
+ */
 export function withAuth<T>(
   handler: (req: NextRequest, user: AuthUser, ctx: T) => Promise<NextResponse> | NextResponse,
 ) {
   return async (req: NextRequest, ctx: T): Promise<NextResponse> => {
-    const user = getAuthUser(req);
-    if (!user) {
+    const claims = verifyToken(req);
+    if (!claims) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
-    return handler(req, user, ctx);
+    const account = await db.users.findUnique({
+      where: { id: claims.userId },
+      select: { role: true, is_active: true, must_change_password: true, password_changed_at: true },
+    });
+    // Tokens carry whole seconds, so compare at that resolution.
+    const issuedBeforePasswordChange =
+      account && claims.iat != null && claims.iat < Math.floor(account.password_changed_at.getTime() / 1000);
+    if (!account || !account.is_active || issuedBeforePasswordChange) {
+      return NextResponse.json({ error: 'Session expired' }, { status: 401 });
+    }
+
+    const path = req.nextUrl.pathname;
+    if (account.must_change_password && !PASSWORD_CHANGE_PATHS.some((p) => p.test(path))) {
+      return NextResponse.json(
+        { error: 'Choose a new password to continue', code: 'PASSWORD_CHANGE_REQUIRED' },
+        { status: 403 },
+      );
+    }
+    if (isFamilyRole(account.role) && !FAMILY_PATHS.some((p) => p.test(path))) {
+      return forbidden();
+    }
+    return handler(req, { userId: claims.userId, role: account.role }, ctx);
   };
 }
 

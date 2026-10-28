@@ -20,6 +20,8 @@ import LearningSupport from './pages/LearningSupport';
 import Recognition from './pages/Recognition';
 import Insights from './pages/Insights';
 import Referrals from './pages/Referrals';
+import FamilyHome from './pages/FamilyHome';
+import RequiredPasswordChange from './pages/RequiredPasswordChange';
 import Layout from './components/Layout';
 import api from './lib/api';
 import { I18nProvider, useI18n } from './i18n';
@@ -139,7 +141,15 @@ function SessionTimeoutWarning({
 }
 
 function App() {
-  const [user, setUser] = useState<any>(null);
+  // Read synchronously so the first render already knows the role and whether
+  // a password change is pending (no flash of the staff shell).
+  const [user, setUser] = useState<any>(() => {
+    try {
+      return localStorage.getItem('token') ? JSON.parse(localStorage.getItem('user') || 'null') : null;
+    } catch {
+      return null;
+    }
+  });
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [showSessionWarning, setShowSessionWarning] = useState(false);
   const [warningCountdown, setWarningCountdown] = useState(WARNING_DURATION);
@@ -277,6 +287,22 @@ function App() {
     return () => window.removeEventListener('sccs:session-expired', onSessionExpired);
   }, [handleLogout]);
 
+  // The API refuses everything but a password change while the account is on
+  // a temporary password; the response interceptor reports it here so a
+  // session that was already open lands on the change screen too.
+  useEffect(() => {
+    const onPasswordChangeRequired = () => {
+      setUser((prev: any) => {
+        if (!prev || prev.mustChangePassword) return prev;
+        const next = { ...prev, mustChangePassword: true };
+        localStorage.setItem('user', JSON.stringify(next));
+        return next;
+      });
+    };
+    window.addEventListener('sccs:password-change-required', onPasswordChangeRequired);
+    return () => window.removeEventListener('sccs:password-change-required', onPasswordChangeRequired);
+  }, []);
+
   useEffect(() => {
     if (token) {
       const savedUser = localStorage.getItem('user');
@@ -304,6 +330,11 @@ function App() {
             onLogout={handleLogout}
           />
         )}
+        {token && user?.mustChangePassword ? (
+          <RequiredPasswordChange />
+        ) : token && (user?.role === 'parent' || user?.role === 'student') ? (
+          <FamilyHome />
+        ) : (
         <HashRouter>
           <Routes>
             <Route path="/login" element={token ? <Navigate to="/" /> : <Login />} />
@@ -326,6 +357,7 @@ function App() {
             </Route>
           </Routes>
         </HashRouter>
+        )}
         </div>
       </I18nProvider>
     </AuthContext.Provider>

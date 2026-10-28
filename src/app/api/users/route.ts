@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
 import { withAuth, isAdminLike, guardAdminAccounts } from '@/lib/sccs-auth';
+import { passwordProblem } from '@/lib/sccs-passwords';
 import { userCreateSchema, parseBody } from '@/lib/sccs-validation';
 
 export const dynamic = 'force-dynamic';
@@ -96,20 +97,9 @@ export const POST = withAuth(async (req, user) => {
       return NextResponse.json({ error: 'Username and password required' }, { status: 400 });
     }
 
-    // Stronger password validation (same checks as the original handler).
     const passwordStr = String(password);
-    if (passwordStr.length < 8) {
-      return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
-    }
-    if (!/\d/.test(passwordStr)) {
-      return NextResponse.json({ error: 'Password must contain at least one number' }, { status: 400 });
-    }
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(passwordStr)) {
-      return NextResponse.json(
-        { error: 'Password must contain at least one special character' },
-        { status: 400 },
-      );
-    }
+    const problem = passwordProblem(passwordStr);
+    if (problem) return NextResponse.json({ error: problem }, { status: 400 });
 
     const hashedPassword = bcrypt.hashSync(passwordStr, 10);
     await db.users.create({
@@ -124,6 +114,8 @@ export const POST = withAuth(async (req, user) => {
         classroom: classroom ?? '',
         department: department ?? '',
         advisory: advisory ?? '',
+        // The admin chose this password: the user replaces it at first sign-in.
+        must_change_password: true,
       },
     });
 
