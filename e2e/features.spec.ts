@@ -363,10 +363,16 @@ test('landing page: hero, sections, sign-in and no sideways scroll', async ({ pa
   await expect(page.getByRole('heading', { level: 1, name: 'Every student, seen clearly.' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'One workspace for the whole student.' })).toBeAttached();
   await expect(page.getByRole('heading', { name: 'Accommodations travel with the student.' })).toBeAttached();
+  await expect(page.getByRole('heading', { name: 'Learn the whole app in three minutes.' })).toBeAttached();
+  await expect(page.getByRole('heading', { name: 'Who sees what.' })).toBeAttached();
   await expect(page.getByRole('heading', { name: 'Ready when the bell rings.' })).toBeAttached();
+  // one guide section per feature, each with steps and a chapter button
+  await expect(page.locator('.wl-feature')).toHaveCount(13);
+  await expect(page.locator('.wl-feature .wl-steps').first().locator('li')).toHaveCount(3);
+  await expect(page.getByRole('button', { name: /Watch this chapter/ })).toHaveCount(13);
 
   // every image on the page loads
-  for (let y = 0; y < 8000; y += 600) {
+  for (let y = 0; y < 30000; y += 600) {
     await page.evaluate((v) => window.scrollTo(0, v), y);
     await page.waitForTimeout(80);
   }
@@ -386,17 +392,27 @@ test('landing page: hero, sections, sign-in and no sideways scroll', async ({ pa
   expect(errors, errors.join('\n')).toEqual([]);
 });
 
-test('landing page: the product film loads and plays', async ({ page }) => {
-  await page.goto('/welcome#film');
+test('landing page: the guided tour loads, plays and jumps to chapters', async ({ page }) => {
+  await page.goto('/welcome#tour');
   const video = page.getByTestId('demo-video');
   await video.scrollIntoViewIfNeeded();
   await expect.poll(async () => video.evaluate((v: HTMLVideoElement) => v.readyState), { timeout: 20_000 }).toBeGreaterThanOrEqual(1);
   const duration = await video.evaluate((v: HTMLVideoElement) => v.duration);
-  expect(duration).toBeGreaterThan(40);
-  expect(duration).toBeLessThan(50);
-  await page.getByRole('button', { name: 'Play the product film' }).click();
+  expect(duration).toBeGreaterThan(180);
+  expect(duration).toBeLessThan(200);
+  await page.getByRole('button', { name: 'Play the guided tour' }).click();
   await expect.poll(async () => video.evaluate((v: HTMLVideoElement) => v.currentTime), { timeout: 15_000 }).toBeGreaterThan(0.3);
   await expect(video).toHaveAttribute('controls', '');
+
+  // a chapter in the list jumps the film there and is marked as current
+  const chapters = page.getByRole('navigation', { name: 'Tour chapters' });
+  await chapters.getByRole('button', { name: /Insights/ }).click();
+  await expect.poll(async () => video.evaluate((v: HTMLVideoElement) => v.currentTime), { timeout: 15_000 }).toBeGreaterThan(103);
+  await expect(chapters.getByRole('button', { name: /Insights/ })).toHaveAttribute('aria-current', 'step');
+
+  // "Watch this chapter" in a feature section plays that chapter
+  await page.locator('#referrals').getByRole('button', { name: /Watch this chapter/ }).click();
+  await expect.poll(async () => video.evaluate((v: HTMLVideoElement) => v.currentTime), { timeout: 15_000 }).toBeGreaterThan(116);
 });
 
 test('login page links to the landing page', async ({ page }) => {

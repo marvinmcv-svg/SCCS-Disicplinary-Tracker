@@ -3,7 +3,7 @@
 // Client-only motion leaves for the landing page. Every animation honours
 // prefers-reduced-motion and only animates transform/opacity.
 import { MotionConfig, motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
-import { ReactNode, useRef, useState, useSyncExternalStore } from 'react';
+import { ReactNode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Play } from 'lucide-react';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -70,37 +70,108 @@ export function HeroDevices({ desktop, phone }: { desktop: string; phone: string
   );
 }
 
-/** Product film with a quiet custom play button; native controls once playing. */
-export function DemoFilm({ src, webm, poster }: { src: string; webm?: string; poster: string }) {
+/** Seconds as m:ss. */
+const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+/**
+ * The guided-tour film with its chapter list. Picking a chapter jumps the
+ * video there and plays; while it plays, the current chapter is marked.
+ */
+export function TourPlayer({
+  src,
+  poster,
+  chapters,
+}: {
+  src: string;
+  poster: string;
+  chapters: { id: string; title: string; start: number }[];
+}) {
   const [playing, setPlaying] = useState(false);
+  const [current, setCurrent] = useState(-1);
   const ref = useRef<HTMLVideoElement>(null);
+
+  const play = (at?: number) => {
+    const v = ref.current;
+    if (!v) return;
+    if (at !== undefined) v.currentTime = at;
+    setPlaying(true);
+    v.play().catch(() => setPlaying(false));
+  };
+  // "Watch this chapter" buttons further down the page ask the player to jump.
+  useEffect(() => {
+    const onJump = (e: Event) => {
+      const at = (e as CustomEvent<number>).detail;
+      ref.current?.closest('section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      play(at);
+    };
+    window.addEventListener('wl-play-chapter', onJump);
+    return () => window.removeEventListener('wl-play-chapter', onJump);
+  });
+
+  const onTime = () => {
+    const t = ref.current?.currentTime ?? 0;
+    let i = -1;
+    chapters.forEach((c, j) => { if (t >= c.start) i = j; });
+    setCurrent(i);
+  };
+
   return (
-    <div className="wl-film">
-      <video
-        ref={ref}
-        poster={poster}
-        controls={playing}
-        playsInline
-        preload="metadata"
-        className="block w-full h-auto"
-        data-testid="demo-video"
-        onPlay={() => setPlaying(true)}
-        onEnded={() => setPlaying(false)}
-      >
-        {webm && <source src={webm} type="video/webm" />}
-        <source src={src} type="video/mp4" />
-      </video>
-      {!playing && (
-        <button
-          type="button"
-          className="wl-play"
-          aria-label="Play the product film"
-          onClick={() => { setPlaying(true); ref.current?.play().catch(() => setPlaying(false)); }}
+    <div className="wl-tour">
+      <div className="wl-film">
+        <video
+          ref={ref}
+          poster={poster}
+          controls={playing}
+          playsInline
+          preload="metadata"
+          className="block w-full h-auto"
+          data-testid="demo-video"
+          onPlay={() => setPlaying(true)}
+          onEnded={() => setPlaying(false)}
+          onTimeUpdate={onTime}
         >
-          <Play className="w-6 h-6 fill-current" aria-hidden="true" />
-          <span>Play film</span>
-        </button>
-      )}
+          <source src={src} type="video/mp4" />
+        </video>
+        {!playing && (
+          <button type="button" className="wl-play" aria-label="Play the guided tour" onClick={() => play()}>
+            <Play className="w-6 h-6 fill-current" aria-hidden="true" />
+            <span>Play the tour</span>
+          </button>
+        )}
+      </div>
+      <nav aria-label="Tour chapters">
+        <ol className="wl-chapters">
+          {chapters.map((c, i) => (
+            <li key={c.id}>
+              <button
+                type="button"
+                className="wl-chapter"
+                aria-current={i === current ? 'step' : undefined}
+                onClick={() => play(c.start)}
+              >
+                <span className="wl-chapter-n">{String(i + 1).padStart(2, '0')}</span>
+                <span className="wl-chapter-title">{c.title}</span>
+                <span className="wl-chapter-time">{clock(c.start)}</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      </nav>
     </div>
+  );
+}
+
+/** Jumps the tour player to a chapter and plays it. */
+export function WatchChapter({ start, label }: { start: number; label: string }) {
+  return (
+    <button
+      type="button"
+      className="wl-watch"
+      onClick={() => window.dispatchEvent(new CustomEvent('wl-play-chapter', { detail: start }))}
+    >
+      <Play className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
+      {label}
+      <span className="wl-muted">{clock(start)}</span>
+    </button>
   );
 }

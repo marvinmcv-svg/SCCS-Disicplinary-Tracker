@@ -16,7 +16,7 @@ Version **2.1.0**: adds learning support plans with accommodations, PBIS recogni
 - **Insights** (`#/insights`): explainable early-warning scores plus the manifestation determination alert list.
 - **Command palette**: Ctrl/Cmd + K finds any student, screen or action.
 - **Redesign**: Apple-style design system (system/Geist type, one accent, glass navigation, floating tab bar on phones).
-- **Landing page** at `/welcome` with a 46-second product film rendered with [HyperFrames](https://github.com/heygen-com/hyperframes) (source in `marketing/demo-film`).
+- **Landing page and feature guide** at `/welcome`: a three-minute guided tour in 13 chapters rendered with [HyperFrames](https://github.com/heygen-com/hyperframes) (source in `marketing/demo-film`), a role guide, a section per feature with step-by-step instructions, and a who-sees-what table.
 
 - **Incident registration with PlusPortals SIS codes** — pick the infraction, location, action, penalty (auto-fills detention hours / ISS / OSS days) and served status, mirroring the PlusPortals discipline entry flow
 - **Five seeded code sets** (fully editable by admins on the *Violations* page → *PlusPortals SIS Code Sets*):
@@ -79,7 +79,7 @@ prisma/
   schema.prisma   # 20-table schema (SQLite) — the db path is pinned here
   seed.ts         # idempotent seed: codes, demo data, accounts
 e2e/              # Playwright end-to-end suite (mobile + desktop)
-marketing/        # HyperFrames source for the /welcome product film
+marketing/        # HyperFrames source for the /welcome guided tour
 docs/             # PowerSchool research behind the 2.1 features
 public/           # PWA manifest, icons, service worker
 db/               # SQLite database file (created by db:push, not committed)

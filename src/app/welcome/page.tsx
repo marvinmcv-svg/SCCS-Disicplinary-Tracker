@@ -1,59 +1,106 @@
-// /welcome — product landing page for the SCCS student OS.
+// /welcome: the product landing page and feature guide for SCCS Student OS.
 //
-// Design read: product landing for school leaders and staff, Apple-premium
-// language, system SF / Geist type, restrained Motion, real product
-// screenshots and a HyperFrames-rendered film. Dials: variance 7, motion 6,
-// density 3. Light and dark follow the system setting.
+// Built to teach: a chaptered HyperFrames tour film (marketing/demo-film),
+// a "start with your role" guide, then one section per feature that says what
+// it is for, who uses it and how to use it step by step, with a real screen
+// and a button that plays that chapter of the film. Light and dark follow the
+// system setting; motion respects reduced motion.
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import {
-  Accessibility, ArrowRight, Award, BookOpenCheck, Clock3, Command, Gauge, Hand, Languages, LayoutGrid,
-  MonitorSmartphone, ScanSearch, ShieldCheck, Ear,
-} from 'lucide-react';
-import { DemoFilm, HeroDevices, MotionRoot, Reveal } from './motion';
+import { ArrowRight, Check, Eye, Lightbulb, UserRound } from 'lucide-react';
+import { HeroDevices, MotionRoot, Reveal, TourPlayer, WatchChapter } from './motion';
+import { faqs, features, permissions, roleGuides, roles, type Feature } from './features';
 import './welcome.css';
 
 export const metadata: Metadata = {
   title: 'SCCS Student OS',
   description:
-    'Discipline, learning support and positive behavior in one calm, bilingual workspace for Santa Cruz Christian School.',
+    'Discipline, learning support, MTSS and positive behavior in one bilingual app for Santa Cruz Christian School. Watch the three-minute guided tour.',
   robots: { index: true, follow: true },
 };
 
 const IMG = '/welcome';
+const byId = Object.fromEntries(features.map((f) => [f.id, f]));
 
-const accommodationKinds = [
-  { icon: BookOpenCheck, title: 'Presentation', example: 'Text-to-speech, notes provided, visual supports' },
-  { icon: Hand, title: 'Response', example: 'Dictated answers, laptop for written work' },
-  { icon: LayoutGrid, title: 'Setting', example: 'Small-group testing, preferential seating' },
-  { icon: Clock3, title: 'Timing', example: 'Extended time, chunked assignments' },
-  { icon: ShieldCheck, title: 'Behavioral', example: 'Break passes, check-in and check-out' },
-  { icon: Ear, title: 'Assistive tech', example: 'Audiobooks, speech-to-text' },
-];
+function Shot({ shot, priority = false }: { shot: Feature['shot']; priority?: boolean }) {
+  if (shot.kind === 'phone') {
+    return (
+      <div className="wl-phone">
+        <img src={`${IMG}/${shot.src}.webp`} alt={shot.alt} width={600} height={1301} loading={priority ? 'eager' : 'lazy'} className="block h-auto w-full" />
+      </div>
+    );
+  }
+  return (
+    <div className="wl-window">
+      <div className="wl-window-bar" aria-hidden="true"><span /><span /><span /></div>
+      <img src={`${IMG}/${shot.src}.webp`} alt={shot.alt} width={1600} height={1000} loading={priority ? 'eager' : 'lazy'} className="block h-auto w-full" />
+    </div>
+  );
+}
 
-const lessons = [
-  {
-    from: 'Special programs on every roster',
-    to: 'IEP, 504 and ELL badges sit next to each name, and the full plan opens the moment you log an incident.',
-  },
-  {
-    from: 'Behavior support built on PBIS',
-    to: 'Recognition lives beside discipline, so the school sees its positive to corrective ratio every day.',
-  },
-  {
-    from: 'Early warning across data',
-    to: 'Insights blends incidents, suspensions, MTSS tiers and recognition into a score that always shows its reasons.',
-  },
-  {
-    from: 'Fewer screens to click through',
-    to: 'One search box finds any student or screen, and the most common actions are one tap from the dashboard.',
-  },
-];
+/** One screen, or a desktop window with a second screen layered over it. */
+function Media({ f }: { f: Feature }) {
+  if (!f.extra) return <Shot shot={f.shot} />;
+  const base = f.shot.kind === 'phone' ? f.extra : f.shot;
+  const over = f.shot.kind === 'phone' ? f.shot : f.extra;
+  return (
+    <div className={`wl-stack ${over.kind === 'phone' ? 'wl-stack-phone' : 'wl-stack-desktop'}`}>
+      <Shot shot={base} />
+      <div className="wl-stack-over"><Shot shot={over} /></div>
+    </div>
+  );
+}
+
+function FeatureSection({ f, n }: { f: Feature; n: number }) {
+  const flip = n % 2 === 0;
+  return (
+    <section id={f.id} className="wl-feature scroll-mt-20" aria-labelledby={`${f.id}-h`}>
+      <div
+        className={`wl-container grid items-center gap-12 py-20 md:py-28 lg:gap-14 ${
+          flip ? 'lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] lg:[&>*:first-child]:order-2' : 'lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]'
+        }`}
+      >
+        <Reveal>
+          <p className="wl-feature-kicker">
+            <span className="wl-feature-n">{String(n).padStart(2, '0')}</span>
+            {f.title}
+          </p>
+          <h3 id={`${f.id}-h`} className="wl-h2 mt-4">{f.headline}</h3>
+          <ul className="mt-5 flex flex-wrap gap-2" aria-label="Who uses it">
+            {f.who.map((w) => (
+              <li key={w} className="wl-who"><UserRound className="h-3.5 w-3.5" aria-hidden="true" />{w}</li>
+            ))}
+          </ul>
+          <p className="wl-lede mt-5 max-w-[52ch]">{f.purpose}</p>
+
+          <p className="wl-howto mt-8">How to use it</p>
+          <ol className="wl-steps mt-4">
+            {f.steps.map((s, i) => (
+              <li key={s}><span className="wl-step-n" aria-hidden="true">{i + 1}</span><span>{s}</span></li>
+            ))}
+          </ol>
+
+          {f.tip && (
+            <div className="wl-note mt-7">
+              <Lightbulb className="h-5 w-5 shrink-0" aria-hidden="true" />
+              <p><strong>Good to know.</strong> {f.tip}</p>
+            </div>
+          )}
+          <div className="mt-7"><WatchChapter start={f.start} label="Watch this chapter" /></div>
+        </Reveal>
+        <Reveal delay={0.08}><Media f={f} /></Reveal>
+      </div>
+    </section>
+  );
+}
+
+const accessLabel: Record<string, string> = { yes: 'Yes', view: 'View only', own: 'Their own', '': 'No' };
 
 export default function WelcomePage() {
   return (
     <MotionRoot>
     <div className="welcome">
+      <a href="#tour" className="wl-skip">Skip to the tour</a>
       <header className="wl-nav">
         <div className="wl-container flex h-16 items-center justify-between gap-6">
           <Link href="/welcome" className="flex items-center gap-2.5">
@@ -61,9 +108,11 @@ export default function WelcomePage() {
             <span className="text-[15px] font-semibold tracking-tight">SCCS Student OS</span>
           </Link>
           <nav className="hidden items-center gap-7 text-sm md:flex" aria-label="Sections">
-            <a href="#film" className="wl-navlink">Film</a>
+            <a href="#tour" className="wl-navlink">Tour</a>
+            <a href="#roles" className="wl-navlink">By role</a>
             <a href="#features" className="wl-navlink">Features</a>
-            <a href="#support" className="wl-navlink">Learning support</a>
+            <a href="#privacy" className="wl-navlink">Privacy</a>
+            <a href="#faq" className="wl-navlink">Questions</a>
           </nav>
           <Link href="/" className="wl-btn wl-btn-primary wl-btn-sm">Sign in</Link>
         </div>
@@ -73,13 +122,14 @@ export default function WelcomePage() {
         {/* Hero */}
         <section className="wl-container grid items-center gap-14 pb-24 pt-14 md:pt-20 lg:grid-cols-[minmax(0,6fr)_minmax(0,7fr)] lg:gap-12">
           <Reveal>
-            <h1 className="wl-display">Every student, seen clearly.</h1>
-            <p className="wl-lede mt-6 max-w-[34ch]">
-              Discipline, learning support and positive behavior in one calm, bilingual workspace for SCCS staff.
+            <p className="wl-eyebrow">For Santa Cruz Christian School staff and families</p>
+            <h1 className="wl-display mt-4">Every student, seen clearly.</h1>
+            <p className="wl-lede mt-6 max-w-[38ch]">
+              Discipline, learning support, MTSS and positive behavior in one calm, bilingual app. Learn all of it in a three-minute guided tour.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
-              <Link href="/" className="wl-btn wl-btn-primary">Sign in <ArrowRight className="h-4 w-4" /></Link>
-              <a href="#film" className="wl-btn wl-btn-ghost">Watch the film</a>
+              <a href="#tour" className="wl-btn wl-btn-primary">Watch the tour <ArrowRight className="h-4 w-4" /></a>
+              <Link href="/" className="wl-btn wl-btn-ghost">Sign in</Link>
             </div>
           </Reveal>
           <HeroDevices desktop={`${IMG}/desktop-dashboard.webp`} phone={`${IMG}/mobile-dashboard.webp`} />
@@ -89,155 +139,139 @@ export default function WelcomePage() {
         <section className="wl-band" aria-label="At a glance">
           <div className="wl-container grid grid-cols-2 gap-y-8 py-12 md:grid-cols-4">
             {[
-              ['61', 'PlusPortals infraction codes'],
+              [String(features.length), 'features, each explained step by step'],
+              ['61', 'PlusPortals infraction codes built in'],
               ['6', 'learning support programs'],
               ['2', 'languages on every screen'],
-              ['0', 'apps to install'],
             ].map(([n, label]) => (
               <div key={label}>
                 <p className="wl-stat">{n}</p>
-                <p className="wl-muted mt-1 text-sm">{label}</p>
+                <p className="wl-muted mt-1 max-w-[22ch] text-sm">{label}</p>
               </div>
             ))}
           </div>
         </section>
 
-        {/* Film */}
-        <section id="film" className="wl-container scroll-mt-20 py-24 md:py-32">
+        {/* Guided tour */}
+        <section id="tour" className="wl-container scroll-mt-20 py-24 md:py-32">
           <Reveal className="mx-auto max-w-2xl text-center">
-            <h2 className="wl-h2">A school day, in under a minute.</h2>
-            <p className="wl-lede mx-auto mt-4 max-w-[52ch]">
-              From the morning dashboard to a calm, compliant referral for a student with an IEP.
+            <p className="wl-eyebrow">Guided tour</p>
+            <h2 className="wl-h2 mt-3">Learn the whole app in three minutes.</h2>
+            <p className="wl-lede mx-auto mt-4 max-w-[54ch]">
+              {features.length} short chapters. Each one shows what a feature is for, who uses it and how to use it, step by step, on the real screens. Pick a chapter to jump straight to it.
             </p>
           </Reveal>
           <Reveal delay={0.1} className="mt-12">
-            <DemoFilm src={`${IMG}/sccs-demo.mp4`} webm={`${IMG}/sccs-demo.webm`} poster={`${IMG}/sccs-demo-poster.webp`} />
+            <TourPlayer
+              src={`${IMG}/sccs-tour.mp4`}
+              poster={`${IMG}/sccs-tour-poster.webp`}
+              chapters={features.map((f) => ({ id: f.id, title: f.title, start: f.start }))}
+            />
           </Reveal>
         </section>
 
-        {/* Bento */}
-        <section id="features" className="wl-container scroll-mt-20 pb-24 md:pb-32">
-          <Reveal className="max-w-2xl">
-            <p className="wl-eyebrow">Features</p>
-            <h2 className="wl-h2 mt-3">One workspace for the whole student.</h2>
-          </Reveal>
-
-          <div className="mt-12 grid gap-4 md:grid-cols-6">
-            <Reveal className="md:col-span-4">
-              <article className="wl-tile wl-tile-image h-full">
-                <div className="p-7 pb-0 md:p-9 md:pb-0">
-                  <h3 className="wl-h3">Referrals that match the SIS.</h3>
-                  <p className="wl-muted mt-2 max-w-[44ch]">
-                    Log incidents with the same PlusPortals codes the office uses. Penalties fill in detention and suspension days for you.
-                  </p>
-                </div>
-                <img src={`${IMG}/desktop-incidents.webp`} alt="Incidents list with status badges and SIS codes" loading="lazy" className="wl-tile-shot" />
-              </article>
+        {/* Start with your role */}
+        <section id="roles" className="wl-band scroll-mt-16">
+          <div className="wl-container py-24 md:py-28">
+            <Reveal className="max-w-2xl">
+              <p className="wl-eyebrow">Start here</p>
+              <h2 className="wl-h2 mt-3">Start with what you do.</h2>
+              <p className="wl-lede mt-4 max-w-[52ch]">Not sure where to begin? Pick your role and jump to the features you will use most.</p>
             </Reveal>
-            <Reveal className="md:col-span-2" delay={0.05}>
-              <article className="wl-tile wl-tile-green flex h-full flex-col">
-                <div className="p-7">
-                  <Award className="h-7 w-7" aria-hidden="true" />
-                  <h3 className="wl-h3 mt-4">Recognition in two taps.</h3>
-                  <p className="wl-muted mt-2">Catch good choices as they happen and keep the PBIS ratio in view.</p>
-                </div>
-                <img src={`${IMG}/mobile-recognition.webp`} alt="Recognize a student sheet on iPhone" loading="lazy" className="mx-auto mt-auto w-[68%] translate-y-6 rounded-t-[28px] shadow-2xl" />
-              </article>
-            </Reveal>
-            <Reveal className="md:col-span-3">
-              <article className="wl-tile wl-tile-image h-full">
-                <div className="p-7 pb-0 md:p-9 md:pb-0">
-                  <Gauge className="h-7 w-7 wl-accent" aria-hidden="true" />
-                  <h3 className="wl-h3 mt-4">Early warning you can explain.</h3>
-                  <p className="wl-muted mt-2 max-w-[42ch]">Every risk score lists the reasons behind it. Recognition lowers it.</p>
-                </div>
-                <img src={`${IMG}/desktop-insights.webp`} alt="Insights page with risk levels and manifestation determination alerts" loading="lazy" className="wl-tile-shot" />
-              </article>
-            </Reveal>
-            <Reveal className="md:col-span-3" delay={0.05}>
-              <article className="wl-tile wl-tile-image h-full">
-                <div className="p-7 pb-0 md:p-9 md:pb-0">
-                  <Command className="h-7 w-7 wl-accent" aria-hidden="true" />
-                  <h3 className="wl-h3 mt-4">Find anyone with Ctrl K.</h3>
-                  <p className="wl-muted mt-2 max-w-[42ch]">Students, screens and actions from one search box, anywhere in the app.</p>
-                </div>
-                <img src={`${IMG}/desktop-palette.webp`} alt="Command palette searching for a student" loading="lazy" className="wl-tile-shot" />
-              </article>
-            </Reveal>
-            <Reveal className="md:col-span-6">
-              <article className="wl-tile wl-tile-blue grid items-center gap-8 p-7 md:grid-cols-[1fr_auto] md:p-10">
-                <div>
-                  <div className="flex items-center gap-3">
-                    <Languages className="h-7 w-7" aria-hidden="true" />
-                    <MonitorSmartphone className="h-7 w-7" aria-hidden="true" />
-                  </div>
-                  <h3 className="wl-h3 mt-4">English and Spanish. Phone and desktop.</h3>
-                  <p className="mt-2 max-w-[56ch] opacity-80">
-                    Switch languages with one tap. Add it to any home screen and it opens like a native app, with saved and biometric sign-in.
-                  </p>
-                </div>
-                <p className="wl-bilingual" aria-hidden="true">EN<span>/</span>ES</p>
-              </article>
-            </Reveal>
+            <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              {roleGuides.map((r, i) => (
+                <Reveal key={r.role} delay={i * 0.04} className="h-full">
+                  <article className="wl-role h-full">
+                    <h3 className="wl-h3">{r.role}</h3>
+                    <ul className="mt-4 space-y-2.5">
+                      {r.points.map((p) => (
+                        <li key={p} className="flex gap-2 text-[15px] leading-snug"><Check className="mt-0.5 h-4 w-4 shrink-0 wl-accent" aria-hidden="true" />{p}</li>
+                      ))}
+                    </ul>
+                    <div className="mt-5 flex flex-wrap gap-1.5">
+                      {r.links.map((id) => (
+                        <a key={id} href={`#${id}`} className="wl-chip">{byId[id].title}</a>
+                      ))}
+                    </div>
+                  </article>
+                </Reveal>
+              ))}
+            </div>
           </div>
         </section>
 
-        {/* Learning support */}
-        <section id="support" className="wl-band scroll-mt-16">
-          <div className="wl-container grid items-center gap-14 py-24 md:py-32 lg:grid-cols-2">
-            <Reveal>
-              <p className="wl-eyebrow">Learning support</p>
-              <h2 className="wl-h2 mt-3">Accommodations travel with the student.</h2>
-              <p className="wl-lede mt-5 max-w-[48ch]">
-                IEP, 504, ELL, behavior, gifted and health plans live on the student record. Teachers see what matters before they act.
-              </p>
-              <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {accommodationKinds.map(({ icon: Icon, title, example }) => (
-                  <div key={title} className="wl-acc">
-                    <Icon className="h-5 w-5 wl-accent" aria-hidden="true" />
-                    <p className="mt-3 text-[15px] font-semibold">{title}</p>
-                    <p className="wl-muted mt-1 text-[13px] leading-snug">{example}</p>
-                  </div>
+        {/* Features, one section each */}
+        <section id="features" className="scroll-mt-16" aria-labelledby="features-h">
+          <div className="wl-container pt-24 md:pt-32">
+            <Reveal className="max-w-2xl">
+              <p className="wl-eyebrow">Features</p>
+              <h2 id="features-h" className="wl-h2 mt-3">One workspace for the whole student.</h2>
+              <p className="wl-lede mt-4 max-w-[54ch]">Everything the app can do, one feature at a time: what it is for, who uses it and how to use it.</p>
+            </Reveal>
+            <nav aria-label="Feature index" className="mt-10">
+              <ol className="wl-index">
+                {features.map((f, i) => (
+                  <li key={f.id}><a href={`#${f.id}`}><span>{String(i + 1).padStart(2, '0')}</span>{f.title}</a></li>
                 ))}
-              </div>
+              </ol>
+            </nav>
+          </div>
+          {features.map((f, i) => <FeatureSection key={f.id} f={f} n={i + 1} />)}
+        </section>
+
+        {/* Who sees what */}
+        <section id="privacy" className="wl-band scroll-mt-16">
+          <div className="wl-container py-24 md:py-28">
+            <Reveal className="max-w-2xl">
+              <p className="wl-eyebrow">Privacy</p>
+              <h2 className="wl-h2 mt-3">Who sees what.</h2>
+              <p className="wl-lede mt-4 max-w-[56ch]">
+                Every role sees only what it needs. The app checks this on the server for every request, not just on the screen.
+              </p>
             </Reveal>
-            <Reveal delay={0.1}>
-              <div className="wl-window">
-                <div className="wl-window-bar" aria-hidden="true"><span /><span /><span /></div>
-                <img
-                  src={`${IMG}/desktop-incident-alert.webp`}
-                  alt="New incident form showing the student's plan, behavior considerations and a manifestation determination warning"
-                  loading="lazy"
-                  className="block h-auto w-full"
-                />
+            <Reveal delay={0.08} className="mt-10">
+              <div className="wl-table-wrap" role="region" aria-label="Permissions by role" tabIndex={0}>
+                <table className="wl-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">What</th>
+                      {roles.map((r) => <th key={r} scope="col">{r}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {permissions.map((p) => (
+                      <tr key={p.label}>
+                        <th scope="row">{p.label}</th>
+                        {p.access.map((a, i) => (
+                          <td key={roles[i]}>
+                            {a === 'yes' ? <><Check className="mx-auto h-5 w-5 wl-yes" aria-hidden="true" /><span className="sr-only">{accessLabel.yes}</span></>
+                              : a === 'view' ? <span className="wl-cell"><Eye className="h-4 w-4" aria-hidden="true" />View</span>
+                              : a === 'own' ? <span className="wl-cell">Own</span>
+                              : <><span className="wl-no" aria-hidden="true">&middot;</span><span className="sr-only">{accessLabel['']}</span></>}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div className="wl-note mt-6">
-                <Accessibility className="h-5 w-5 shrink-0" aria-hidden="true" />
-                <p>
-                  <strong>Built-in IDEA safeguard.</strong> For students with an IEP or 504 plan, the app warns at 8 days of removal and flags
-                  day 10, so the team can hold a manifestation determination review in time.
-                </p>
-              </div>
+              <p className="wl-muted mt-4 text-sm">View: read only. Own: only the referrals they filed. Family: parents and students, limited to the students linked to their account.</p>
             </Reveal>
           </div>
         </section>
 
-        {/* What we learned from the big SIS platforms */}
-        <section className="wl-container py-24 md:py-32">
+        {/* Questions */}
+        <section id="faq" className="wl-container scroll-mt-20 py-24 md:py-32">
           <Reveal className="max-w-2xl">
-            <h2 className="wl-h2">The best of a big SIS. Without the maze.</h2>
-            <p className="wl-lede mt-4 max-w-[54ch]">
-              We studied what schools value most in the large student information systems, and what they wish were simpler.
-            </p>
+            <h2 className="wl-h2">Questions, answered.</h2>
           </Reveal>
-          <div className="mt-14 grid gap-x-12 gap-y-10 md:grid-cols-2">
-            {lessons.map((l, i) => (
-              <Reveal key={l.from} delay={i * 0.05}>
-                <div className="wl-lesson">
-                  <ScanSearch className="h-5 w-5 wl-accent" aria-hidden="true" />
-                  <h3 className="mt-3 text-lg font-semibold tracking-tight">{l.from}</h3>
-                  <p className="wl-muted mt-2 leading-relaxed">{l.to}</p>
-                </div>
+          <div className="mt-10 grid gap-3 md:grid-cols-2">
+            {faqs.map((f, i) => (
+              <Reveal key={f.q} delay={i * 0.03}>
+                <details className="wl-faq">
+                  <summary>{f.q}</summary>
+                  <p>{f.a}</p>
+                </details>
               </Reveal>
             ))}
           </div>
@@ -259,7 +293,7 @@ export default function WelcomePage() {
       <footer className="wl-footer">
         <div className="wl-container flex flex-col gap-3 py-10 text-sm md:flex-row md:items-center md:justify-between">
           <p>Santa Cruz Christian School. Home of the Jaguars.</p>
-          <p className="wl-muted">Student records stay private to authorized SCCS staff.</p>
+          <p className="wl-muted">Student records stay private to authorized SCCS staff and linked families.</p>
         </div>
       </footer>
     </div>
