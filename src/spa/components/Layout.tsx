@@ -304,7 +304,7 @@ export default function Layout() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 md:ml-64 pt-20 md:pt-0 transition-all duration-300">
+      <main className="flex-1 min-w-0 md:ml-64 pt-20 md:pt-0 transition-all duration-300">
         <header className="hidden md:flex bg-white border-b border-gray-200 px-6 py-3 items-center justify-between sticky top-0 z-10">
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">

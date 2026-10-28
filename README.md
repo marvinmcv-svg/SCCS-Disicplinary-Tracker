@@ -66,10 +66,24 @@ Optional: copy `.env.example` to `.env` to customize the admin credentials, JWT 
 
 ## Deploying
 
-- Run the server from the project root (`bun run build`, then `bun run start`): the app opens `<project root>/db/sccs.db`.
-- SQLite needs a **persistent disk**. Use a host with a volume (Railway, Render, Fly.io, a VPS) and mount it at `<project root>/db`. Serverless hosts such as Vercel have no writable persistent disk and will lose data.
-- Set a long random `JWT_SECRET` and a strong `INITIAL_ADMIN_PASSWORD` before the first seed.
-- Before entering real students, seed with `SCCS_SEED_DEMO_DATA=false`, `SCCS_SEED_TEST_ACCOUNTS=false` and `SCCS_SEED_ADVISOR_ACCOUNTS=false` (see `.env.example`).
+The repo ships a `Dockerfile` that works on any host that runs containers with a persistent volume (Railway, Render, Fly.io, a VPS).
+
+1. Create a service from this repo; the host builds the `Dockerfile`.
+2. Attach a **persistent volume at `/app/db`** (the SQLite database lives there). Serverless hosts such as Vercel have no persistent disk and will lose data.
+3. Set the environment variables:
+   | Variable | Value |
+   |---|---|
+   | `JWT_SECRET` | a long random string |
+   | `INITIAL_ADMIN_USERNAME` / `INITIAL_ADMIN_PASSWORD` | the admin login (pick a strong password: it also unlocks the emergency *Fix Admin Access* reset) |
+4. Deploy. On every start `scripts/start-production.sh` applies the schema, runs the idempotent seed and starts the server on `$PORT` (default 3000). `GET /api/health` answers 200 once the database is reachable.
+
+**Demo / pitch deployments** keep the defaults: the demo roster, incidents and the role accounts in the table above are regenerated on every start, with dates relative to today so the dashboard always has fresh data.
+
+**Live school deployments:** before entering real students, set `SCCS_SEED_DEMO_DATA=false`, `SCCS_SEED_TEST_ACCOUNTS=false` and `SCCS_SEED_ADVISOR_ACCOUNTS=false` on a fresh volume (see `.env.example`).
+
+Without Docker: `bun run build`, then `bun run start` from the project root (it opens `<project root>/db/sccs.db`).
+
+**Email is not connected yet.** *Notify parent* tells staff to contact the parent directly, and password-reset codes are written to the server log for an administrator to hand over.
 
 ## Project structure
 
@@ -93,7 +107,7 @@ The Playwright suite targets a running dev server and re-seeds a deterministic b
 
 ```bash
 bun run dev &        # server on :3000
-bunx playwright test
+bunx playwright test # or E2E_BASE_URL=http://host:port bunx playwright test
 ```
 
 ## Scripts

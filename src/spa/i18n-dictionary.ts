@@ -52,12 +52,16 @@ export const dictionary: Record<string, string> = {
   'Reset Admin': 'Restablecer administrador',
   'Reset Password': 'Restablecer contraseña',
   'Enter New Password': 'Ingrese nueva contraseña',
-  'Enter your username to receive password reset instructions.':
-    'Ingrese su nombre de usuario para recibir instrucciones de restablecimiento.',
-  'Send Reset Link': 'Enviar enlace de restablecimiento',
-  'Enter the reset token from your email and your new password.':
-    'Ingrese el token de restablecimiento de su correo y su nueva contraseña.',
-  'Enter reset token': 'Ingrese el token de restablecimiento',
+  'Enter your username to request a password reset code from your administrator.':
+    'Ingrese su nombre de usuario para solicitar un código de restablecimiento a su administrador.',
+  'Request Reset Code': 'Solicitar código de restablecimiento',
+  'Enter the reset code from your administrator and your new password.':
+    'Ingrese el código de restablecimiento de su administrador y su nueva contraseña.',
+  'Enter reset code': 'Ingrese el código de restablecimiento',
+  'Reset requested. Ask your school administrator for your reset code, then enter it below.':
+    'Solicitud recibida. Pida su código de restablecimiento al administrador de la escuela e ingréselo abajo.',
+  'Password reset successfully! You can now login with your new password.':
+    '¡Contraseña restablecida! Ya puede iniciar sesión con su nueva contraseña.',
   'New password': 'Nueva contraseña',
   'Confirm new password': 'Confirmar nueva contraseña',
   'Back to username entry': 'Volver al ingreso de usuario',

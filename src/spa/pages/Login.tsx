@@ -247,7 +247,9 @@ export default function Login() {
 
     try {
       await api.post('/auth/forgot-password', { username: resetUsername });
-      setResetSuccess('Password reset instructions sent! Check the console for the reset token (development mode).');
+      // Email is not configured: the reset code goes to the server log, and
+      // the administrator hands it over in person.
+      setResetSuccess('Reset requested. Ask your school administrator for your reset code, then enter it below.');
       setResetStep('reset');
     } catch (err: any) {
       setResetError(err.response?.data?.error || 'Failed to request password reset');
@@ -597,7 +599,7 @@ export default function Login() {
 
             {resetSuccess && (
               <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-600 text-sm mb-4">
-                {resetSuccess}
+                {t(resetSuccess)}
               </div>
             )}
 
@@ -610,7 +612,7 @@ export default function Login() {
             {resetStep === 'request' ? (
               <form onSubmit={handleRequestReset}>
                 <p className="text-gray-500 text-sm mb-4">
-                  {t('Enter your username to receive password reset instructions.')}
+                  {t('Enter your username to request a password reset code from your administrator.')}
                 </p>
                 <div className="relative mb-4">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -629,13 +631,13 @@ export default function Login() {
                   disabled={resetLoading}
                   className="btn btn-primary w-full justify-center py-3"
                 >
-                  {resetLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : t('Send Reset Link')}
+                  {resetLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : t('Request Reset Code')}
                 </button>
               </form>
             ) : (
               <form onSubmit={handleResetPassword}>
                 <p className="text-gray-500 text-sm mb-4">
-                  {t('Enter the reset token from your email and your new password.')}
+                  {t('Enter the reset code from your administrator and your new password.')}
                 </p>
                 <div className="relative mb-3">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -644,7 +646,7 @@ export default function Login() {
                     value={resetToken}
                     onChange={(e) => setResetToken(e.target.value)}
                     className="input pl-12"
-                    placeholder={t('Enter reset token')}
+                    placeholder={t('Enter reset code')}
                     required
                     autoFocus
                   />

@@ -450,7 +450,7 @@ export default function MTSS() {
                 {loading ? (
                   <div className="text-center py-8 text-gray-400">{t('Loading...')}</div>
                 ) : interventionsByTier[tier].length > 0 ? (
-                  <table className="table">
+                  <div className="overflow-x-auto"><table className="table">
                     <thead>
                       <tr>
                         <th>{t('Student')}</th>
@@ -524,7 +524,7 @@ export default function MTSS() {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </table></div>
                 ) : (
                   <div className="text-center py-8 text-gray-400">
                     <HeartHandshake className="w-8 h-8 mx-auto mb-2" />

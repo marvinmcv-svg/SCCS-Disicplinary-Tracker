@@ -152,7 +152,7 @@ export default function Settings() {
           <h2 className="text-lg font-semibold">{t('Alert Thresholds')}</h2>
         </div>
 
-        <table className="table">
+        <div className="overflow-x-auto"><table className="table">
           <thead>
             <tr>
               <th>{t('Alert Type')}</th>
@@ -188,7 +188,7 @@ export default function Settings() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </div>
 
       {/* About */}

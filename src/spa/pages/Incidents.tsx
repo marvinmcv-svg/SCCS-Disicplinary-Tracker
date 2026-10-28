@@ -648,7 +648,7 @@ export default function Incidents() {
 
       {/* Pagination Controls */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 pb-4">
+        <div className="flex flex-wrap items-center justify-center gap-2 pb-4">
           <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="btn btn-secondary py-2 px-3 disabled:opacity-50">{t('First')}</button>
           <button onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1} className="btn btn-secondary py-2 px-3 disabled:opacity-50"><ChevronLeft className="w-4 h-4 mr-1" />{t('Prev')}</button>
           <div className="flex items-center gap-1">
