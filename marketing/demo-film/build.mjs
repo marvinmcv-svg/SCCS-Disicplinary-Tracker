@@ -4,8 +4,17 @@
 // for, a headline, a one-line purpose and numbered steps) and the real screen
 // on the right; as each step becomes active, a numbered ring lights up the
 // part of the screen it talks about. A progress bar runs along the bottom.
-import { writeFileSync } from 'node:fs';
-import { chapters, INTRO, OUTRO, outro } from './chapters.mjs';
+//
+// Narration: drop the recordings into voiceover/ (intro, c01 ... c13, outro;
+// .wav, .flac, .m4a or .mp3) and rebuild. Each scene stretches to fit its
+// recording, and each step starts as the narrator reaches its line (timed by
+// its share of the words in voiceover/script.mjs). Without recordings the
+// film keeps its silent timings. ffprobe must be installed.
+import { existsSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { chapters, INTRO as INTRO_MIN, OUTRO as OUTRO_MIN, outro } from './chapters.mjs';
+import * as vo from './voiceover/script.mjs';
 
 const W = 1440; // capture width in CSS px
 const SCALE = 1120 / W; // desktop window image width in the film
@@ -13,17 +22,71 @@ const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, 
 const pad2 = (n) => String(n).padStart(2, '0');
 const r2 = (n) => Math.round(n * 100) / 100;
 
+// ---------------------------------------------------------------- narration
+const VO_LEAD = 0.9; // seconds into a scene before the voice starts
+const VO_TAIL = 1.4; // seconds of picture after the voice ends
+const words = (s) => s.split(/\s+/).filter(Boolean).length;
+
+if (vo.chapters.length !== chapters.length) throw new Error('voiceover/script.mjs needs one entry per chapter');
+vo.chapters.forEach((v, i) => {
+  if (v.steps.length !== chapters[i].steps.length) {
+    throw new Error(`voiceover/script.mjs ${v.file}: ${v.steps.length} lines for ${chapters[i].steps.length} steps`);
+  }
+});
+
+/** The recording for one scene, if it has been delivered: { src, duration }. */
+function recording(name) {
+  for (const ext of ['wav', 'flac', 'm4a', 'mp3']) {
+    const src = `voiceover/${name}.${ext}`;
+    const path = fileURLToPath(new URL(`./${src}`, import.meta.url));
+    if (!existsSync(path)) continue;
+    const out = execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', path]);
+    return { src, duration: r2(Number(String(out).trim())) };
+  }
+  return null;
+}
+const fit = (min, rec) => (rec ? Math.max(min, r2(VO_LEAD + rec.duration + VO_TAIL)) : min);
+
 // ---------------------------------------------------------------- timing
+const introVo = recording(vo.intro.file);
+const outroVo = recording(vo.outro.file);
+const INTRO = fit(INTRO_MIN, introVo);
+const OUTRO = fit(OUTRO_MIN, outroVo);
+
 let t = INTRO;
 const timed = chapters.map((c, i) => {
+  const rec = recording(vo.chapters[i].file);
+  const duration = fit(c.duration, rec);
   const start = t;
-  t += c.duration;
-  const first = start + 1.9;
-  const gap = (c.duration - 2.6) / c.steps.length;
-  return { ...c, i, n: i + 1, start, end: t, stepAt: c.steps.map((_, k) => r2(first + k * gap)) };
+  t = r2(t + duration);
+  let stepAt;
+  if (rec) {
+    // Step k lights up just before the narrator reaches its line.
+    const lines = [vo.chapters[i].opening, ...vo.chapters[i].steps];
+    const total = lines.reduce((n, l) => n + words(l), 0);
+    let before = words(lines[0]);
+    let last = start + 1.4;
+    stepAt = c.steps.map((_, k) => {
+      const at = Math.max(last + 1, start + VO_LEAD + (before / total) * rec.duration - 0.15);
+      before += words(lines[k + 1]);
+      last = at;
+      return r2(at);
+    });
+  } else {
+    const first = start + 1.9;
+    const gap = (duration - 2.6) / c.steps.length;
+    stepAt = c.steps.map((_, k) => r2(first + k * gap));
+  }
+  return { ...c, i, n: i + 1, duration, start, end: t, stepAt, rec };
 });
 const OUTRO_START = t;
-const TOTAL = OUTRO_START + OUTRO;
+const TOTAL = r2(OUTRO_START + OUTRO);
+
+const voiceClips = [
+  introVo && { id: 'vo-intro', rec: introVo, at: VO_LEAD },
+  ...timed.map((c) => c.rec && { id: `vo-c${pad2(c.n)}`, rec: c.rec, at: r2(c.start + VO_LEAD) }),
+  outroVo && { id: 'vo-outro', rec: outroVo, at: r2(OUTRO_START + VO_LEAD) },
+].filter(Boolean);
 
 // ---------------------------------------------------------------- markup
 const P = 10; // ring padding around the highlighted box
@@ -281,6 +344,9 @@ const html = `<!doctype html>
       </div>
 ${timed.map(chapterHtml).join('\n')}
 
+      <!-- Narration -->
+${voiceClips.map((v) => `      <audio id="${v.id}" class="clip" src="${v.rec.src}" data-start="${v.at}" data-duration="${v.rec.duration}" data-track-index="2" data-volume="1"></audio>`).join('\n')}
+
       <!-- Outro -->
       <section id="outro" class="scene center clip" data-start="${OUTRO_START}" data-duration="${OUTRO}" data-track-index="0">
         <img id="outro-logo" class="logo" src="assets/sccs.png" alt="" />
@@ -325,9 +391,45 @@ ${timed.map(chapterHtml).join('\n')}
 `;
 
 writeFileSync(new URL('./index.html', import.meta.url), html);
-// Chapter start times, for the landing page's chapter list.
+// Chapter start times and the film length, for the landing page.
 writeFileSync(
   new URL('./chapters.json', import.meta.url),
-  JSON.stringify(timed.map((c) => ({ n: c.n, title: c.title, start: c.start })), null, 2) + '\n',
+  JSON.stringify(
+    { duration: TOTAL, narrated: voiceClips.length > 0, chapters: timed.map((c) => ({ n: c.n, title: c.title, start: c.start })) },
+    null,
+    2,
+  ) + '\n',
 );
-console.log(`index.html: ${timed.length} chapters, ${TOTAL}s`);
+
+// The script for the voice artist, generated from voiceover/script.mjs.
+const est = (lines) => Math.round(lines.reduce((n, l) => n + words(l), 0) / 2.5);
+const block = (file, title, lines) =>
+  `### ${file}: ${title}\n\nAbout ${est(lines)} seconds.\n\n${lines.map((l) => `> ${l}`).join('\n>\n')}\n`;
+const scenes = [
+  block(vo.intro.file, 'Introduction', vo.intro.lines),
+  ...vo.chapters.map((v, i) => block(v.file, `Chapter ${i + 1}, ${chapters[i].title}`, [v.opening, ...v.steps])),
+  block(vo.outro.file, 'Closing', vo.outro.lines),
+];
+writeFileSync(
+  new URL('./voiceover/SCRIPT.md', import.meta.url),
+  `<!-- Generated by build.mjs from voiceover/script.mjs. Edit that file, then run: node build.mjs -->
+# SCCS Student OS guided tour: narration script
+
+A friendly, clear walkthrough of a school app for teachers, counsellors and school leaders. ${scenes.length} short recordings, about ${Math.round(
+    [vo.intro.lines, ...vo.chapters.map((v) => [v.opening, ...v.steps]), vo.outro.lines].reduce((n, ls) => n + est(ls), 0) / 60,
+  )} minutes in total.
+
+## Direction
+
+- **Voice:** a natural London accent, warm and conversational, like a colleague showing you round. Not announcer-style, not rushed.
+- **Pace:** about 150 words a minute. Leave a short breath between sentences; the picture moves on each sentence.
+- **Pronunciation:** read letters one by one where they are spaced out (S C C S, I E P, P D F, M T S S). "Five-oh-four" is a US special-education plan. "PlusPortals" is one word. "PROFAN" is said as a word ("pro-fan").
+- **Delivery:** one file per section below, named exactly as the heading (for example \`c01.wav\`). WAV or FLAC, 48 kHz, 24-bit, mono. Half a second of silence at the start and end. No music, no processing beyond light noise removal.
+- **Retakes:** one clean take per file is plenty. If a line changes, only that file needs re-recording.
+
+## Script
+
+${scenes.join('\n')}`,
+);
+
+console.log(`index.html: ${timed.length} chapters, ${TOTAL}s, narration ${voiceClips.length}/${timed.length + 2} scenes`);

@@ -9,13 +9,13 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, Check, Eye, Lightbulb, UserRound } from 'lucide-react';
 import { HeroDevices, MotionRoot, Reveal, TourPlayer, WatchChapter } from './motion';
-import { faqs, features, permissions, roleGuides, roles, type Feature } from './features';
+import { faqs, features, permissions, roleGuides, roles, tourMinutes, tourNarrated, type Feature } from './features';
 import './welcome.css';
 
 export const metadata: Metadata = {
   title: 'SCCS Student OS',
   description:
-    'Discipline, learning support, MTSS and positive behavior in one bilingual app for Santa Cruz Christian School. Watch the three-minute guided tour.',
+    `Discipline, learning support, MTSS and positive behavior in one bilingual app for Santa Cruz Christian School. Watch the ${tourMinutes}-minute guided tour.`,
   robots: { index: true, follow: true },
 };
 
@@ -125,7 +125,7 @@ export default function WelcomePage() {
             <p className="wl-eyebrow">For Santa Cruz Christian School staff and families</p>
             <h1 className="wl-display mt-4">Every student, seen clearly.</h1>
             <p className="wl-lede mt-6 max-w-[38ch]">
-              Discipline, learning support, MTSS and positive behavior in one calm, bilingual app. Learn all of it in a three-minute guided tour.
+              Discipline, learning support, MTSS and positive behavior in one calm, bilingual app. Learn all of it in a {tourMinutes}-minute guided tour.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
               <a href="#tour" className="wl-btn wl-btn-primary">Watch the tour <ArrowRight className="h-4 w-4" /></a>
@@ -156,9 +156,9 @@ export default function WelcomePage() {
         <section id="tour" className="wl-container scroll-mt-20 py-24 md:py-32">
           <Reveal className="mx-auto max-w-2xl text-center">
             <p className="wl-eyebrow">Guided tour</p>
-            <h2 className="wl-h2 mt-3">Learn the whole app in three minutes.</h2>
+            <h2 className="wl-h2 mt-3">Learn the whole app in {tourMinutes} minutes.</h2>
             <p className="wl-lede mx-auto mt-4 max-w-[54ch]">
-              {features.length} short chapters. Each one shows what a feature is for, who uses it and how to use it, step by step, on the real screens. Pick a chapter to jump straight to it.
+              {features.length} short chapters. Each one shows what a feature is for, who uses it and how to use it, step by step, on the real screens. Pick a chapter to jump straight to it.{tourNarrated && ' Turn your sound on: a narrator talks you through every step.'}
             </p>
           </Reveal>
           <Reveal delay={0.1} className="mt-12">

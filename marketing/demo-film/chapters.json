@@ -1,67 +1,71 @@
-[
-  {
-    "n": 1,
-    "title": "The dashboard",
-    "start": 9
-  },
-  {
-    "n": 2,
-    "title": "Students",
-    "start": 22
-  },
-  {
-    "n": 3,
-    "title": "Log an incident",
-    "start": 35
-  },
-  {
-    "n": 4,
-    "title": "Learning support",
-    "start": 49
-  },
-  {
-    "n": 5,
-    "title": "Follow up",
-    "start": 63
-  },
-  {
-    "n": 6,
-    "title": "MTSS",
-    "start": 76
-  },
-  {
-    "n": 7,
-    "title": "Recognition",
-    "start": 89
-  },
-  {
-    "n": 8,
-    "title": "Insights",
-    "start": 103
-  },
-  {
-    "n": 9,
-    "title": "Referrals",
-    "start": 116
-  },
-  {
-    "n": 10,
-    "title": "Reports and codes",
-    "start": 130
-  },
-  {
-    "n": 11,
-    "title": "Families",
-    "start": 143
-  },
-  {
-    "n": 12,
-    "title": "Works your way",
-    "start": 155
-  },
-  {
-    "n": 13,
-    "title": "Privacy and security",
-    "start": 170
-  }
-]
+{
+  "duration": 192,
+  "narrated": false,
+  "chapters": [
+    {
+      "n": 1,
+      "title": "The dashboard",
+      "start": 9
+    },
+    {
+      "n": 2,
+      "title": "Students",
+      "start": 22
+    },
+    {
+      "n": 3,
+      "title": "Log an incident",
+      "start": 35
+    },
+    {
+      "n": 4,
+      "title": "Learning support",
+      "start": 49
+    },
+    {
+      "n": 5,
+      "title": "Follow up",
+      "start": 63
+    },
+    {
+      "n": 6,
+      "title": "MTSS",
+      "start": 76
+    },
+    {
+      "n": 7,
+      "title": "Recognition",
+      "start": 89
+    },
+    {
+      "n": 8,
+      "title": "Insights",
+      "start": 103
+    },
+    {
+      "n": 9,
+      "title": "Referrals",
+      "start": 116
+    },
+    {
+      "n": 10,
+      "title": "Reports and codes",
+      "start": 130
+    },
+    {
+      "n": 11,
+      "title": "Families",
+      "start": 143
+    },
+    {
+      "n": 12,
+      "title": "Works your way",
+      "start": 155
+    },
+    {
+      "n": 13,
+      "title": "Privacy and security",
+      "start": 170
+    }
+  ]
+}

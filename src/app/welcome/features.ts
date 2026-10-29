@@ -1,7 +1,8 @@
 // Content for the /welcome feature guide. Each feature matches one chapter of
-// the guided-tour film (marketing/demo-film/chapters.mjs); `start` is where
-// that chapter begins in the video, from marketing/demo-film/chapters.json.
-// Keep the three in step when a chapter changes.
+// the guided-tour film (marketing/demo-film/chapters.mjs), in the same order.
+// Where each chapter starts, and how long the film is, come from
+// chapters.json, which the film's build writes (narration changes them).
+import tour from '../../../marketing/demo-film/chapters.json';
 
 export interface Feature {
   id: string;
@@ -16,10 +17,9 @@ export interface Feature {
   extra?: { src: string; alt: string; kind: 'desktop' | 'phone' };
 }
 
-export const features: Feature[] = [
+const content: Omit<Feature, 'start'>[] = [
   {
     id: 'dashboard',
-    start: 9,
     title: 'The dashboard',
     who: ['All staff'],
     headline: 'Start every day on the dashboard.',
@@ -34,7 +34,6 @@ export const features: Feature[] = [
   },
   {
     id: 'students',
-    start: 22,
     title: 'Students',
     who: ['All staff'],
     headline: 'Know every student at a glance.',
@@ -49,7 +48,6 @@ export const features: Feature[] = [
   },
   {
     id: 'incidents',
-    start: 35,
     title: 'Log an incident',
     who: ['Teachers', 'Counselors', 'Principals'],
     headline: 'Log an incident in under a minute.',
@@ -64,7 +62,6 @@ export const features: Feature[] = [
   },
   {
     id: 'support',
-    start: 49,
     title: 'Learning support',
     who: ['All staff', 'Counselors and principals manage plans'],
     headline: 'Accommodations travel with the student.',
@@ -80,7 +77,6 @@ export const features: Feature[] = [
   },
   {
     id: 'follow-up',
-    start: 63,
     title: 'Follow up',
     who: ['Teachers', 'Counselors', 'Principals'],
     headline: 'Follow through, then close it.',
@@ -94,7 +90,6 @@ export const features: Feature[] = [
   },
   {
     id: 'mtss',
-    start: 76,
     title: 'MTSS',
     who: ['Counselors and admins', 'Teachers can view'],
     headline: 'Support that grows with need.',
@@ -108,7 +103,6 @@ export const features: Feature[] = [
   },
   {
     id: 'recognition',
-    start: 89,
     title: 'Recognition',
     who: ['All staff'],
     headline: 'Catch students doing the right thing.',
@@ -124,7 +118,6 @@ export const features: Feature[] = [
   },
   {
     id: 'insights',
-    start: 103,
     title: 'Insights',
     who: ['All staff'],
     headline: 'Spot who needs help early.',
@@ -139,7 +132,6 @@ export const features: Feature[] = [
   },
   {
     id: 'referrals',
-    start: 116,
     title: 'Referrals',
     who: ['Any staff member files', 'Coordinators review'],
     headline: 'Refer a student to the coordinators.',
@@ -153,7 +145,6 @@ export const features: Feature[] = [
   },
   {
     id: 'reports',
-    start: 130,
     title: 'Reports and codes',
     who: ['All staff', 'Admins edit codes'],
     headline: 'Reports and the school codes.',
@@ -167,7 +158,6 @@ export const features: Feature[] = [
   },
   {
     id: 'families',
-    start: 143,
     title: 'Families',
     who: ['Parents', 'Students'],
     headline: 'A private view for families.',
@@ -181,7 +171,6 @@ export const features: Feature[] = [
   },
   {
     id: 'everywhere',
-    start: 155,
     title: 'Works your way',
     who: ['Everyone'],
     headline: 'Works your way.',
@@ -197,7 +186,6 @@ export const features: Feature[] = [
   },
   {
     id: 'security',
-    start: 170,
     title: 'Privacy and security',
     who: ['Admins', 'Coordinators'],
     headline: 'Private by design.',
@@ -211,6 +199,15 @@ export const features: Feature[] = [
     extra: { src: 'desktop-users', alt: 'User management with roles', kind: 'desktop' },
   },
 ];
+
+if (tour.chapters.length !== content.length) throw new Error('features.ts and the tour film have different chapters');
+export const features: Feature[] = content.map((f, i) => ({ ...f, start: tour.chapters[i].start }));
+
+const NUMBER_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+/** The film's length in whole minutes, as a word ("five"). */
+export const tourMinutes = NUMBER_WORDS[Math.max(1, Math.round(tour.duration / 60))] ?? String(Math.round(tour.duration / 60));
+/** Whether the film has a narration track. */
+export const tourNarrated = tour.narrated;
 
 /** Who can do what. 'yes', 'view' (read only), 'own' (only their own), or ''. */
 export const roles = ['Teacher', 'Counselor', 'Principal', 'Coordinator', 'Admin', 'Family'] as const;
